@@ -129,11 +129,17 @@ type cachingDB struct {
 
 // OpenTrie opens the main account trie at a specific root hash.
 func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
+	if common.FastDBMode {
+		return trie.NewFastDB(db.db), nil
+	}
 	return trie.NewSecure(root, db.db)
 }
 
 // OpenStorageTrie opens the storage trie of an account.
 func (db *cachingDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
+	if common.FastDBMode {
+		return trie.NewFastDB(db.db), nil
+	}
 	return trie.NewSecure(root, db.db)
 }
 

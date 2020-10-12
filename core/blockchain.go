@@ -1468,7 +1468,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		if err := triedb.Commit(root, false, nil); err != nil {
 			return NonStatTy, err
 		}
-	} else {
+	} else  if common.FastDBMode==false{
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))

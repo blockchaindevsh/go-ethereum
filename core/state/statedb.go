@@ -465,7 +465,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	// enough to track account updates at commit time, deletions need tracking
 	// at transaction boundary level to ensure we capture state clearing.
 	if s.snap != nil {
-		s.snapAccounts[obj.addrHash] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
+		s.snapAccounts[obj.addrHash] = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, common.Hash{}, obj.data.CodeHash)
 	}
 }
 
@@ -519,14 +519,14 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 				Nonce:    acc.Nonce,
 				Balance:  acc.Balance,
 				CodeHash: acc.CodeHash,
-				Root:     common.BytesToHash(acc.Root),
+				//Root:     common.BytesToHash(acc.Root),
 			}
 			if len(data.CodeHash) == 0 {
 				data.CodeHash = emptyCodeHash
 			}
-			if data.Root == (common.Hash{}) {
-				data.Root = emptyRoot
-			}
+			//if data.Root == (common.Hash{}) {
+			//	data.Root = emptyRoot
+			//}
 		}
 	}
 	// If snapshot unavailable or reading from it failed, load from the database
@@ -585,6 +585,14 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 		s.journal.append(createObjectChange{account: &addr})
 	} else {
 		s.journal.append(resetObjectChange{prev: prev, prevdestruct: prevdestruct})
+	}
+
+	if prev!=nil{
+		newobj.suisideAndNewInOneBlock=prev.deleted
+		if prev.suisideAndNewInOneBlock{
+			fmt.Println("h?????????ave??????",addr.String(),s.bhash.String())
+			newobj.suisideAndNewInOneBlock=true
+		}
 	}
 	s.setStateObject(newobj)
 	if prev != nil && !prev.deleted {
@@ -825,10 +833,15 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				rawdb.WriteCode(codeWriter, common.BytesToHash(obj.CodeHash()), obj.code)
 				obj.dirtyCode = false
 			}
+			if obj.suisideAndNewInOneBlock{
+				DeleteStorage(addr,s.db.TrieDB().DiskDB())
+			}
 			// Write any storage changes in the state object to its storage trie
 			if err := obj.CommitTrie(s.db); err != nil {
 				return common.Hash{}, err
 			}
+		}else{
+			DeleteStorage(addr,s.db.TrieDB().DiskDB())
 		}
 	}
 	if len(s.stateObjectsDirty) > 0 {
@@ -851,9 +864,9 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 		if err := rlp.DecodeBytes(leaf, &account); err != nil {
 			return nil
 		}
-		if account.Root != emptyRoot {
-			s.db.TrieDB().Reference(account.Root, parent)
-		}
+		//if account.Root != emptyRoot {
+		//	s.db.TrieDB().Reference(account.Root, parent)
+		//}
 		return nil
 	})
 	if metrics.EnabledExpensive {
