@@ -590,7 +590,6 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 	if prev!=nil{
 		newobj.suisideAndNewInOneBlock=prev.deleted
 		if prev.suisideAndNewInOneBlock{
-			fmt.Println("h?????????ave??????",addr.String(),s.bhash.String())
 			newobj.suisideAndNewInOneBlock=true
 		}
 	}
