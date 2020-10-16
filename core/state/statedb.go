@@ -482,31 +482,31 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 	if err := s.trie.TryDelete(addr[:]); err != nil {
 		s.setError(fmt.Errorf("deleteStateObject (%x) error: %v", addr[:], err))
 	}
-	StoreIncarnation(s.db.TrieDB().DiskDB(),addr,obj.data.Incarnation)
+	StoreIncarnation(s.db.TrieDB().DiskDB(), addr, obj.data.Incarnation)
 }
 
-var(
-	preInc=[]byte("i")
+var (
+	preInc = []byte("i")
 )
 
-func uint64ToBytes(u uint64)[]byte  {
+func uint64ToBytes(u uint64) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, u)
 	return b
 }
-func StoreIncarnation(store ethdb.KeyValueStore,addr common.Address,inc uint64)  {
-	bs:=make([]byte,0)
-	bs=append(bs,preInc...)
-	bs=append(bs,addr.Bytes()...)
-	store.Put(bs,uint64ToBytes(inc))
+func StoreIncarnation(store ethdb.KeyValueStore, addr common.Address, inc uint64) {
+	bs := make([]byte, 0)
+	bs = append(bs, preInc...)
+	bs = append(bs, addr.Bytes()...)
+	store.Put(bs, uint64ToBytes(inc))
 }
 
-func GetIncarnation(store ethdb.KeyValueReader,addr common.Address)uint64  {
-	bs:=make([]byte,0)
-	bs=append(bs,preInc...)
-	bs=append(bs,addr.Bytes()...)
-	bb,err:=store.Get(bs)
-	if err!=nil||len(bb)==0{
+func GetIncarnation(store ethdb.KeyValueReader, addr common.Address) uint64 {
+	bs := make([]byte, 0)
+	bs = append(bs, preInc...)
+	bs = append(bs, addr.Bytes()...)
+	bb, err := store.Get(bs)
+	if err != nil || len(bb) == 0 {
 		return 0
 	}
 	return binary.BigEndian.Uint64(bb)
@@ -617,10 +617,10 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 		s.journal.append(resetObjectChange{prev: prev, prevdestruct: prevdestruct})
 	}
 
-	if prev!=nil{
-		newobj.data.Incarnation=prev.data.Incarnation+1
-	}else{
-		newobj.data.Incarnation=GetIncarnation(s.db.TrieDB().DiskDB(),addr)+1
+	if prev != nil {
+		newobj.data.Incarnation = prev.data.Incarnation + 1
+	} else {
+		newobj.data.Incarnation = GetIncarnation(s.db.TrieDB().DiskDB(), addr) + 1
 	}
 	s.setStateObject(newobj)
 	if prev != nil && !prev.deleted {
@@ -865,6 +865,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 			if err := obj.CommitTrie(s.db); err != nil {
 				return common.Hash{}, err
 			}
+			fmt.Println("obj--", obj.address.SetBytes, obj.data.Incarnation)
 		}
 	}
 	if len(s.stateObjectsDirty) > 0 {
