@@ -642,8 +642,8 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 //   2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
-func (s *StateDB) CreateAccount(addr common.Address) {
-	newObj, prev := s.createObject(addr, true)
+func (s *StateDB) CreateAccount(addr common.Address, contraction bool) {
+	newObj, prev := s.createObject(addr, contraction)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
 	}
