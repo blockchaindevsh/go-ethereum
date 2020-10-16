@@ -37,7 +37,6 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"time"
 )
 
 const (
@@ -172,7 +171,6 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 }
 
 func recoverSender(blocks types.Blocks,bc *core.BlockChain)types.Blocks  {
-	ts:=time.Now()
 	chainConfig:=bc.Config()
 	g:=errgroup.Group{}
 	goroutineNumbers:=16
@@ -201,7 +199,6 @@ func recoverSender(blocks types.Blocks,bc *core.BlockChain)types.Blocks  {
 	if err:=g.Wait();err!=nil{
 		panic(err)
 	}
-	fmt.Println("recove sender end",time.Now().Sub(ts).Seconds(),goroutineNumbers)
 	return blocks
 }
 

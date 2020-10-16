@@ -106,6 +106,7 @@ type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
 	CodeHash []byte
+	Incarnation uint64
 }
 
 // newObject creates a state object.

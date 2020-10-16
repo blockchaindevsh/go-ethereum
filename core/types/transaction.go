@@ -19,7 +19,6 @@ package types
 import (
 	"container/heap"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"sync/atomic"
@@ -244,10 +243,10 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	if sc := tx.from.Load(); sc != nil {
 		sigCache := sc.(sigCache)
 		msg.from=sigCache.from
-		fmt.Println("24444",msg.from.String(),tx.Hash().String())
 	}else{
 		panic("bug here")
 	}
+
 	return msg, nil
 }
 
