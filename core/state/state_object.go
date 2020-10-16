@@ -222,6 +222,9 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.db.StorageReads += time.Since(start) }(time.Now())
 		}
+		if s.address.String()==common.HexToAddress("0x6e38A457C722C6011B2dfa06d49240e797844d66").String(){
+			fmt.Println("GetCommitstate",s.data.Incarnation)
+		}
 		if enc, err = s.getTrie(db).TryGet(makeFastDbKey(s.address,s.data.Incarnation, key)); err != nil {
 			s.setError(err)
 			return common.Hash{}
@@ -344,6 +347,9 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		} else {
 			// Encoding []byte cannot fail, ok to ignore the error.
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
+			if s.address.String()==common.HexToAddress("0x6e38A457C722C6011B2dfa06d49240e797844d66").String(){
+				fmt.Println("update",s.address.String(),s.data.Incarnation)
+			}
 			s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation,key), v))
 		}
 		// If state snapshotting is active, cache the data til commit
