@@ -19,7 +19,6 @@ package state
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"io"
 	"math/big"
 	"time"
@@ -92,7 +91,7 @@ type stateObject struct {
 	suicided  bool
 	deleted   bool
 
-	suisideAndNewInOneBlock bool
+	//suisideAndNewInOneBlock bool
 }
 
 // empty returns whether the account is considered empty.
@@ -198,9 +197,6 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if value, cached := s.originStorage[key]; cached {
 		return value
 	}
-	if s.suisideAndNewInOneBlock{
-		return common.Hash{}
-	}
 	// If no live objects are available, attempt to use snapshots
 	var (
 		enc []byte
@@ -226,7 +222,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.db.StorageReads += time.Since(start) }(time.Now())
 		}
-		if enc, err = s.getTrie(db).TryGet(makeFastDbKey(s.address, key)); err != nil {
+		if enc, err = s.getTrie(db).TryGet(makeFastDbKey(s.address,s.data.Incarnation, key)); err != nil {
 			s.setError(err)
 			return common.Hash{}
 		}
@@ -305,33 +301,17 @@ func transKey(key common.Hash) []byte {
 	return new(big.Int).SetBytes(key.Bytes()).Bytes()
 }
 
-func makeFastDbKey(addr common.Address, key common.Hash) []byte {
+func makeFastDbKey(addr common.Address, index uint64,key common.Hash) []byte {
 	if !common.FastDBMode {
 		return key.Bytes()
 	}
 	data := make([]byte, 0)
-	data = append(data, fastModeStorageKey...)
 	data = append(data, addr.Bytes()...)
+	data=append(data,new(big.Int).SetUint64(index).Bytes()...)
 	data = append(data, transKey(key)...)
 	return data
 }
 
-func DeleteStorage(addr common.Address, disDB ethdb.KeyValueStore) {
-	if !common.FastDBMode {
-		return
-	}
-
-	preIndex := make([]byte, 0)
-	preIndex = append(preIndex, fastModeStorageKey...)
-	preIndex = append(preIndex, addr.Bytes()...)
-	batch:=disDB.NewBatch()
-
-	start := disDB.NewIterator(preIndex, nil)
-	for start.Next() {
-		batch.Delete(start.Key())
-	}
-	batch.Write()
-}
 
 // updateTrie writes cached storage modifications into the object's storage trie.
 // It will return nil if the trie has not been loaded and no changes have been made
@@ -366,11 +346,11 @@ func (s *stateObject) updateTrie(db Database) Trie {
 
 		var v []byte
 		if (value == common.Hash{}) {
-			s.setError(tr.TryDelete(makeFastDbKey(s.address, key)))
+			s.setError(tr.TryDelete(makeFastDbKey(s.address,s.data.Incarnation, key)))
 		} else {
 			// Encoding []byte cannot fail, ok to ignore the error.
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-			s.setError(tr.TryUpdate(makeFastDbKey(s.address, key), v))
+			s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation,key), v))
 		}
 		// If state snapshotting is active, cache the data til commit
 		if storage != nil {

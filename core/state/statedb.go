@@ -588,10 +588,7 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 	}
 
 	if prev!=nil{
-		newobj.suisideAndNewInOneBlock=prev.deleted
-		if prev.suisideAndNewInOneBlock{
-			newobj.suisideAndNewInOneBlock=true
-		}
+		newobj.data.Incarnation=prev.data.Incarnation+1
 	}
 	s.setStateObject(newobj)
 	if prev != nil && !prev.deleted {
@@ -832,15 +829,10 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				rawdb.WriteCode(codeWriter, common.BytesToHash(obj.CodeHash()), obj.code)
 				obj.dirtyCode = false
 			}
-			if obj.suisideAndNewInOneBlock{
-				DeleteStorage(addr,s.db.TrieDB().DiskDB())
-			}
 			// Write any storage changes in the state object to its storage trie
 			if err := obj.CommitTrie(s.db); err != nil {
 				return common.Hash{}, err
 			}
-		}else{
-			DeleteStorage(addr,s.db.TrieDB().DiskDB())
 		}
 	}
 	if len(s.stateObjectsDirty) > 0 {
