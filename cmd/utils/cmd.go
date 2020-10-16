@@ -162,7 +162,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			continue
 		}
 
-		missing=recoverSender(missing,chain)
+		missing = recoverSender(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
@@ -170,33 +170,22 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 	return nil
 }
 
-func recoverSender(blocks types.Blocks,bc *core.BlockChain)types.Blocks  {
-	chainConfig:=bc.Config()
-	g:=errgroup.Group{}
-	goroutineNumbers:=16
-	interval:=len(blocks)/goroutineNumbers
-	start:=0
-	for index:=0;index<goroutineNumbers;index++{
-		end:=(index+1)*interval
-		bb:=make(types.Blocks,0)
-		if index==goroutineNumbers-1{
-			bb=blocks[start:]
-		}else{
-			bb=blocks[start:end]
-		}
+func recoverSender(blocks types.Blocks, bc *core.BlockChain) types.Blocks {
+	chainConfig := bc.Config()
+	g := errgroup.Group{}
+	lenBlocks := len(blocks)
+	for index := 0; index < lenBlocks; index++ {
+		b := blocks[index]
 		g.Go(func() error {
-			for _,b:=range bb{
-				for _,tx:=range b.Transactions(){
-					if _,err:=types.Sender(types.MakeSigner(chainConfig,b.Number()),tx);err!=nil{
-						panic(err)
-					}
+			for _, tx := range b.Transactions() {
+				if _, err := types.Sender(types.MakeSigner(chainConfig, b.Number()), tx); err != nil {
+					panic(err)
 				}
 			}
 			return nil
 		})
-		start=end
 	}
-	if err:=g.Wait();err!=nil{
+	if err := g.Wait(); err != nil {
 		panic(err)
 	}
 	return blocks
