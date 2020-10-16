@@ -507,6 +507,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 		err  error
 	)
 	if s.snap != nil {
+		fmt.Println("????????-=-=--5111")
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.SnapshotAccountReads += time.Since(start) }(time.Now())
 		}

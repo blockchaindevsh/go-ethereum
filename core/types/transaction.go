@@ -244,8 +244,10 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		sigCache := sc.(sigCache)
 		msg.from=sigCache.from
 	}else{
-		panic("bug here")
+		//panic("bug here")
+		msg.from,_=Sender(s,tx)
 	}
+
 
 	return msg, nil
 }
