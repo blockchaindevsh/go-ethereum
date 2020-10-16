@@ -592,14 +592,14 @@ func (s *StateDB) setStateObject(object *stateObject) {
 func (s *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
-		stateObject, _ = s.createObject(addr)
+		stateObject, _ = s.createObject(addr, false)
 	}
 	return stateObject
 }
 
 // createObject creates a new state object. If there is an existing account with
 // the given address, it is overwritten and returned as the second return value.
-func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) {
+func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, prev *stateObject) {
 	prev = s.getDeletedStateObject(addr) // Note, prev might have been deleted, we need that!
 
 	var prevdestruct bool
@@ -617,11 +617,14 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 		s.journal.append(resetObjectChange{prev: prev, prevdestruct: prevdestruct})
 	}
 
-	if prev != nil {
-		newobj.data.Incarnation = prev.data.Incarnation + 1
-	} else {
-		newobj.data.Incarnation = GetIncarnation(s.db.TrieDB().DiskDB(), addr) + 1
+	if contraction {
+		if prev != nil {
+			newobj.data.Incarnation = prev.data.Incarnation + 1
+		} else {
+			newobj.data.Incarnation = GetIncarnation(s.db.TrieDB().DiskDB(), addr) + 1
+		}
 	}
+
 	s.setStateObject(newobj)
 	if prev != nil && !prev.deleted {
 		return newobj, prev
@@ -640,7 +643,7 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
 func (s *StateDB) CreateAccount(addr common.Address) {
-	newObj, prev := s.createObject(addr)
+	newObj, prev := s.createObject(addr, true)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
 	}
@@ -865,8 +868,12 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 			if err := obj.CommitTrie(s.db); err != nil {
 				return common.Hash{}, err
 			}
-			fmt.Println("obj--", obj.address.String(), obj.data.Incarnation)
-			time.Sleep(1 * time.Second)
+			if obj.data.Incarnation != 0 {
+				fmt.Println("obj--", obj.address.String(), obj.data.Incarnation)
+			} else {
+				//fmt.Println("ZZZZZZZZZZZZZZZ", obj.address.String())
+			}
+			//time.Sleep(1 * time.Second)
 		}
 	}
 	if len(s.stateObjectsDirty) > 0 {
