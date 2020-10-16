@@ -505,7 +505,10 @@ func GetIncarnation(store ethdb.KeyValueReader,addr common.Address)uint64  {
 	bs:=make([]byte,0)
 	bs=append(bs,preInc...)
 	bs=append(bs,addr.Bytes()...)
-	bb,_:=store.Get(bs)
+	bb,err:=store.Get(bs)
+	if err!=nil||len(bb)==0{
+		return 0
+	}
 	return binary.BigEndian.Uint64(bb)
 }
 
