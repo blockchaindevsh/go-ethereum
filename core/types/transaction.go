@@ -19,7 +19,6 @@ package types
 import (
 	"container/heap"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"sync/atomic"
@@ -241,17 +240,13 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		checkNonce: true,
 	}
 
-	msg.from=tx.from.Load().(sigCache).from
-
-	emytyAddrss:=common.Address{}
-	if msg.from.String()==emytyAddrss.String(){
-		fmt.Println("txxxx",tx.Hash().String())
-		panic("sb")
+	if sc := tx.from.Load(); sc != nil {
+		sigCache := sc.(sigCache)
+		msg.from=sigCache.from
+	}else{
+		panic("bug here")
 	}
 	return msg, nil
-	//var err error
-	//msg.from, err = Sender(s, tx)
-	//return msg, err
 }
 
 // WithSignature returns a new transaction with the given signature.
