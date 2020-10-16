@@ -3046,7 +3046,9 @@ func TestFastDBSuiSide(t *testing.T) {
 		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
 
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
+	defaultCacheConfig1:=defaultCacheConfig
+	defaultCacheConfig1.SnapshotLimit=0
+	blockchain, _ := NewBlockChain(db, defaultCacheConfig1, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
 
 	chain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {
 		if i == 0 {
@@ -3133,7 +3135,9 @@ func TestFastDBSuiSideInOneBlock(t *testing.T) {
 		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
 
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
+	ansCacheConfig:=defaultCacheConfig
+	ansCacheConfig.SnapshotLimit=0
+	blockchain, _ := NewBlockChain(db, ansCacheConfig, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
 
 	chain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {
 		if i == 0 {

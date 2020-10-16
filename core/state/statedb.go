@@ -20,6 +20,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"math/big"
 	"sort"
 	"time"
@@ -480,6 +481,27 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 	if err := s.trie.TryDelete(addr[:]); err != nil {
 		s.setError(fmt.Errorf("deleteStateObject (%x) error: %v", addr[:], err))
 	}
+	StoreIncarnation(s.db.TrieDB().DiskDB(),addr,obj.data.Incarnation)
+}
+
+var(
+	preInc=[]byte("i")
+)
+func StoreIncarnation(store ethdb.KeyValueStore,addr common.Address,inc uint64)  {
+	bs:=make([]byte,0)
+	bs=append(bs,preInc...)
+	bs=append(bs,addr.Bytes()...)
+
+	store.Put(bs,new(big.Int).SetUint64(inc).Bytes())
+}
+
+func GetIncarnation(store ethdb.KeyValueReader,addr common.Address)uint64  {
+	bs:=make([]byte,0)
+	bs=append(bs,preInc...)
+	bs=append(bs,addr.Bytes()...)
+	bb,_:=store.Get(bs)
+	return new(big.Int).SetBytes(bb).Uint64()
+
 }
 
 // getStateObject retrieves a state object given by the address, returning nil if
@@ -590,6 +612,8 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 
 	if prev!=nil{
 		newobj.data.Incarnation=prev.data.Incarnation+1
+	}else{
+		newobj.data.Incarnation=GetIncarnation(s.db.TrieDB().DiskDB(),addr)+1
 	}
 	s.setStateObject(newobj)
 	if prev != nil && !prev.deleted {
