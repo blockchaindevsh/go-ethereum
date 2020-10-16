@@ -91,7 +91,6 @@ type stateObject struct {
 	suicided  bool
 	deleted   bool
 
-	//suisideAndNewInOneBlock bool
 }
 
 // empty returns whether the account is considered empty.
@@ -302,7 +301,7 @@ func makeFastDbKey(addr common.Address, index uint64,key common.Hash) []byte {
 	}
 	data := make([]byte, 0)
 	data = append(data, addr.Bytes()...)
-	data=append(data,new(big.Int).SetUint64(index).Bytes()...)
+	data=append(data,uint64ToBytes(index)...)
 	data = append(data, key.Bytes()...)
 	return data
 }

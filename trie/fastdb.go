@@ -37,7 +37,6 @@ func (f *fastDB) TryDelete(key []byte) error {
 	return f.batch.Delete(key)
 }
 func (f *fastDB) Hash() common.Hash {
-	return common.Hash{}//not calculation
 	keyList := make([]string, 0, len(f.cache))
 	for k, _ := range f.cache {
 		keyList = append(keyList, k)

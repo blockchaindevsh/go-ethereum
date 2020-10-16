@@ -18,6 +18,7 @@
 package state
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -487,12 +488,17 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 var(
 	preInc=[]byte("i")
 )
+
+func uint64ToBytes(u uint64)[]byte  {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, u)
+	return b
+}
 func StoreIncarnation(store ethdb.KeyValueStore,addr common.Address,inc uint64)  {
 	bs:=make([]byte,0)
 	bs=append(bs,preInc...)
 	bs=append(bs,addr.Bytes()...)
-
-	store.Put(bs,new(big.Int).SetUint64(inc).Bytes())
+	store.Put(bs,uint64ToBytes(inc))
 }
 
 func GetIncarnation(store ethdb.KeyValueReader,addr common.Address)uint64  {
@@ -500,8 +506,7 @@ func GetIncarnation(store ethdb.KeyValueReader,addr common.Address)uint64  {
 	bs=append(bs,preInc...)
 	bs=append(bs,addr.Bytes()...)
 	bb,_:=store.Get(bs)
-	return new(big.Int).SetBytes(bb).Uint64()
-
+	return binary.BigEndian.Uint64(bb)
 }
 
 // getStateObject retrieves a state object given by the address, returning nil if
@@ -529,7 +534,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 		err  error
 	)
 	if s.snap != nil {
-		fmt.Println("????????-=-=--5111")
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.SnapshotAccountReads += time.Since(start) }(time.Now())
 		}
