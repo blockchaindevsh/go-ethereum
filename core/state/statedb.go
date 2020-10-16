@@ -547,9 +547,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			log.Error("Failed to decode state object", "addr", addr, "err", err)
 			return nil
 		}
-		if addr.String()==common.HexToAddress("0x6e38A457C722C6011B2dfa06d49240e797844d66").String(){
-			fmt.Println("===================",addr.String(),data.Incarnation)
-		}
 	}
 	// Insert into the live set
 	obj := newObject(s, addr, *data)
