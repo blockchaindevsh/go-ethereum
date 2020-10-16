@@ -293,13 +293,7 @@ func (s *stateObject) finalise() {
 	}
 }
 
-var (
-	fastModeStorageKey = []byte("fs")
-)
 
-func transKey(key common.Hash) []byte {
-	return new(big.Int).SetBytes(key.Bytes()).Bytes()
-}
 
 func makeFastDbKey(addr common.Address, index uint64,key common.Hash) []byte {
 	if !common.FastDBMode {
@@ -308,7 +302,7 @@ func makeFastDbKey(addr common.Address, index uint64,key common.Hash) []byte {
 	data := make([]byte, 0)
 	data = append(data, addr.Bytes()...)
 	data=append(data,new(big.Int).SetUint64(index).Bytes()...)
-	data = append(data, transKey(key)...)
+	data = append(data, key.Bytes()...)
 	return data
 }
 
