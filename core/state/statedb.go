@@ -868,12 +868,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 			if err := obj.CommitTrie(s.db); err != nil {
 				return common.Hash{}, err
 			}
-			if obj.data.Incarnation != 0 {
-				fmt.Println("obj--", obj.address.String(), obj.data.Incarnation)
-			} else {
-				//fmt.Println("ZZZZZZZZZZZZZZZ", obj.address.String())
-			}
-			//time.Sleep(1 * time.Second)
 		}
 	}
 	if len(s.stateObjectsDirty) > 0 {
