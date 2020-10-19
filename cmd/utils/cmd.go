@@ -197,6 +197,8 @@ func (c *CpuFile) handle(number uint64) {
 			if err := c.file.Close(); err != nil {
 				panic(err)
 			}
+			c.isEnd = true
+			fmt.Println("StopCpuFile", number)
 		}
 	}
 
@@ -205,6 +207,7 @@ func (c *CpuFile) handle(number uint64) {
 		if err := pprof.StartCPUProfile(c.file); err != nil {
 			panic(err)
 		}
+		fmt.Println("StartCpuProfile", number)
 	}
 }
 
