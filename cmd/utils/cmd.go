@@ -35,6 +35,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 )
@@ -162,12 +163,49 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			continue
 		}
 
+		cpuFile.handle(chain.CurrentBlock().NumberU64())
 		missing = recoverSender(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
 	}
 	return nil
+}
+
+var (
+	cpuFile = NewCpuFile()
+)
+
+type CpuFile struct {
+	isStart bool
+	isEnd   bool
+	file    *os.File
+}
+
+func NewCpuFile() *CpuFile {
+	file, err := os.OpenFile("cpu.prof", os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		panic(err)
+	}
+	return &CpuFile{file: file}
+}
+
+func (c *CpuFile) handle(number uint64) {
+	if c.isStart {
+		if !c.isEnd && number >= 10490000 {
+			pprof.StopCPUProfile()
+			if err := c.file.Close(); err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	if number >= 10470000 {
+		c.isStart = true
+		if err := pprof.StartCPUProfile(c.file); err != nil {
+			panic(err)
+		}
+	}
 }
 
 func recoverSender(blocks types.Blocks, bc *core.BlockChain) types.Blocks {
@@ -194,6 +232,9 @@ func recoverSender(blocks types.Blocks, bc *core.BlockChain) types.Blocks {
 func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block {
 	head := chain.CurrentBlock()
 	for i, block := range blocks {
+		if block.NumberU64() <= 10470000 { //TODO delete it later
+			return nil
+		}
 		// If we're behind the chain head, only check block, state is available at head
 		if head.NumberU64() > block.NumberU64() {
 			if !chain.HasBlock(block.Hash(), block.NumberU64()) {
