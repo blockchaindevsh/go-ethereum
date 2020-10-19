@@ -200,6 +200,7 @@ func (c *CpuFile) handle(number uint64) {
 			c.isEnd = true
 			fmt.Println("StopCpuFile", number)
 		}
+		return
 	}
 
 	if number >= 10470000 {
