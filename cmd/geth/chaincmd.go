@@ -283,6 +283,8 @@ func importChain(ctx *cli.Context) error {
 	defer stack.Close()
 	common.FastDBMode = ctx.GlobalBool(utils.IsFastDBMOde.Name)
 	fmt.Println("=========IsFastMode============", common.FastDBMode)
+	fmt.Println("---", runtime.NumGoroutine(), runtime.NumCPU())
+
 	chain, db := utils.MakeChain(ctx, stack, false)
 	defer db.Close()
 
