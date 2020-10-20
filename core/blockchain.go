@@ -337,6 +337,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 			}
 		}
 	}
+	fmt.Println("snapshotLimit", bc.cacheConfig.SnapshotLimit)
 	// Load any existing snapshot, regenerating it if loading failed
 	if bc.cacheConfig.SnapshotLimit > 0 {
 		bc.snaps = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, bc.CurrentBlock().Root(), !bc.cacheConfig.SnapshotWait)
@@ -1468,7 +1469,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		if err := triedb.Commit(root, false, nil); err != nil {
 			return NonStatTy, err
 		}
-	} else  if common.FastDBMode==false{
+	} else if common.FastDBMode == false {
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))
@@ -1798,19 +1799,19 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		// If we have a followup block, run that against the current state to pre-cache
 		// transactions and probabilistically some of the account/storage trie nodes.
 		var followupInterrupt uint32
-		if !bc.cacheConfig.TrieCleanNoPrefetch {
-			if followup, err := it.peek(); followup != nil && err == nil {
-				throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
-				go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
-					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
-
-					blockPrefetchExecuteTimer.Update(time.Since(start))
-					if atomic.LoadUint32(interrupt) == 1 {
-						blockPrefetchInterruptMeter.Mark(1)
-					}
-				}(time.Now(), followup, throwaway, &followupInterrupt)
-			}
-		}
+		//if !bc.cacheConfig.TrieCleanNoPrefetch {
+		//	if followup, err := it.peek(); followup != nil && err == nil {
+		//		throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
+		//		go func(start time.Time, followup *types.Block, throwaway *state.StateDB, interrupt *uint32) {
+		//			bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
+		//
+		//			blockPrefetchExecuteTimer.Update(time.Since(start))
+		//			if atomic.LoadUint32(interrupt) == 1 {
+		//				blockPrefetchInterruptMeter.Mark(1)
+		//			}
+		//		}(time.Now(), followup, throwaway, &followupInterrupt)
+		//	}
+		//}
 		// Process block using the parent state as reference point
 		substart := time.Now()
 		receipts, logs, usedGas, err := bc.processor.Process(block, statedb, bc.vmConfig)
