@@ -175,6 +175,7 @@ func handleBlock(blocks types.Blocks, bc *core.BlockChain) {
 	for _, b := range blocks {
 		for _, tx := range b.Transactions() {
 			ch <- true
+			tx := tx
 			number := b.Number()
 			go func() {
 				if _, err := types.Sender(types.MakeSigner(chainConfig, number), tx); err != nil {
