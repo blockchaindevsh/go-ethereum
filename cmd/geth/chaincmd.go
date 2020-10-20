@@ -284,8 +284,8 @@ func importChain(ctx *cli.Context) error {
 	common.FastDBMode = ctx.GlobalBool(utils.IsFastDBMOde.Name)
 	fmt.Println("=========IsFastMode============", common.FastDBMode)
 	chain, db := utils.MakeChain(ctx, stack, false)
-
 	defer db.Close()
+
 	// Start periodically gathering memory profiles
 	var peakMemAlloc, peakMemSys uint64
 	go func() {

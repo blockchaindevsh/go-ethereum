@@ -44,7 +44,6 @@ type Transaction struct {
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
-	From common.Address
 }
 
 type txdata struct {
@@ -241,10 +240,9 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		checkNonce: true,
 	}
 
-	//msg.from = tx.From
-	msg.from, _ = Sender(s, tx)
-
-	return msg, nil
+	var err error
+	msg.from, err = Sender(s, tx)
+	return msg, err
 }
 
 // WithSignature returns a new transaction with the given signature.
