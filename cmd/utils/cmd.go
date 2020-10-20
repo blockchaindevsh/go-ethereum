@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	importBatchSize = 2500
+	importBatchSize = 5000
 )
 
 // Fatalf formats a message to standard error and exits the program.
@@ -189,7 +189,7 @@ func handleBlock(blocks types.Blocks, bc *core.BlockChain) types.Blocks {
 func pallTx(txs types.Transactions, heights []*big.Int, bc *core.BlockChain) {
 	chainConfig := bc.Config()
 	g := errgroup.Group{}
-	goroutineNumber := 16
+	goroutineNumber := 32
 	interval := len(txs) / goroutineNumber
 	start := 0
 	for index := 0; index < goroutineNumber; index++ {
