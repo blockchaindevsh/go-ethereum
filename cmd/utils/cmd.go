@@ -164,8 +164,8 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			continue
 		}
 		//handleBlock(missing, chain)
-		//handleBlock1(missing, chain)
-		handleBlockEveryBlock(missing, chain)
+		handleBlock1(missing, chain)
+		//handleBlockEveryBlock(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
@@ -190,7 +190,7 @@ func handleBlock(blocks types.Blocks, bc *core.BlockChain) {
 func pallTx(txs types.Transactions, heights []*big.Int, bc *core.BlockChain) {
 	chainConfig := bc.Config()
 	g := errgroup.Group{}
-	goroutineNumber := 16
+	goroutineNumber := 32
 	interval := len(txs) / goroutineNumber
 	start := 0
 	for index := 0; index < goroutineNumber; index++ {
@@ -219,7 +219,7 @@ func pallTx(txs types.Transactions, heights []*big.Int, bc *core.BlockChain) {
 func handleBlock1(blocks types.Blocks, bc *core.BlockChain) {
 	chainConfig := bc.Config()
 	g := errgroup.Group{}
-	goroutineNumbers := 16
+	goroutineNumbers := 32
 	interval := len(blocks) / goroutineNumbers
 	start := 0
 	for index := 0; index < goroutineNumbers; index++ {
