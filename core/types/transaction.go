@@ -115,13 +115,6 @@ func (tx *Transaction) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
 }
 
-func (tx *Transaction) SetFrom(from common.Address) {
-	tx.From = from
-}
-func (tx *Transaction) GetFrom() common.Address {
-	return tx.From
-}
-
 // Protected returns whether the transaction is protected from replay protection.
 func (tx *Transaction) Protected() bool {
 	return isProtectedV(tx.data.V)
