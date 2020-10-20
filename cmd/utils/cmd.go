@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"io"
-	"math/big"
 	"os"
 	"os/signal"
 	"runtime"
@@ -163,46 +162,35 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
 		}
-		missing = handleBlock(missing, chain)
+		//missing = handleBlock(missing, chain)
+		handleBlock1(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
 	}
 	return nil
 }
-
-func handleBlock(blocks types.Blocks, bc *core.BlockChain) types.Blocks {
-	txs := make(types.Transactions, 0)
-	heights := make([]*big.Int, 0)
-	for _, v := range blocks {
-		for _, tx := range v.Transactions() {
-			txs = append(txs, tx)
-			heights = append(heights, v.Number())
-		}
-	}
-
-	pallTx(txs, heights, bc)
-
-	return blocks
-}
-
-func pallTx(txs types.Transactions, heights []*big.Int, bc *core.BlockChain) {
+func handleBlock1(blocks types.Blocks, bc *core.BlockChain) {
 	chainConfig := bc.Config()
 	g := errgroup.Group{}
-	goroutineNumber := 16
-	interval := len(txs) / goroutineNumber
+	goroutineNumbers := 16
+	interval := len(blocks) / goroutineNumbers
 	start := 0
-	for index := 0; index < goroutineNumber; index++ {
+	for index := 0; index < goroutineNumbers; index++ {
 		tStart := start
 		end := (index + 1) * interval
-		if index+1 == goroutineNumber {
-			end = len(txs)
+		if index == goroutineNumbers-1 {
+			end = len(blocks)
 		}
-
 		g.Go(func() error {
 			for i := tStart; i < end; i++ {
-				if _, err := types.Sender(types.MakeSigner(chainConfig, heights[i]), txs[i]); err != nil {
-					panic(err)
+				txs := blocks[i].Transactions()
+				number := blocks[i].Number()
+
+				for _, tx := range txs {
+					if _, err := types.Sender(types.MakeSigner(chainConfig, number), tx); err != nil {
+						panic(err)
+					}
 				}
 			}
 			return nil
@@ -212,7 +200,6 @@ func pallTx(txs types.Transactions, heights []*big.Int, bc *core.BlockChain) {
 	if err := g.Wait(); err != nil {
 		panic(err)
 	}
-
 }
 
 func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block {
