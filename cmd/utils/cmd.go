@@ -28,6 +28,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -88,6 +89,7 @@ func StartNode(stack *node.Node) {
 }
 
 func ImportChain(chain *core.BlockChain, fn string) error {
+	ts := time.Now()
 	// Watch for Ctrl-C while the import is running.
 	// If a signal is received, the import will stop at the next batch.
 	interrupt := make(chan os.Signal, 1)
@@ -168,6 +170,9 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		handleBlockEveryBlock(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
+		}
+		if chain.CurrentBlock().NumberU64() >= 700000 {
+			fmt.Println("ts---", time.Now().Sub(ts).Seconds())
 		}
 	}
 	return nil
