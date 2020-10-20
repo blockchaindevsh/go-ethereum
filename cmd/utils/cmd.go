@@ -165,8 +165,8 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
 		}
-		//handleBlock(missing, chain)
-		handleBlock1(missing, chain)
+		handleBlock(missing, chain)
+		//handleBlock1(missing, chain)
 		//handleBlockEveryBlock(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
