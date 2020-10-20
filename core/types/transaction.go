@@ -241,7 +241,8 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		checkNonce: true,
 	}
 
-	msg.from = tx.From
+	//msg.from = tx.From
+	msg.from, _ = Sender(s, tx)
 
 	return msg, nil
 }
