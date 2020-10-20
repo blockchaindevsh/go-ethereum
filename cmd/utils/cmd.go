@@ -167,7 +167,8 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		}
 		//handleBlock(missing, chain)
 		//handleBlock1(missing, chain)
-		handleBlockEveryBlock(missing, chain)
+		//handleBlockEveryBlock(missing, chain)
+		handleBlock2(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
@@ -266,6 +267,34 @@ func handleBlockEveryBlock(blocks types.Blocks, bc *core.BlockChain) {
 				if _, err := types.Sender(types.MakeSigner(chainConfig, number), tx); err != nil {
 					panic(err)
 				}
+			}
+
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		panic(err)
+	}
+}
+
+func handleBlock2(blocks types.Blocks, bc *core.BlockChain) {
+	chainConfig := bc.Config()
+	g := errgroup.Group{}
+	goroutineNumbers := 32
+	count := len(blocks)
+
+	for i := 0; i < goroutineNumbers; i++ {
+		idx := i
+		g.Go(func() error {
+			for idx < count {
+				txs := blocks[idx].Transactions()
+				signer := types.MakeSigner(chainConfig, blocks[idx].Number())
+				for _, tx := range txs {
+					if _, err := types.Sender(signer, tx); err != nil {
+						panic(err)
+					}
+				}
+				idx += goroutineNumbers
 			}
 
 			return nil
