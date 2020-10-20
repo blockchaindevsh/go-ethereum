@@ -20,13 +20,6 @@ package utils
 import (
 	"compress/gzip"
 	"fmt"
-	"io"
-	"os"
-	"os/signal"
-	"runtime"
-	"strings"
-	"syscall"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -37,6 +30,13 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rlp"
+	"golang.org/x/sync/errgroup"
+	"io"
+	"os"
+	"os/signal"
+	"runtime"
+	"strings"
+	"syscall"
 )
 
 const (
@@ -161,11 +161,35 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
 		}
+		handleBlockEveryBlock(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
 	}
 	return nil
+}
+
+func handleBlockEveryBlock(blocks types.Blocks, bc *core.BlockChain) {
+	chainConfig := bc.Config()
+	g := errgroup.Group{}
+	lenBlocks := len(blocks)
+	for index := 0; index < lenBlocks; index++ {
+		b := blocks[index]
+		g.Go(func() error {
+			txs := b.Transactions()
+			s := types.MakeSigner(chainConfig, b.Number())
+			for _, tx := range txs {
+				if _, err := types.Sender(s, tx); err != nil {
+					panic(err)
+				}
+			}
+
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		panic(err)
+	}
 }
 
 func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block {
