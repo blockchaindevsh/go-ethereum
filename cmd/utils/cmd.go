@@ -189,7 +189,7 @@ func handleBlock(blocks types.Blocks, bc *core.BlockChain) types.Blocks {
 func pallTx(txs types.Transactions, heights []*big.Int, bc *core.BlockChain) {
 	chainConfig := bc.Config()
 	g := errgroup.Group{}
-	goroutineNumber := 32
+	goroutineNumber := 16
 	interval := len(txs) / goroutineNumber
 	start := 0
 	for index := 0; index < goroutineNumber; index++ {

@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -283,6 +284,8 @@ func importChain(ctx *cli.Context) error {
 	defer stack.Close()
 	common.FastDBMode = ctx.GlobalBool(utils.IsFastDBMOde.Name)
 	fmt.Println("=========IsFastMode============", common.FastDBMode)
+	runtime.GOMAXPROCS(16)
+	debug.SetMaxThreads(16)
 	fmt.Println("---", runtime.NumGoroutine(), runtime.NumCPU())
 
 	chain, db := utils.MakeChain(ctx, stack, false)
