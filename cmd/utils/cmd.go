@@ -20,7 +20,9 @@ package utils
 import (
 	"compress/gzip"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"io"
+	"math/big"
 	"os"
 	"os/signal"
 	"runtime"
@@ -161,7 +163,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
 		}
-		handleBlock(missing, chain)
+		missing = handleBlock(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
@@ -169,24 +171,50 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 	return nil
 }
 
-func handleBlock(blocks types.Blocks, bc *core.BlockChain) {
-	chainConfig := bc.Config()
-	ch := make(chan bool, 16)
-	for _, b := range blocks {
-		for _, tx := range b.Transactions() {
-			ch <- true
-			tx := tx
-			number := b.Number()
-			go func() {
-				if _, err := types.Sender(types.MakeSigner(chainConfig, number), tx); err != nil {
-					panic(err)
-				}
-				<-ch
-			}()
+func handleBlock(blocks types.Blocks, bc *core.BlockChain) types.Blocks {
+	txs := make(types.Transactions, 0)
+	heights := make([]*big.Int, 0)
+	for _, v := range blocks {
+		for _, tx := range v.Transactions() {
+			txs = append(txs, tx)
+			heights = append(heights, v.Number())
 		}
 	}
 
+	pallTx(txs, heights, bc)
+
+	return blocks
 }
+
+func pallTx(txs types.Transactions, heights []*big.Int, bc *core.BlockChain) {
+	chainConfig := bc.Config()
+	g := errgroup.Group{}
+	goroutineNumber := 32
+	interval := len(txs) / goroutineNumber
+	start := 0
+	for index := 0; index < goroutineNumber; index++ {
+		tStart := start
+		end := (index + 1) * interval
+		if index+1 == goroutineNumber {
+			end = len(txs)
+		}
+
+		g.Go(func() error {
+			for i := tStart; i < end; i++ {
+				if _, err := types.Sender(types.MakeSigner(chainConfig, heights[i]), txs[i]); err != nil {
+					panic(err)
+				}
+			}
+			return nil
+		})
+		start = end
+	}
+	if err := g.Wait(); err != nil {
+		panic(err)
+	}
+
+}
+
 func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block {
 	head := chain.CurrentBlock()
 	for i, block := range blocks {
