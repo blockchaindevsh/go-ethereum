@@ -166,9 +166,9 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			continue
 		}
 		//handleBlock(missing, chain)
-		//handleBlock1(missing, chain)
+		handleBlock1(missing, chain)
 		//handleBlockEveryBlock(missing, chain)
-		handleBlock2(missing, chain)
+		//handleBlock2(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
