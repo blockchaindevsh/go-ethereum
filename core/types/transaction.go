@@ -240,18 +240,21 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		checkNonce: true,
 	}
 
-	if sc := tx.from.Load(); sc != nil {
-		sigCache := sc.(sigCache)
-		// If the signer used to derive from in a previous
-		// call is not the same as used current, invalidate
-		// the cache.
+	//if sc := tx.from.Load(); sc != nil {
+	//	sigCache := sc.(sigCache)
+	//	If the signer used to derive from in a previous
+	//	call is not the same as used current, invalidate
+	//	the cache.
+	//
+	//msg.from = sigCache.from
+	//} else {
+	//	panic("bug here")
+	//}
+	//
+	var err error
+	msg.from, err = Sender(s, tx)
 
-		msg.from = sigCache.from
-	} else {
-		panic("bug here")
-	}
-
-	return msg, nil
+	return msg, err
 }
 
 // WithSignature returns a new transaction with the given signature.
