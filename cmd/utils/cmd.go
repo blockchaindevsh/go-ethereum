@@ -165,9 +165,9 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
 		}
-		handleBlock(missing, chain)
+		//handleBlock(missing, chain)
 		//handleBlock1(missing, chain)
-		//handleBlockEveryBlock(missing, chain)
+		handleBlockEveryBlock(missing, chain)
 		//handleBlock2(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
@@ -262,9 +262,9 @@ func handleBlockEveryBlock(blocks types.Blocks, bc *core.BlockChain) {
 		b := blocks[index]
 		g.Go(func() error {
 			txs := b.Transactions()
-			number := b.Number()
+			s := types.MakeSigner(chainConfig, b.Number())
 			for _, tx := range txs {
-				if _, err := types.Sender(types.MakeSigner(chainConfig, number), tx); err != nil {
+				if _, err := types.Sender(s, tx); err != nil {
 					panic(err)
 				}
 			}
