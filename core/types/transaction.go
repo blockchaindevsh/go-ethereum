@@ -44,6 +44,7 @@ type Transaction struct {
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
+	From common.Address
 }
 
 type txdata struct {
@@ -112,6 +113,13 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 // ChainId returns which chain id this transaction was signed for (if at all)
 func (tx *Transaction) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
+}
+
+func (tx *Transaction) SetFrom(from common.Address) {
+	tx.From = from
+}
+func (tx *Transaction) GetFrom() common.Address {
+	return tx.From
 }
 
 // Protected returns whether the transaction is protected from replay protection.
@@ -240,17 +248,9 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		checkNonce: true,
 	}
 
-	if sc := tx.from.Load(); sc != nil {
-		sigCache := sc.(sigCache)
-		msg.from = sigCache.from
-	} else {
-		panic("bug here")
-	}
+	msg.from = tx.From
 
-	var err error
-	//msg.from, err = Sender(s, tx)
-
-	return msg, err
+	return msg, nil
 }
 
 // WithSignature returns a new transaction with the given signature.
