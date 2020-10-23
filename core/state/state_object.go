@@ -91,8 +91,6 @@ type stateObject struct {
 	dirtyCode bool // true if the code was updated
 	suicided  bool
 	deleted   bool
-
-	suisideAndNewInOneBlock bool
 }
 
 // empty returns whether the account is considered empty.
@@ -198,9 +196,6 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	if value, cached := s.originStorage[key]; cached {
 		return value
-	}
-	if s.suisideAndNewInOneBlock {
-		return common.Hash{}
 	}
 	// If no live objects are available, attempt to use snapshots
 	var (
