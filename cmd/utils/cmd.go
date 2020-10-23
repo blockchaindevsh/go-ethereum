@@ -173,8 +173,8 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 
 var (
 	cpuFile     = NewCpuFile()
-	startNumber = uint64(10000)
-	endNumber   = uint64(20000)
+	startNumber = uint64(10000000)
+	endNumber   = uint64(10200000)
 	fileName    = "cpu.porf"
 )
 
