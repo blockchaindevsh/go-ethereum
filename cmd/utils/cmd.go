@@ -35,6 +35,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 )
@@ -165,10 +166,54 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
+		cpuFile.handle(chain.CurrentBlock().NumberU64())
 	}
 	return nil
 }
 
+var (
+	cpuFile     = NewCpuFile()
+	startNumber = uint64(10000)
+	endNumber   = uint64(20000)
+	fileName    = "cpu.porf"
+)
+
+type CpuFile struct {
+	isStart bool
+	isEnd   bool
+	file    *os.File
+}
+
+func NewCpuFile() *CpuFile {
+	os.Remove(fileName)
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		panic(err)
+	}
+	return &CpuFile{file: file}
+}
+
+func (c *CpuFile) handle(number uint64) {
+	if c.isStart {
+		if !c.isEnd && number >= endNumber {
+			pprof.StopCPUProfile()
+			if err := c.file.Close(); err != nil {
+				panic(err)
+			}
+			c.isEnd = true
+			fmt.Println("StopCpuFile", number)
+		}
+		return
+	}
+
+	if number >= startNumber {
+		c.isStart = true
+		if err := pprof.StartCPUProfile(c.file); err != nil {
+			panic(err)
+		}
+		fmt.Println("StartCpuProfile", number)
+	}
+}
 func handleBlockEveryBlock(blocks types.Blocks, bc *core.BlockChain) {
 	chainConfig := bc.Config()
 	g := errgroup.Group{}
