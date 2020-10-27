@@ -25,6 +25,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		baseStateDB: st,
 		bc:          bc,
 		gp:          new(GasPool).AddGas(block.GasLimit()),
+		receipts:    make(map[int]*types.Receipt, 0),
 		ch:          make(chan struct{}, 1),
 	}
 	if len(block.Transactions()) == 0 {
