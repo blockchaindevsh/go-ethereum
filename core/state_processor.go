@@ -103,7 +103,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 	<-pm.ch
 	//common.PrintData = false
-	*statedb = *pm.baseStateDB
+	//*statedb = *pm.baseStateDB
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
