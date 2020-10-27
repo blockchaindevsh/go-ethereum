@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -53,7 +54,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) Process1(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -64,24 +65,28 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	pm := NewPallTxManage(block, statedb, p.bc)
+	pm := NewPallTxManage(block, statedb.Copy(), p.bc)
 
+	//fmt.Println("PPPPPPPPPPPPPPPPPPP", block.Number())
+	common.PrintData = true
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		pm.AddTx(tx, i)
 	}
 
 	<-pm.ch
+	common.PrintData = false
 
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
-	//fmt.Println("processs", block.NumberU64(), *usedGas)
+	*statedb = *pm.baseStateDB
+	//fmt.Println("processs", &statedb, statedb.GetStateObjectDirty())
 	return receipts, allLogs, *usedGas, nil
 }
 
-func (p *StateProcessor) Process1(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -135,11 +140,16 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
-	//*usedGas += result.UsedGas
+	if usedGas != nil {
+		*usedGas += result.UsedGas
+	}
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing whether the root touch-delete accounts.
 	receipt := types.NewReceipt(root, result.Failed(), 0)
+	if usedGas != nil {
+		receipt = types.NewReceipt(root, result.Failed(), *usedGas)
+	}
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = result.UsedGas
 	// if the transaction created a contract, store the creation address in the receipt.
@@ -148,10 +158,13 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
+	//fmt.Println("16111111111111--", len(receipt.Logs), receipt)
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	//fmt.Println("163333333333333333333", receipt.Bloom.Big().String())
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+	fmt.Println("handle tx", header.Number, statedb.TxIndex(), receipt.GasUsed, len(receipt.Logs))
 
 	return receipt, err
 }

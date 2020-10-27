@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -42,10 +41,11 @@ func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
 		panic(err)
 	}
 	p.receipts[txIndex] = receipt
-	p.baseStateDB = st
+	*p.baseStateDB = *st
 	if txIndex == len(p.block.Transactions())-1 {
 		p.Done()
 	}
+
 }
 
 func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
@@ -56,8 +56,12 @@ func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint6
 	for index := 0; index < txLen; index++ {
 		all = all + p.receipts[index].GasUsed
 		p.receipts[index].CumulativeGasUsed = all
+		//fmt.Println("callllllll---", p.receipts[index])
+		p.receipts[index].Bloom = types.CreateBloom(types.Receipts{p.receipts[index]})
+		//fmt.Println("blookkk", p.receipts[index].Bloom.Big().String())
 		rs = append(rs, p.receipts[index])
 		logs = append(logs, p.receipts[index].Logs...)
+		//fmt.Println("========================", p.receipts[index])
 
 	}
 	return rs, logs, all
@@ -65,5 +69,5 @@ func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint6
 
 func (p *pallTxManage) Done() {
 	p.ch <- struct{}{}
-	fmt.Println("Set done ", p.block.NumberU64())
+	//fmt.Println("Set done ", p.block.NumberU64())
 }

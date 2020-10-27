@@ -238,6 +238,11 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 	} else {
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts), hasher)
 		b.header.Bloom = CreateBloom(receipts)
+		if len(receipts) == 1 {
+			//fmt.Println("230000000000000", receipts[0])
+			//fmt.Println("b.header.bloom", b.header.Bloom.Big().String())
+		}
+
 	}
 
 	if len(uncles) == 0 {

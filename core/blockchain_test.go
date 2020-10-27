@@ -3080,7 +3080,7 @@ func TestFastDBSuiSide(t *testing.T) {
 		t.Fatalf("failed to insert chain: %v", err)
 	}
 
-	c6ff := common.HexToAddress("0x5A1D83B59f5e715b91F1e30Af5FdC9e53de928fd")
+	c6ff := blockchain.GetReceiptsByHash(blockchain.CurrentBlock().Hash())[0].ContractAddress
 
 	chain, _ = GenerateChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {
 		if i == 0 {

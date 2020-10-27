@@ -94,6 +94,7 @@ func (b *Bloom) UnmarshalText(input []byte) error {
 func CreateBloom(receipts Receipts) Bloom {
 	bin := new(big.Int)
 	for _, receipt := range receipts {
+		//fmt.Println("9777777", len(receipt.Logs))
 		bin.Or(bin, LogsBloom(receipt.Logs))
 	}
 

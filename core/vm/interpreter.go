@@ -224,6 +224,9 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		if operation == nil {
 			return nil, &ErrInvalidOpCode{opcode: op}
 		}
+		if common.PrintData {
+			//fmt.Println("oppp", op)
+		}
 		// Validate stack
 		if sLen := stack.len(); sLen < operation.minStack {
 			return nil, &ErrStackUnderflow{stackLen: sLen, required: operation.minStack}
