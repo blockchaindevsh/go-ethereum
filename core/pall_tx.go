@@ -43,7 +43,7 @@ func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
 		panic(err)
 	}
 	p.receipts[txIndex] = receipt
-	p.baseStateDB = st
+	*p.baseStateDB = *st
 	if common.PrintData {
 		fmt.Println("handle tx", p.block.NumberU64(), receipt.GasUsed)
 	}
