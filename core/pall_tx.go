@@ -53,9 +53,11 @@ func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log) {
 	txLen := len(p.block.Transactions())
 	all := uint64(0)
 	for index := 0; index < txLen; index++ {
-		p.receipts[index].CumulativeGasUsed = all + p.receipts[index].GasUsed
+		all = all + p.receipts[index].GasUsed
+		p.receipts[index].CumulativeGasUsed = all
 		rs = append(rs, p.receipts[index])
 		logs = append(logs, p.receipts[index].Logs...)
+
 	}
 	return rs, logs
 }
