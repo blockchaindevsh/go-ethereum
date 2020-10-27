@@ -36,7 +36,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
 	st := p.baseStateDB.Copy()
-	p.baseStateDB.Prepare(tx.Hash(), p.block.Hash(), txIndex)
+	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("err", err, p.block.Number(), txIndex, tx.Hash().String())
