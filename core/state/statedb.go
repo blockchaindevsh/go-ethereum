@@ -456,6 +456,9 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
+	if addr.String() == "0xe6A7a1d47ff21B6321162AEA7C6CB457D5476Bca" {
+		fmt.Println("addr", addr.String(), s.bhash.String(), s.thash.String(), obj.data.Nonce)
+	}
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
