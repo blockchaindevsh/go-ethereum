@@ -188,13 +188,8 @@ func (s *StateDB) AddLog(log *types.Log) {
 	log.BlockHash = s.bhash
 	log.TxIndex = uint(s.txIndex)
 	log.Index = s.logSize
-	//fmt.Println("AddLog", s.thash.String(), log)
 	s.logs[s.thash] = append(s.logs[s.thash], log)
 	s.logSize++
-}
-
-func (s *StateDB) GetJournal() int {
-	return len(s.journal.dirties)
 }
 
 func (s *StateDB) GetLogs(hash common.Hash) []*types.Log {
@@ -747,11 +742,9 @@ func (s *StateDB) GetRefund() uint64 {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
-	//fmt.Println("FFFFFFFFFFFFFFFF", len(s.journal.dirties))
 	for addr := range s.journal.dirties {
-		//fmt.Println("stateDB.Finalize", addr.String())
+		//fmt.Println("journal.dirties addr", addr.String())
 		obj, exist := s.stateObjects[addr]
-		//fmt.Println("stateDB.Finalize", addr.String(), exist, obj.suicided, obj.empty())
 		if !exist {
 			// ripeMD is 'touched' at block 1714175, in tx 0x1237f737031e40bcde4a8b7e717b2d15e3ecadfe49bb1bbc71ee9deb09c6fcf2
 			// That tx goes out of gas, and although the notion of 'touched' does not exist there, the
@@ -781,11 +774,6 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
-	//fmt.Println("FFFFFF-end", len(s.journal.dirties))
-}
-
-func (s *StateDB) GetStateObjectDirty() int {
-	return len(s.stateObjectsDirty)
 }
 
 // IntermediateRoot computes the current root hash of the state trie.
@@ -796,7 +784,6 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	s.Finalise(deleteEmptyObjects)
 
 	for addr := range s.stateObjectsPending {
-		//fmt.Println("pendinggg", addr.String())
 		obj := s.stateObjects[addr]
 		if obj.deleted {
 			obj.data.Deleted = true
@@ -833,7 +820,6 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
-	//fmt.Println("CCCCCCCCCCCCCCCCCCCCCCC--before intermediateRoot", len(s.stateObjectsDirty))
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}
@@ -843,7 +829,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
-		//fmt.Println("commit----", addr.String())
+		//fmt.Println("---addr---", addr.String())
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {

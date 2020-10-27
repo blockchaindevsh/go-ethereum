@@ -22,6 +22,7 @@ func NewFastDB(db *Database) *FastDB {
 }
 
 func (f *FastDB) Copy() *FastDB {
+	//panic("fastdb.copy is not implement")
 	return &FastDB{
 		db:    f.db,
 		cache: make(map[string][]byte),
