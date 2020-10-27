@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -38,6 +39,7 @@ func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
+		fmt.Println("err", err, p.block.Number(), txIndex, tx.Hash().String())
 		panic(err)
 	}
 	p.receipts[txIndex] = receipt
