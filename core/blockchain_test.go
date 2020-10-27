@@ -3033,6 +3033,7 @@ func TestInitThenFailCreateContract(t *testing.T) {
 }
 
 func TestFastDBSuiSide(t *testing.T) {
+	common.PrintData = true
 	common.FastDBMode = true
 	var (
 		key1, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa9f")
