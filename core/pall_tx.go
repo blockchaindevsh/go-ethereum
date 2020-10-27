@@ -47,7 +47,7 @@ func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
 	}
 }
 
-func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log) {
+func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
 	rs := make(types.Receipts, 0)
 	logs := make([]*types.Log, 0)
 	txLen := len(p.block.Transactions())
@@ -59,7 +59,7 @@ func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log) {
 		logs = append(logs, p.receipts[index].Logs...)
 
 	}
-	return rs, logs
+	return rs, logs, all
 }
 
 func (p *pallTxManage) Done() {

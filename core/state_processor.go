@@ -76,7 +76,7 @@ func (p *StateProcessor) Process1(block *types.Block, statedb *state.StateDB, cf
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
-	receipts, allLogs = pm.GetReceiptsAndLogs()
+	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 	return receipts, allLogs, *usedGas, nil
 }
 
