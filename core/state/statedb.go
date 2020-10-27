@@ -336,10 +336,6 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	return common.Hash{}
 }
 
-func (s *StateDB) GetBHash() (common.Hash, common.Hash) {
-	return s.bhash, s.thash
-}
-
 // Database retrieves the low level database supporting the lower level trie ops.
 func (s *StateDB) Database() Database {
 	return s.db
@@ -459,12 +455,6 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	data, err := rlp.EncodeToBytes(obj)
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
-	}
-	if addr.String() == "0xe6A7a1d47ff21B6321162AEA7C6CB457D5476Bca" {
-		if s.bhash.String() == "0x0000000000000000000000000000000000000000000000000000000000000000" {
-			//debug.PrintStack()
-		}
-		//fmt.Println("addr", addr.String(), s.bhash.String(), s.thash.String(), obj.data.Nonce)
 	}
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
@@ -753,7 +743,6 @@ func (s *StateDB) GetRefund() uint64 {
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	for addr := range s.journal.dirties {
-		//fmt.Println("journal.dirties addr", addr.String())
 		obj, exist := s.stateObjects[addr]
 		if !exist {
 			// ripeMD is 'touched' at block 1714175, in tx 0x1237f737031e40bcde4a8b7e717b2d15e3ecadfe49bb1bbc71ee9deb09c6fcf2
@@ -839,7 +828,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
-		//fmt.Println("---addr---", addr.String())
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {

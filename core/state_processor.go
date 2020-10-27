@@ -153,7 +153,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// if the transaction created a contract, store the creation address in the receipt.
 	if msg.To() == nil {
 		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
-		//fmt.Println("??????-158", receipt.ContractAddress.String(), vmenv.Context.Origin.String(), tx.Nonce())
 	}
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
@@ -161,7 +160,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-	//fmt.Println("handle tx", header.Number, statedb.TxIndex(), receipt.GasUsed, len(receipt.Logs), receipt.ContractAddress.String())
 
 	return receipt, err
 }

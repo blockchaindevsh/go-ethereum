@@ -17,7 +17,6 @@
 package state
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -53,10 +52,6 @@ func (j *journal) append(entry journalEntry) {
 	j.entries = append(j.entries, entry)
 	if addr := entry.dirtied(); addr != nil {
 		j.dirties[*addr]++
-		//fmt.Println("journal append --- ", addr.String())
-		if addr.String() == "0x5A1D83B59f5e715b91F1e30Af5FdC9e53de928fd" {
-			//fmt.Println("HHHHHHHHHHHHHHHHHHHHHHHHHhhh")
-		}
 	}
 }
 
@@ -81,7 +76,6 @@ func (j *journal) revert(statedb *StateDB, snapshot int) {
 // otherwise suggest it as clean. This method is an ugly hack to handle the RIPEMD
 // precompile consensus exception.
 func (j *journal) dirty(addr common.Address) {
-	fmt.Println("d-------addr", addr.String())
 	j.dirties[addr]++
 }
 
