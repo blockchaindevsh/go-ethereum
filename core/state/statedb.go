@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"sort"
 	"time"
 
@@ -463,9 +462,9 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	}
 	if addr.String() == "0xe6A7a1d47ff21B6321162AEA7C6CB457D5476Bca" {
 		if s.bhash.String() == "0x0000000000000000000000000000000000000000000000000000000000000000" {
-			debug.PrintStack()
+			//debug.PrintStack()
 		}
-		fmt.Println("addr", addr.String(), s.bhash.String(), s.thash.String(), obj.data.Nonce)
+		//fmt.Println("addr", addr.String(), s.bhash.String(), s.thash.String(), obj.data.Nonce)
 	}
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
