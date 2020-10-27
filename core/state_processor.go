@@ -70,6 +70,7 @@ func (p *StateProcessor) Process1(block *types.Block, statedb *state.StateDB, cf
 	for i, tx := range block.Transactions() {
 		pm.AddTx(tx, i)
 	}
+
 	<-pm.ch
 
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)

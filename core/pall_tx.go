@@ -20,13 +20,17 @@ type pallTxManage struct {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
-	return &pallTxManage{
+	p := &pallTxManage{
 		block:       block,
 		baseStateDB: st,
 		bc:          bc,
 		gp:          new(GasPool).AddGas(block.GasLimit()),
 		ch:          make(chan struct{}, 1),
 	}
+	if len(block.Transactions()) == 0 {
+		p.ch <- struct{}{}
+	}
+	return p
 }
 
 func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
