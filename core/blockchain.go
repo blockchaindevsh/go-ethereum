@@ -158,6 +158,8 @@ var defaultCacheConfig = &CacheConfig{
 // included in the canonical one where as GetBlockByNumber always represents the
 // canonical chain.
 type BlockChain struct {
+	copyTime    time.Duration
+	copyInc     int
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 

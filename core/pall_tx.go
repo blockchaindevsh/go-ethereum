@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"time"
 )
 
 type pallTxManage struct {
@@ -35,7 +36,11 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 }
 
 func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
+	ts := time.Now()
 	st := p.baseStateDB.Copy()
+	intervalCpy := time.Since(ts)
+	p.bc.copyTime += intervalCpy
+	p.bc.copyInc++
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
