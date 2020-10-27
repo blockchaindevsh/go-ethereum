@@ -193,7 +193,8 @@ func (st *StateTransition) preCheck() error {
 	if st.msg.CheckNonce() {
 		nonce := st.state.GetNonce(st.msg.From())
 		if nonce < st.msg.Nonce() {
-			fmt.Println("1966666", st.msg.From().String(), nonce, st.msg.Nonce())
+			bHash, tHash := st.state.GetBHash()
+			fmt.Println("1966666", st.msg.From().String(), nonce, st.msg.Nonce(), bHash.String(), tHash.String())
 			return ErrNonceTooHigh
 		} else if nonce > st.msg.Nonce() {
 			return ErrNonceTooLow

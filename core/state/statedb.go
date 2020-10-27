@@ -336,6 +336,10 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	return common.Hash{}
 }
 
+func (s *StateDB) GetBHash() (common.Hash, common.Hash) {
+	return s.bhash, s.thash
+}
+
 // Database retrieves the low level database supporting the lower level trie ops.
 func (s *StateDB) Database() Database {
 	return s.db
