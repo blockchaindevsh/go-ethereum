@@ -95,20 +95,19 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	pm := NewPallTxManage(block, statedb.Copy(), p.bc)
 
 	//fmt.Println("PPPPPPPPPPPPPPPPPPP", block.Number())
-	common.PrintData = true
+	//common.PrintData = true
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		pm.AddTx(tx, i)
 	}
 
 	<-pm.ch
-	common.PrintData = false
-
+	//common.PrintData = false
+	*statedb = *pm.baseStateDB
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
-	*statedb = *pm.baseStateDB
 	//fmt.Println("processs", &statedb, statedb.GetStateObjectDirty())
 	return receipts, allLogs, *usedGas, nil
 }
