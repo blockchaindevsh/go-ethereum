@@ -146,6 +146,10 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 		statedb.Finalise(true)
 	} else {
+		if header.Number.Uint64() == 46147 {
+			statedb.Print()
+			statedb.GetReadAndWrite()
+		}
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
 	if usedGas != nil {
