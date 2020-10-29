@@ -196,6 +196,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		p.AddTx(tx, txIndex)
+		panic(err)
 		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 		return
 	}
