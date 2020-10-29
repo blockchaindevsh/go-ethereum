@@ -45,8 +45,9 @@ func (this *Re) Less(other interface{}) bool {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
-	st.CurrMergedNumber = 0
-
+	if len(block.Transactions()) == 0 {
+		return nil
+	}
 	p := &pallTxManage{
 		block:       block,
 		baseStateDB: st,
@@ -57,9 +58,6 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		txList:      make(chan *TxWithIndex, 0),
 		ququeTx:     priority_queue.New(),
 		ququeRe:     priority_queue.New(),
-	}
-	if len(block.Transactions()) == 0 {
-		p.ch <- struct{}{}
 	}
 	for index := 0; index < 1; index++ {
 		go p.txLoop()
