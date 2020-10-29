@@ -1457,7 +1457,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	if err := blockBatch.Write(); err != nil {
 		log.Crit("Failed to write block into disk", "err", err)
 	}
-	if block.NumberU64() == 46214 || block.NumberU64() == 46239 {
+	if block.NumberU64() == 46214 || block.NumberU64() == 46147 || block.NumberU64() == 46239 {
 		common.PrintData = true
 	}
 	// Commit all cached state changes into underlying memory database.

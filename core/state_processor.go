@@ -139,18 +139,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Update the state with pending changes
 	var root []byte
 	if true {
-		if header.Number.Uint64() == 46214 || header.Number.Uint64() == 46239 {
+		if header.Number.Uint64() == 46214 || header.Number.Uint64() == 46147 || header.Number.Uint64() == 46239 {
 			statedb.Print()
 			statedb.GetReadAndWrite()
 		}
 
 		statedb.Finalise(true)
 	} else {
-		if header.Number.Uint64() == 46214 || header.Number.Uint64() == 46239 {
-			statedb.Print()
-			statedb.GetReadAndWrite()
-		}
-		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
+
 	}
 	if usedGas != nil {
 		*usedGas += result.UsedGas
