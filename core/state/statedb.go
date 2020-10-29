@@ -773,7 +773,7 @@ func (s *StateDB) Merge(d *StateDB) {
 }
 
 func (s *StateDB) CanMerge(base *StateDB) bool {
-	if base.CurrMergedNumber == s.txIndex {
+	if base.CurrMergedNumber == s.txIndex || base.CurrMergedNumber+1 == s.txIndex {
 		return true
 	}
 

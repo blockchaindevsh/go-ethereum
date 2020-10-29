@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gansidui/priority_queue"
+	"sync"
 	"time"
 )
 
@@ -20,11 +21,22 @@ type pallTxManage struct {
 	receipts        map[int]*types.Receipt
 	ch              chan struct{}
 	txList          chan *TxWithIndex
-	ququeTx         *priority_queue.PriorityQueue
-	ququeRe         *priority_queue.PriorityQueue
+
+	muTx    sync.RWMutex
+	ququeTx *priority_queue.PriorityQueue
+
+	muRe    sync.RWMutex
+	ququeRe *priority_queue.PriorityQueue
 
 	metged bool
+
+	// key txIndex
+	//value:
+	//		key:currentMergedIndex
+	currTask map[int]map[int]struct{}
+	mu       sync.RWMutex
 }
+
 type TxWithIndex struct {
 	tx      *types.Transaction
 	txIndex int
@@ -58,8 +70,9 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		txList:      make(chan *TxWithIndex, 0),
 		ququeTx:     priority_queue.New(),
 		ququeRe:     priority_queue.New(),
+		currTask:    make(map[int]map[int]struct{}, 0),
 	}
-	for index := 0; index < 1; index++ {
+	for index := 0; index < 16; index++ {
 		go p.txLoop()
 	}
 
@@ -68,20 +81,58 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	return p
 }
 
+func (p *pallTxManage) SetCurrTask(txInde int, baseMergedIndex int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if _, ok := p.currTask[txInde]; !ok {
+		p.currTask[txInde] = make(map[int]struct{})
+	}
+	p.currTask[txInde][baseMergedIndex] = struct{}{}
+}
+func (p *pallTxManage) DelteCurrTask(txInd int, baseMergedIndex int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if data, ok := p.currTask[txInd]; ok {
+		delete(data, baseMergedIndex)
+	}
+}
+
+func (p *pallTxManage) InCurrTask(txIndex int) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	baseMergedIndex := p.baseStateDB.CurrMergedNumber
+	if data, ok := p.currTask[txIndex]; ok {
+		_, ok1 := data[baseMergedIndex]
+		return ok1
+	}
+	return false
+}
+
 func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
+	p.muTx.Lock()
+	defer p.muTx.Unlock()
 	p.ququeTx.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
 }
 func (p *pallTxManage) GetTx() *TxWithIndex {
+	p.muTx.Lock()
+	defer p.muTx.Unlock()
 	if p.ququeTx.Len() == 0 {
 		return nil
 	}
+
 	return p.ququeTx.Pop().(*TxWithIndex)
 }
 
 func (p *pallTxManage) AddRe(re *Re) {
+	p.muRe.Lock()
+	defer p.muRe.Unlock()
 	p.ququeRe.Push(re)
 }
 func (p *pallTxManage) GetRe() *Re {
+	p.muRe.Lock()
+	defer p.muRe.Unlock()
 	if p.ququeRe.Len() == 0 {
 		return nil
 	}
@@ -92,15 +143,22 @@ func (p *pallTxManage) txLoop() {
 	for {
 		tt := p.GetTx()
 		if tt != nil {
+			if p.InCurrTask(tt.txIndex) {
+				//fmt.Println("contimeeee", tt.txIndex, p.baseStateDB.CurrMergedNumber)
+				if tt.txIndex > p.baseStateDB.CurrMergedNumber { //baseStateDB 可能会更新
+					p.AddTx(tt.tx, tt.txIndex)
+				}
+				continue
+			}
 			p.handleTx(tt.tx, tt.txIndex)
 		} else {
+			//fmt.Println("========155")
 			continue
 		}
 		if p.metged {
 			fmt.Println("already merged")
 			return
 		}
-
 	}
 }
 
@@ -111,14 +169,12 @@ func (p *pallTxManage) mergeLoop() {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		//fmt.Println("mergeloop", p.baseStateDB.CurrMergedNumber, rr.txIndex, rr.st.CanMerge(p.baseStateDB))
 		if rr.st.CanMerge(p.baseStateDB) { //merged
 			rr.st.Merge(p.baseStateDB)
+			//fmt.Println("merge end", p.baseStateDB.CurrMergedNumber, rr.txIndex)
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
-			//panic("=====")
 			p.markEnd()
-			//fmt.Println("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
 		}
 
 	}
@@ -127,7 +183,12 @@ func (p *pallTxManage) mergeLoop() {
 func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
 	st := p.baseStateDB.Copy()
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
+
+	p.SetCurrTask(txIndex, st.CurrMergedNumber)
+	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
+
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	//fmt.Println("??????????????????????????-handle tx", txIndex, st.CurrMergedNumber, err)
 	if err != nil {
 		p.AddTx(tx, txIndex)
 		return
@@ -139,6 +200,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
 		receipt: receipt,
 	})
 	p.receipts[txIndex] = receipt
+
 }
 
 func (p *pallTxManage) markEnd() {
@@ -157,12 +219,6 @@ func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint6
 		p.receipts[index].Bloom = types.CreateBloom(types.Receipts{p.receipts[index]})
 		rs = append(rs, p.receipts[index])
 		logs = append(logs, p.receipts[index].Logs...)
-		//fmt.Println("-------end-----------", "blockNumber", p.block.NumberU64(), "txIndex", index, p.receipts[index].GasUsed)
 	}
 	return rs, logs, all
-}
-
-func (p *pallTxManage) Done() {
-	p.ch <- struct{}{}
-	//fmt.Println("Set done ", p.block.NumberU64())
 }
