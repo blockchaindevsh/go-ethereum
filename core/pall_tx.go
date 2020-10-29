@@ -57,9 +57,7 @@ func (this *Re) Less(other interface{}) bool {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
-	if len(block.Transactions()) == 0 {
-		return nil
-	}
+	st.CurrMergedNumber = -1
 	p := &pallTxManage{
 		block:       block,
 		baseStateDB: st,

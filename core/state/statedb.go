@@ -464,7 +464,10 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	fmt.Println("ready to update", s.bhash.String(), addr.String(), obj.data.Nonce)
+	if addr.String() == "0xa1e4380a3b1f749673e270229993ee55f35663b4" {
+		fmt.Println("ready to update", s.bhash.String(), addr.String(), obj.data.Nonce)
+	}
+
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -776,7 +779,7 @@ func (s *StateDB) Merge(d *StateDB) {
 }
 
 func (s *StateDB) CanMerge(base *StateDB) bool {
-	if base.CurrMergedNumber == s.txIndex || base.CurrMergedNumber+1 == s.txIndex {
+	if base.CurrMergedNumber+1 == s.txIndex {
 		return true
 	}
 
