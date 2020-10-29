@@ -3231,6 +3231,10 @@ func TestTrans(t *testing.T) {
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		t.Fatalf("failed to insert chain: %v", err)
 	}
+
+	curr, err := blockchain.State()
+	nonce := curr.GetNonce(addr1)
+	fmt.Println("err", err, nonce)
 }
 
 func TestAsd(t *testing.T) {

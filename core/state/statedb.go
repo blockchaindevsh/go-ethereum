@@ -548,6 +548,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			return nil
 		}
 		if len(enc) == 0 {
+			fmt.Println("empty", addr.String())
 			return nil
 		}
 		data = new(Account)
@@ -556,6 +557,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			log.Error("Failed to decode state object", "addr", addr, "err", err)
 			return nil
 		}
+		fmt.Println("have data", addr.String(), data.Nonce)
 	}
 	// Insert into the live set
 	obj := newObject(s, addr, *data)
