@@ -175,7 +175,15 @@ func (p *pallTxManage) mergeLoop() {
 			continue
 		}
 		if rr.st.CanMerge(p.baseStateDB) { //merged
+			if p.block.NumberU64() == 46147 {
+				fmt.Println("--1-", rr.st.GetReadAndWrite)
+				fmt.Println("--2-", p.baseStateDB.GetReadAndWrite)
+			}
 			rr.st.Merge(p.baseStateDB)
+			if p.block.NumberU64() == 46147 {
+				fmt.Println("--3-", rr.st.GetReadAndWrite)
+				fmt.Println("--4-", p.baseStateDB.GetReadAndWrite)
+			}
 			//fmt.Println("merge end", p.baseStateDB.CurrMergedNumber, rr.txIndex)
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {

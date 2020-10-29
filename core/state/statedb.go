@@ -766,6 +766,10 @@ func (s *StateDB) GetReadAndWrite() {
 	}
 }
 
+func (s *StateDB) Getdiyrt() map[common.Address]int {
+	return s.journal.dirties
+}
+
 func (s *StateDB) Merge(d *StateDB) {
 	for k, v := range s.jouranlNow {
 		d.journal.dirties[k] = v
