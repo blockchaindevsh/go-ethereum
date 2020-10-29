@@ -138,7 +138,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	// Update the state with pending changes
 	var root []byte
-	if config.IsByzantium(header.Number) {
+	if true {
 		if header.Number.Uint64() == 46147 {
 			statedb.Print()
 			statedb.GetReadAndWrite()
