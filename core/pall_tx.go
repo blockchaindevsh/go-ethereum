@@ -5,7 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"time"
+	"github.com/gansidui/priority_queue"
 )
 
 type pallTxManage struct {
@@ -18,9 +18,20 @@ type pallTxManage struct {
 	gp              *GasPool
 	receipts        map[int]*types.Receipt
 	ch              chan struct{}
+	txList          chan *TxWithIndex
+	quque           *priority_queue.PriorityQueue
+}
+type TxWithIndex struct {
+	tx      *types.Transaction
+	txIndex int
 }
 
+func (this *TxWithIndex) Less(other interface{}) bool {
+	return this.txIndex < other.(*TxWithIndex).txIndex
+}
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
+	st.CurrMergedNumber = -1
+
 	p := &pallTxManage{
 		block:       block,
 		baseStateDB: st,
@@ -28,32 +39,54 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		gp:          new(GasPool).AddGas(block.GasLimit()),
 		receipts:    make(map[int]*types.Receipt, 0),
 		ch:          make(chan struct{}, 1),
+		txList:      make(chan *TxWithIndex, 0),
+		quque:       priority_queue.New(),
 	}
 	if len(block.Transactions()) == 0 {
 		p.ch <- struct{}{}
+	}
+	for index := 0; index < 16; index++ {
+		go p.listen()
 	}
 	return p
 }
 
 func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
-	ts := time.Now()
+	p.quque.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
+}
+func (p *pallTxManage) GetTx() *TxWithIndex {
+	return p.quque.Pop().(*TxWithIndex)
+}
+func (p *pallTxManage) loop() {
+
+}
+func (p *pallTxManage) listen() {
+	for {
+		tt := p.GetTx()
+		if tt != nil {
+			p.handleTx(tt.tx, tt.txIndex)
+		} else {
+			continue
+		}
+		if p.ch == nil { //TODO:判断是否关闭
+			return
+		}
+
+	}
+}
+
+func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
 	st := p.baseStateDB.Copy()
-	intervalCpy := time.Since(ts)
-	p.bc.copyTime += intervalCpy
-	p.bc.copyInc++
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
+	fmt.Println("handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("err", err, p.block.Number(), txIndex, tx.Hash().String())
 		panic(err)
 	}
 	p.receipts[txIndex] = receipt
-	p.baseStateDB = st
 	if common.PrintData {
 		fmt.Println("handle tx", p.block.NumberU64(), receipt.GasUsed)
-	}
-	if txIndex == len(p.block.Transactions())-1 {
-		p.Done()
 	}
 
 }
@@ -66,13 +99,9 @@ func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint6
 	for index := 0; index < txLen; index++ {
 		all = all + p.receipts[index].GasUsed
 		p.receipts[index].CumulativeGasUsed = all
-		//fmt.Println("callllllll---", p.receipts[index])
 		p.receipts[index].Bloom = types.CreateBloom(types.Receipts{p.receipts[index]})
-		//fmt.Println("blookkk", p.receipts[index].Bloom.Big().String())
 		rs = append(rs, p.receipts[index])
 		logs = append(logs, p.receipts[index].Logs...)
-		//fmt.Println("========================", p.receipts[index])
-
 	}
 	return rs, logs, all
 }

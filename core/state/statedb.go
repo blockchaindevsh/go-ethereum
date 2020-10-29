@@ -111,6 +111,8 @@ type StateDB struct {
 	SnapshotAccountReads time.Duration
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
+
+	CurrMergedNumber int
 }
 
 // New creates a new state from a given trie.
@@ -706,6 +708,7 @@ func (s *StateDB) Copy() *StateDB {
 	for hash, preimage := range s.preimages {
 		state.preimages[hash] = preimage
 	}
+	state.CurrMergedNumber = s.CurrMergedNumber
 	return state
 }
 

@@ -17,7 +17,7 @@
 package core
 
 import (
-	"fmt"
+	"encoding/hex"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -83,9 +83,6 @@ func (p *StateProcessor) Process1(block *types.Block, statedb *state.StateDB, cf
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	if block.NumberU64()%500000 == 0 {
-		fmt.Println("tsss----------", block.NumberU64(), p.bc.copyTime.Seconds(), p.bc.copyInc)
-	}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -98,12 +95,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	pm := NewPallTxManage(block, statedb.Copy(), p.bc)
 
-	//fmt.Println("PPPPPPPPPPPPPPPPPPP", block.Number())
-	//common.PrintData = true
-	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		pm.AddTx(tx, i)
 	}
+	hex.EncodeToString()
 
 	<-pm.ch
 	//common.PrintData = false
@@ -112,7 +107,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
-	//fmt.Println("processs", &statedb, statedb.GetStateObjectDirty())
 	return receipts, allLogs, *usedGas, nil
 }
 
