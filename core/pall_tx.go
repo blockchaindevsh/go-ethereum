@@ -196,9 +196,9 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
 	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 	if err != nil {
 		p.AddTx(tx, txIndex)
+		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 		return
 	}
 
