@@ -176,13 +176,13 @@ func (p *pallTxManage) mergeLoop() {
 		}
 		if rr.st.CanMerge(p.baseStateDB) { //merged
 			if p.block.NumberU64() == 46147 {
-				fmt.Println("--1-", rr.st.GetReadAndWrite)
-				fmt.Println("--2-", p.baseStateDB.GetReadAndWrite)
+				fmt.Println("--1-", rr.st.Getdiyrt())
+				fmt.Println("--2-", p.baseStateDB.Getdiyrt())
 			}
 			rr.st.Merge(p.baseStateDB)
 			if p.block.NumberU64() == 46147 {
-				fmt.Println("--3-", rr.st.GetReadAndWrite)
-				fmt.Println("--4-", p.baseStateDB.GetReadAndWrite)
+				fmt.Println("--3-", rr.st.Getdiyrt())
+				fmt.Println("--4-", p.baseStateDB.Getdiyrt())
 			}
 			//fmt.Println("merge end", p.baseStateDB.CurrMergedNumber, rr.txIndex)
 		}
