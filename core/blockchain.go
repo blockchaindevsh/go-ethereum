@@ -1457,12 +1457,17 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	if err := blockBatch.Write(); err != nil {
 		log.Crit("Failed to write block into disk", "err", err)
 	}
+	if block.NumberU64() == 46147 {
+		common.PrintData = true
+	}
 	// Commit all cached state changes into underlying memory database.
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
 		return NonStatTy, err
 	}
 	triedb := bc.stateCache.TrieDB()
+
+	common.PrintData = false
 
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.TrieDirtyDisabled {

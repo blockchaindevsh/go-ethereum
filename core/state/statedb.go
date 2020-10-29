@@ -824,8 +824,15 @@ func (s *StateDB) GetRefund() uint64 {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
+	if common.PrintData {
+		fmt.Println("Finalizse", s.journal.dirties)
+	}
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
+		if common.PrintData {
+			fmt.Println("addd", addr, exist, obj.suicided, obj.empty())
+		}
+
 		if !exist {
 			// ripeMD is 'touched' at block 1714175, in tx 0x1237f737031e40bcde4a8b7e717b2d15e3ecadfe49bb1bbc71ee9deb09c6fcf2
 			// That tx goes out of gas, and although the notion of 'touched' does not exist there, the
@@ -863,6 +870,9 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
+	if common.PrintData {
+		fmt.Println("Intermediatroot stateobPending", s.stateObjectsPending)
+	}
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
 		if obj.deleted {

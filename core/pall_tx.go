@@ -154,7 +154,7 @@ func (p *pallTxManage) txLoop() {
 			}
 			p.handleTx(tt.tx, tt.txIndex)
 		} else {
-
+			time.Sleep(1 * time.Second)
 		}
 		if p.metged {
 			//fmt.Println("already merged")
