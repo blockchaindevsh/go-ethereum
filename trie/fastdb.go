@@ -83,6 +83,7 @@ func (f *FastDB) Hash() common.Hash {
 func (f *FastDB) Commit(onleaf LeafCallback) (common.Hash, error) {
 	batch := f.db.diskdb.NewBatch()
 	for k, v := range f.cache {
+		//fmt.Println("cccccccccccc", k, hex.EncodeToString(v.value), v.deleted)
 		if v.deleted {
 			batch.Delete([]byte(k))
 		} else {

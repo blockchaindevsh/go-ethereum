@@ -268,9 +268,11 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		//fmt.Println("271111111", addr.String(), stateObject.Nonce())
 		return stateObject.Nonce()
 	}
 
+	//fmt.Println("274------", addr.String(), 0)
 	return 0
 }
 
@@ -464,9 +466,10 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	if addr.String() == "0xa1e4380a3b1f749673e270229993ee55f35663b4" {
-		fmt.Println("ready to update", s.bhash.String(), addr.String(), obj.data.Nonce)
-	}
+	//debug.PrintStack()
+	//if addr.String() == "0xa1e4380a3b1f749673e270229993ee55f35663b4" {
+	//fmt.Println("ready to update", addr.String(), obj.data.Nonce)
+	//}
 
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
@@ -829,12 +832,12 @@ func (s *StateDB) GetRefund() uint64 {
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	if common.PrintData {
-		fmt.Println("Finalizse", s.journal.dirties)
+		//fmt.Println("Finalizse", s.journal.dirties)
 	}
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
 		if common.PrintData {
-			fmt.Println("addd", addr, exist, obj.suicided, obj.empty())
+			//fmt.Println("addd", addr, exist, obj.suicided, obj.empty())
 		}
 
 		if !exist {
@@ -875,7 +878,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
 	if common.PrintData {
-		fmt.Println("Intermediatroot stateobPending", s.stateObjectsPending)
+		//fmt.Println("Intermediatroot stateobPending", s.stateObjectsPending)
 	}
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]

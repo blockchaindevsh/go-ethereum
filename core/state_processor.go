@@ -86,6 +86,7 @@ func (p *StateProcessor) Proce1ss(block *types.Block, statedb *state.StateDB, cf
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	fmt.Println("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", block.NumberU64())
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -102,7 +103,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			pm.AddTx(tx, i)
 		}
 		<-pm.ch
+		pm.mubase.Lock()
+
 		*statedb = *pm.baseStateDB
+		pm.mubase.Unlock()
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 
 	}
@@ -139,11 +143,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Update the state with pending changes
 	var root []byte
 	if true {
-		if header.Number.Uint64() == 46214 || header.Number.Uint64() == 46147 || header.Number.Uint64() == 46239 {
-			statedb.Print()
-			statedb.GetReadAndWrite()
-		}
-
+		//statedb.Print()
+		statedb.GetReadAndWrite()
 		statedb.Finalise(true)
 	} else {
 

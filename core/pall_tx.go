@@ -11,8 +11,10 @@ import (
 )
 
 type pallTxManage struct {
-	block           *types.Block
-	bc              *BlockChain
+	block *types.Block
+	bc    *BlockChain
+
+	mubase          sync.RWMutex
 	baseStateDB     *state.StateDB
 	currentIndex    int
 	currentReadMap  map[common.Address]struct{}
@@ -97,12 +99,12 @@ func (p *pallTxManage) DelteCurrTask(txInd int, baseMergedIndex int) {
 	}
 }
 
-func (p *pallTxManage) InCurrTask(txIndex int) bool {
+func (p *pallTxManage) InCurrTask(txIndex int, baseMetgedIndex int) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	baseMergedIndex := p.baseStateDB.CurrMergedNumber
+
 	if data, ok := p.currTask[txIndex]; ok {
-		_, ok1 := data[baseMergedIndex]
+		_, ok1 := data[baseMetgedIndex]
 		return ok1
 	}
 	return false
@@ -137,6 +139,11 @@ func (p *pallTxManage) GetRe() *Re {
 	return p.ququeRe.Pop().(*Re)
 }
 
+func (p *pallTxManage) GetMergedNumber() int {
+	p.mubase.RLock()
+	defer p.mubase.RUnlock()
+	return p.baseStateDB.CurrMergedNumber
+}
 func (p *pallTxManage) txLoop() {
 	if common.PrintData {
 		defer fmt.Println("txLoop end", p.block.NumberU64())
@@ -145,14 +152,13 @@ func (p *pallTxManage) txLoop() {
 	for {
 		tt := p.GetTx()
 		if tt != nil {
-			if p.InCurrTask(tt.txIndex) {
+			if !p.handleTx(tt.tx, tt.txIndex) {
 				//fmt.Println("contimeeee", tt.txIndex, p.baseStateDB.CurrMergedNumber)
-				if tt.txIndex > p.baseStateDB.CurrMergedNumber { //baseStateDB 可能会更新
+				if tt.txIndex > p.GetMergedNumber() { //baseStateDB 可能会更新
 					p.AddTx(tt.tx, tt.txIndex)
 				}
 				continue
 			}
-			p.handleTx(tt.tx, tt.txIndex)
 		} else {
 			time.Sleep(1 * time.Second)
 		}
@@ -174,41 +180,42 @@ func (p *pallTxManage) mergeLoop() {
 			time.Sleep(1 * time.Second)
 			continue
 		}
+		p.mubase.Lock()
 		if rr.st.CanMerge(p.baseStateDB) { //merged
-			if p.block.NumberU64() == 46214 || p.block.NumberU64() == 46147 || p.block.NumberU64() == 46239 {
-				rr.st.Getdiyrt()
-				p.baseStateDB.Getdiyrt()
-				fmt.Println("before")
-			}
+
 			rr.st.Merge(p.baseStateDB)
-			if p.block.NumberU64() == 46214 || p.block.NumberU64() == 46147 || p.block.NumberU64() == 46239 {
-				rr.st.Getdiyrt()
-				p.baseStateDB.Getdiyrt()
-				fmt.Println("end")
-			}
-			//fmt.Println("merge end", p.baseStateDB.CurrMergedNumber, rr.txIndex)
+
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
+			p.mubase.Unlock()
 			return
 		}
+		p.mubase.Unlock()
 
 	}
 }
 
-func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
+func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
+	p.mubase.Lock()
+	if p.InCurrTask(txIndex, p.baseStateDB.CurrMergedNumber) {
+		p.mubase.Unlock()
+		return false
+	}
 	st := p.baseStateDB.Copy()
-	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
+	p.mubase.Unlock()
 
+	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	p.SetCurrTask(txIndex, st.CurrMergedNumber)
 	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
+		time.Sleep(1 * time.Second)
 		p.AddTx(tx, txIndex)
-		panic(err)
-		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
-		return
+		//panic(err)
+		//fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
+		return false
 	}
 
 	p.AddRe(&Re{
@@ -217,6 +224,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
 		receipt: receipt,
 	})
 	p.receipts[txIndex] = receipt
+	return true
 
 }
 
