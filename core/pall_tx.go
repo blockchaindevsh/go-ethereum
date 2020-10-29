@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gansidui/priority_queue"
+	"time"
 )
 
 type pallTxManage struct {
@@ -19,18 +20,32 @@ type pallTxManage struct {
 	receipts        map[int]*types.Receipt
 	ch              chan struct{}
 	txList          chan *TxWithIndex
-	quque           *priority_queue.PriorityQueue
+	ququeTx         *priority_queue.PriorityQueue
+	ququeRe         *priority_queue.PriorityQueue
+
+	metged bool
 }
 type TxWithIndex struct {
 	tx      *types.Transaction
 	txIndex int
 }
 
+type Re struct {
+	st      *state.StateDB
+	txIndex int
+	receipt *types.Receipt
+}
+
 func (this *TxWithIndex) Less(other interface{}) bool {
 	return this.txIndex < other.(*TxWithIndex).txIndex
 }
+
+func (this *Re) Less(other interface{}) bool {
+	return this.txIndex < other.(*Re).txIndex
+}
+
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
-	st.CurrMergedNumber = -1
+	st.CurrMergedNumber = 0
 
 	p := &pallTxManage{
 		block:       block,
@@ -40,27 +55,42 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		receipts:    make(map[int]*types.Receipt, 0),
 		ch:          make(chan struct{}, 1),
 		txList:      make(chan *TxWithIndex, 0),
-		quque:       priority_queue.New(),
+		ququeTx:     priority_queue.New(),
+		ququeRe:     priority_queue.New(),
 	}
 	if len(block.Transactions()) == 0 {
 		p.ch <- struct{}{}
 	}
-	for index := 0; index < 16; index++ {
-		go p.listen()
+	for index := 0; index < 1; index++ {
+		go p.txLoop()
 	}
+
+	go p.mergeLoop()
+
 	return p
 }
 
 func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
-	p.quque.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
+	p.ququeTx.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
 }
 func (p *pallTxManage) GetTx() *TxWithIndex {
-	return p.quque.Pop().(*TxWithIndex)
+	if p.ququeTx.Len() == 0 {
+		return nil
+	}
+	return p.ququeTx.Pop().(*TxWithIndex)
 }
-func (p *pallTxManage) loop() {
 
+func (p *pallTxManage) AddRe(re *Re) {
+	p.ququeRe.Push(re)
 }
-func (p *pallTxManage) listen() {
+func (p *pallTxManage) GetRe() *Re {
+	if p.ququeRe.Len() == 0 {
+		return nil
+	}
+	return p.ququeRe.Pop().(*Re)
+}
+
+func (p *pallTxManage) txLoop() {
 	for {
 		tt := p.GetTx()
 		if tt != nil {
@@ -68,8 +98,29 @@ func (p *pallTxManage) listen() {
 		} else {
 			continue
 		}
-		if p.ch == nil { //TODO:判断是否关闭
+		if p.metged {
+			fmt.Println("already merged")
 			return
+		}
+
+	}
+}
+
+func (p *pallTxManage) mergeLoop() {
+	for {
+		rr := p.GetRe()
+		if rr == nil {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		//fmt.Println("mergeloop", p.baseStateDB.CurrMergedNumber, rr.txIndex, rr.st.CanMerge(p.baseStateDB))
+		if rr.st.CanMerge(p.baseStateDB) { //merged
+			rr.st.Merge(p.baseStateDB)
+		}
+		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
+			//panic("=====")
+			p.markEnd()
+			//fmt.Println("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
 		}
 
 	}
@@ -78,17 +129,23 @@ func (p *pallTxManage) listen() {
 func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) {
 	st := p.baseStateDB.Copy()
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	fmt.Println("handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		fmt.Println("err", err, p.block.Number(), txIndex, tx.Hash().String())
-		panic(err)
-	}
-	p.receipts[txIndex] = receipt
-	if common.PrintData {
-		fmt.Println("handle tx", p.block.NumberU64(), receipt.GasUsed)
+		p.AddTx(tx, txIndex)
+		return
 	}
 
+	p.AddRe(&Re{
+		st:      st,
+		txIndex: txIndex,
+		receipt: receipt,
+	})
+	p.receipts[txIndex] = receipt
+}
+
+func (p *pallTxManage) markEnd() {
+	p.metged = true
+	p.ch <- struct{}{}
 }
 
 func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
@@ -102,6 +159,7 @@ func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint6
 		p.receipts[index].Bloom = types.CreateBloom(types.Receipts{p.receipts[index]})
 		rs = append(rs, p.receipts[index])
 		logs = append(logs, p.receipts[index].Logs...)
+		//fmt.Println("-------end-----------", "blockNumber", p.block.NumberU64(), "txIndex", index, p.receipts[index].GasUsed)
 	}
 	return rs, logs, all
 }

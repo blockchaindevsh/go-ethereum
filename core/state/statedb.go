@@ -113,6 +113,10 @@ type StateDB struct {
 	SnapshotCommits      time.Duration
 
 	CurrMergedNumber int
+
+	mergedRRWW map[int]map[common.Address]bool
+	rrww       map[common.Address]bool // true dirty ; false only read
+	jouranlNow map[common.Address]int
 }
 
 // New creates a new state from a given trie.
@@ -131,6 +135,8 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		logs:                make(map[common.Hash][]*types.Log),
 		preimages:           make(map[common.Hash][]byte),
 		journal:             newJournal(),
+		rrww:                make(map[common.Address]bool, 0),
+		mergedRRWW:          make(map[int]map[common.Address]bool, 0),
 	}
 	if sdb.snaps != nil {
 		if sdb.snap = sdb.snaps.Snapshot(root); sdb.snap != nil {
@@ -720,6 +726,73 @@ func (s *StateDB) Snapshot() int {
 	return id
 }
 
+func (s *StateDB) Print() {
+	fmt.Println("SSSSSSSSSSS---", s.bhash.String())
+	for k, v := range s.journal.dirties {
+		fmt.Println("dirties", k.String(), v)
+	}
+
+	for k, _ := range s.stateObjects {
+		fmt.Println("stateObjects", k.String())
+	}
+
+	for k, _ := range s.stateObjectsPending {
+		fmt.Println("stateObjectsPending", k.String())
+	}
+	for k, _ := range s.stateObjectsDirty {
+		fmt.Println("stateObjectsDirty", k.String())
+	}
+
+	fmt.Println("EEEEEEEEEEEEEEEEEEEEEEE---", s.bhash.String())
+}
+
+func (s *StateDB) GetReadAndWrite() {
+	write := make(map[common.Address]bool)
+	for k, _ := range s.stateObjects {
+		_, ok := s.journal.dirties[k]
+		write[k] = ok
+
+	}
+	s.rrww = write
+	s.jouranlNow = make(map[common.Address]int, 0)
+	for k, v := range s.journal.dirties {
+		s.jouranlNow[k] = v
+	}
+}
+
+func (s *StateDB) Merge(d *StateDB) {
+	for k, v := range s.jouranlNow {
+		d.journal.dirties[k] = v
+	}
+	for k, v := range s.stateObjects {
+		d.stateObjects[k] = v.deepCopy(s)
+	}
+	d.mergedRRWW[s.txIndex] = s.rrww
+	d.CurrMergedNumber = s.txIndex
+	d.Finalise(false)
+}
+
+func (s *StateDB) CanMerge(base *StateDB) bool {
+	if base.CurrMergedNumber == s.txIndex {
+		return true
+	}
+
+	ss := make(map[common.Address]bool)
+	for index := base.CurrMergedNumber + 1; index < s.txIndex; index++ {
+		t := base.mergedRRWW[index]
+		for k, v := range t {
+			ss[k] = v
+		}
+	}
+
+	for k, _ := range s.rrww {
+		if ss[k] {
+			return false
+		}
+	}
+	return true
+}
+
 // RevertToSnapshot reverts all state changes made since the given revision.
 func (s *StateDB) RevertToSnapshot(revid int) {
 	// Find the snapshot in the stack of valid snapshots.
@@ -784,7 +857,6 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
-
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
 		if obj.deleted {

@@ -17,7 +17,7 @@
 package core
 
 import (
-	"encoding/hex"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -54,7 +54,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process1(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) Proce1ss(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -79,6 +79,9 @@ func (p *StateProcessor) Process1(block *types.Block, statedb *state.StateDB, cf
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
+	for index := 0; index < len(receipts); index++ {
+		fmt.Println("block.Number", block.NumberU64(), index, receipts[index].GasUsed)
+	}
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -93,20 +96,30 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	pm := NewPallTxManage(block, statedb.Copy(), p.bc)
+	pm := NewPallTxManage(block, statedb, p.bc)
 
 	for i, tx := range block.Transactions() {
 		pm.AddTx(tx, i)
 	}
-	hex.EncodeToString()
 
 	<-pm.ch
 	//common.PrintData = false
 	*statedb = *pm.baseStateDB
+	//pm.baseStateDB.Print()
+	//
+	//fmt.Println("---------------ddsdsadsa")
+	//statedb.Print()
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
+
+	if common.PrintData {
+		for index := 0; index < len(receipts); index++ {
+			fmt.Println("block.Number", block.NumberU64(), index, receipts[index].GasUsed)
+		}
+	}
+
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -132,6 +145,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Update the state with pending changes
 	var root []byte
 	if config.IsByzantium(header.Number) {
+		if common.PrintData {
+			//statedb.Print()
+			statedb.GetReadAndWrite()
+		}
+
 		statedb.Finalise(true)
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
