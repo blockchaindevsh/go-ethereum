@@ -86,7 +86,7 @@ func (p *StateProcessor) Proce1ss(block *types.Block, statedb *state.StateDB, cf
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	fmt.Println("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", block.NumberU64())
+	//fmt.Println("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", block.NumberU64())
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
