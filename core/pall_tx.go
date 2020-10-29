@@ -72,7 +72,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		ququeRe:     priority_queue.New(),
 		currTask:    make(map[int]map[int]struct{}, 0),
 	}
-	for index := 0; index < 16; index++ {
+	for index := 0; index < 4; index++ {
 		go p.txLoop()
 	}
 
@@ -140,6 +140,10 @@ func (p *pallTxManage) GetRe() *Re {
 }
 
 func (p *pallTxManage) txLoop() {
+	if common.PrintData {
+		defer fmt.Println("txLoop end", p.block.NumberU64())
+	}
+
 	for {
 		tt := p.GetTx()
 		if tt != nil {
@@ -152,17 +156,20 @@ func (p *pallTxManage) txLoop() {
 			}
 			p.handleTx(tt.tx, tt.txIndex)
 		} else {
-			//fmt.Println("========155")
-			continue
+
 		}
 		if p.metged {
-			fmt.Println("already merged")
+			//fmt.Println("already merged")
 			return
 		}
 	}
 }
 
 func (p *pallTxManage) mergeLoop() {
+	if common.PrintData {
+		defer fmt.Println("mergeloop end", p.block.NumberU64())
+	}
+
 	for {
 		rr := p.GetRe()
 		if rr == nil {
@@ -175,6 +182,7 @@ func (p *pallTxManage) mergeLoop() {
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
+			return
 		}
 
 	}
