@@ -146,7 +146,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 
 		statedb.Finalise(true)
 	} else {
-		if header.Number.Uint64() == 46147 || header.Number.Uint64() == 46214 {
+		if header.Number.Uint64() == 46147 || header.Number.Uint64() == 46239 {
 			statedb.Print()
 			statedb.GetReadAndWrite()
 		}

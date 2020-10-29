@@ -175,14 +175,16 @@ func (p *pallTxManage) mergeLoop() {
 			continue
 		}
 		if rr.st.CanMerge(p.baseStateDB) { //merged
-			if p.block.NumberU64() == 46147 || p.block.NumberU64() == 46214 {
-				fmt.Println("--1-", rr.st.Getdiyrt())
-				fmt.Println("--2-", p.baseStateDB.Getdiyrt())
+			if p.block.NumberU64() == 46147 || p.block.NumberU64() == 46239 {
+				rr.st.Getdiyrt()
+				p.baseStateDB.Getdiyrt()
+				fmt.Println("before")
 			}
 			rr.st.Merge(p.baseStateDB)
-			if p.block.NumberU64() == 46147 || p.block.NumberU64() == 46214 {
-				fmt.Println("--3-", rr.st.Getdiyrt())
-				fmt.Println("--4-", p.baseStateDB.Getdiyrt())
+			if p.block.NumberU64() == 46147 || p.block.NumberU64() == 46239 {
+				rr.st.Getdiyrt()
+				p.baseStateDB.Getdiyrt()
+				fmt.Println("end")
 			}
 			//fmt.Println("merge end", p.baseStateDB.CurrMergedNumber, rr.txIndex)
 		}

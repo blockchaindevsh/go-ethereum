@@ -766,8 +766,8 @@ func (s *StateDB) GetReadAndWrite() {
 	}
 }
 
-func (s *StateDB) Getdiyrt() map[common.Address]int {
-	return s.journal.dirties
+func (s *StateDB) Getdiyrt() {
+	fmt.Println("dirty", s.journal.dirties, s.jouranlNow)
 }
 
 func (s *StateDB) Merge(d *StateDB) {
