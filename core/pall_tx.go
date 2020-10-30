@@ -163,8 +163,10 @@ func (p *pallTxManage) mergeLoop() {
 
 			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
 		} else {
-			fmt.Println("again add to queue", rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber)
-			p.AddTxToQueue(rr.tx, rr.txIndex)
+			if rr.st.TxIndex() > p.baseStateDB.CurrMergedNumber {
+				fmt.Println("again add to queue", rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber)
+				p.AddTxToQueue(rr.tx, rr.txIndex)
+			}
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
