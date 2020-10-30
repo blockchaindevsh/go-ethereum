@@ -143,8 +143,8 @@ func (p *pallTxManage) txLoop() {
 			if !p.handleTx(tx.tx, tx.txIndex) {
 				p.AddTxToQueue(tx.tx, tx.txIndex)
 			}
+			fmt.Println("txloop end", tx.txIndex, tx.tx.Hash().String())
 		}
-		fmt.Println("txloop end", tx.txIndex, tx.tx.Hash().String())
 		time.Sleep(1 * time.Second)
 	}
 }
