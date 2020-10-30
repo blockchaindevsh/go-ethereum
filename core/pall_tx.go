@@ -184,10 +184,10 @@ func (p *pallTxManage) mergeLoop() {
 		//fmt.Println("ready to merge")
 		p.mubase.Lock()
 		if rr.st.CanMerge(p.baseStateDB) { //merged
-			rr.st.Print(fmt.Sprintf("before gas:%s,,receipt:%s", p.gp.Gas(), rr.receipt.GasUsed))
+			rr.st.Print(fmt.Sprintf("before gas:%v,,receipt:%v", p.gp.Gas(), rr.receipt.GasUsed))
 			rr.st.Merge(p.baseStateDB)
 			p.gp.SubGas(rr.receipt.GasUsed)
-			p.baseStateDB.Print(fmt.Sprintf("end %s", p.gp.Gas()))
+			p.baseStateDB.Print(fmt.Sprintf("end %v", p.gp.Gas()))
 
 			//fmt.Println("-----------------", p.baseStateDB.CurrMergedNumber)
 		}
