@@ -154,6 +154,9 @@ func (p *pallTxManage) mergeLoop() {
 		}
 
 		p.mubase.Lock()
+
+		fmt.Println("GetReFromQueue", p.block.NumberU64(), rr.txIndex, rr.st.CurrMergedNumber, p.baseStateDB.CurrMergedNumber)
+
 		if rr.st.CanMerge(p.baseStateDB) {
 			fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
 			rr.st.Merge(p.baseStateDB)
