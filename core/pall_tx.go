@@ -106,7 +106,7 @@ func (p *pallTxManage) InCurrTask(txIndex int, baseIndex int) bool {
 func (p *pallTxManage) AddTxToQueue(tx *types.Transaction, txIndex int) {
 	p.muTx.Lock()
 	defer p.muTx.Unlock()
-	fmt.Println("AddTxxxx", tx.Hash().String(), txIndex)
+	//fmt.Println("AddTxxxx", tx.Hash().String(), txIndex)
 	p.txQueue.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
 }
 func (p *pallTxManage) GetTxFromQueue() *TxWithIndex {
