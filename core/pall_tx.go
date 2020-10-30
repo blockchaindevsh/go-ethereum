@@ -192,6 +192,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 		return false
 	}
 	if txIndex <= p.baseStateDB.CurrMergedNumber {
+		p.mubase.Unlock()
 		return true
 	}
 	st := p.baseStateDB.Copy()
