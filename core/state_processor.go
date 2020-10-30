@@ -86,7 +86,6 @@ func (p *StateProcessor) Proce1ss(block *types.Block, statedb *state.StateDB, cf
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	//fmt.Println("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", block.NumberU64())
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -107,6 +106,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 		*statedb = *pm.baseStateDB
 		pm.mubase.Unlock()
+		fmt.Println("eeeeeeeeeeeeeeeee", block.NumberU64(), statedb.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")))
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 
 	} else {

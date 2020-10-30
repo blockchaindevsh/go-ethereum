@@ -87,7 +87,6 @@ type StateDB struct {
 	refund uint64
 
 	thash, bhash common.Hash
-	tBlockNumber uint64
 	txIndex      int
 	logs         map[common.Hash][]*types.Log
 	logSize      uint
@@ -145,10 +144,6 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		}
 	}
 	return sdb, nil
-}
-
-func (s *StateDB) SetBlockNumber(number uint64) {
-	s.tBlockNumber = number
 }
 
 // setError remembers the first non-nil error it is called with.
@@ -740,7 +735,7 @@ func (s *StateDB) Print(ss string) {
 	if !common.PrintData {
 		return
 	}
-	fmt.Println("ready to print", "block.Number", s.tBlockNumber, len(s.journal.dirties), ss)
+	//fmt.Println("ready to print", "block.Number", s.tBlockNumber, len(s.journal.dirties), ss)
 	//for k, _ := range s.journal.dirties {
 	//fmt.Println(ss, "dirties", k.String(), s.stateObjects[k].Nonce())
 	//}
@@ -760,10 +755,6 @@ func (s *StateDB) GetReadAndWrite() {
 }
 
 func (s *StateDB) Merge(d *StateDB) {
-	if common.PrintData {
-		//fmt.Println("MMMMMMMMMMMMMM", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber")
-	}
-
 	tt := d.mergedRRWW
 	*d = *s
 	d.mergedRRWW[s.txIndex] = s.rrww
@@ -772,9 +763,6 @@ func (s *StateDB) Merge(d *StateDB) {
 	}
 	d.CurrMergedNumber = s.txIndex
 	d.Finalise(false)
-	if common.PrintData {
-		fmt.Println("MMMMMMMMMMMMMM-end", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
-	}
 
 }
 

@@ -29,7 +29,7 @@ type pallTxManage struct {
 	muRe    sync.RWMutex
 	ququeRe *priority_queue.PriorityQueue
 
-	metged bool
+	merged bool
 
 	// key txIndex
 	//value:
@@ -145,22 +145,17 @@ func (p *pallTxManage) GetMergedNumber() int {
 	defer p.mubase.RUnlock()
 	return p.baseStateDB.CurrMergedNumber
 }
-func (p *pallTxManage) txLoop() {
-	if common.PrintData {
-		//defer fmt.Println("txLoop end", p.block.NumberU64())
-	}
 
+func (p *pallTxManage) txLoop() {
 	for {
-		if p.metged {
-			//fmt.Println("already merged")
+		if p.merged {
 			return
 		}
-		tt := p.GetTx()
-		if tt != nil {
-			if !p.handleTx(tt.tx, tt.txIndex) {
-				//fmt.Println("contimeeee", tt.txIndex, p.baseStateDB.CurrMergedNumber)
-				if tt.txIndex > p.GetMergedNumber() { //baseStateDB 可能会更新
-					p.AddTx(tt.tx, tt.txIndex)
+		tx := p.GetTx()
+		if tx != nil {
+			if !p.handleTx(tx.tx, tx.txIndex) {
+				if tx.txIndex > p.GetMergedNumber() { //baseStateDB 可能会更新
+					p.AddTx(tx.tx, tx.txIndex)
 				}
 				continue
 			}
@@ -184,10 +179,13 @@ func (p *pallTxManage) mergeLoop() {
 		//fmt.Println("ready to merge")
 		p.mubase.Lock()
 		if rr.st.CanMerge(p.baseStateDB) { //merged
-			fmt.Println("ready to merge", p.block.NumberU64(), rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber, p.gp.Gas())
+			fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
 			rr.st.Merge(p.baseStateDB)
+
 			p.gp.SubGas(rr.receipt.GasUsed)
-			fmt.Println("end to merge", p.block.NumberU64(), rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber, p.gp.Gas(), p.block.GasLimit()-uint64(21000*rr.txIndex))
+			p.receipts[rr.txIndex] = rr.receipt
+
+			fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
@@ -209,32 +207,27 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	st.SetBlockNumber(p.block.NumberU64())
+
 	p.SetCurrTask(txIndex, st.CurrMergedNumber)
 	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		time.Sleep(1 * time.Second)
 		p.AddTx(tx, txIndex)
 		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
-		//panic(err)
 		return false
 	}
-
-	//fmt.Println("22333--handle tx")
 	p.AddRe(&Re{
 		st:      st,
 		txIndex: txIndex,
 		receipt: receipt,
 	})
-	p.receipts[txIndex] = receipt
 	return true
 
 }
 
 func (p *pallTxManage) markEnd() {
-	p.metged = true
+	p.merged = true
 	p.ch <- struct{}{}
 }
 
