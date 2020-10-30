@@ -737,6 +737,9 @@ func (s *StateDB) Snapshot() int {
 }
 
 func (s *StateDB) Print(ss string) {
+	if !common.PrintData {
+		return
+	}
 	fmt.Println("ready to print", "block.Number", s.tBlockNumber, len(s.journal.dirties))
 	for k, _ := range s.journal.dirties {
 		fmt.Println(ss, "dirties", k.String(), s.stateObjects[k].Nonce())
@@ -757,7 +760,10 @@ func (s *StateDB) GetReadAndWrite() {
 }
 
 func (s *StateDB) Merge(d *StateDB) {
-	fmt.Println("MMMMMMMMMMMMMM", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
+	if common.PrintData {
+		fmt.Println("MMMMMMMMMMMMMM", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
+	}
+
 	tt := d.mergedRRWW
 	*d = *s
 	d.mergedRRWW[s.txIndex] = s.rrww
@@ -766,7 +772,10 @@ func (s *StateDB) Merge(d *StateDB) {
 	}
 	d.CurrMergedNumber = s.txIndex
 	d.Finalise(false)
-	fmt.Println("MMMMMMMMMMMMMM-end", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
+	if common.PrintData {
+		fmt.Println("MMMMMMMMMMMMMM-end", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
+	}
+
 }
 
 func (s *StateDB) CanMerge(base *StateDB) bool {
