@@ -149,6 +149,7 @@ func (p *pallTxManage) mergeLoop() {
 	for {
 		rr := p.GetReceiptFromQueue()
 		if rr == nil {
+			fmt.Println("RRRRRRRRRRRRRRR", "empty")
 			time.Sleep(1 * time.Second)
 			continue
 		}
@@ -204,6 +205,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 		p.AddTxToQueue(tx, txIndex)
 		return false
 	}
+	fmt.Println("AddReceiptttttt", txIndex, st.CurrMergedNumber)
 	p.AddReceiptToQueue(&ReceiptWithIndex{
 		tx:      tx,
 		st:      st,
