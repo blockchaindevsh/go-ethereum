@@ -772,7 +772,7 @@ func (s *StateDB) CanMerge(base *StateDB) bool {
 	}
 
 	ss := make(map[common.Address]bool)
-	for index := base.CurrMergedNumber + 1; index < s.txIndex; index++ {
+	for index := s.CurrMergedNumber + 1; index < s.txIndex; index++ {
 		t := base.mergedRRWW[index]
 		for k, v := range t {
 			ss[k] = v

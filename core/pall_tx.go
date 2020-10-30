@@ -106,7 +106,6 @@ func (p *pallTxManage) InCurrTask(txIndex int, baseIndex int) bool {
 func (p *pallTxManage) AddTxToQueue(tx *types.Transaction, txIndex int) {
 	p.muTx.Lock()
 	defer p.muTx.Unlock()
-	fmt.Println("AddTXXXXXXXXXXXXXXx", tx.Hash().String(), txIndex)
 	p.txQueue.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
 }
 func (p *pallTxManage) GetTxFromQueue() *TxWithIndex {
@@ -170,7 +169,7 @@ func (p *pallTxManage) mergeLoop() {
 			p.gp.SubGas(rr.receipt.GasUsed)
 			p.receipts[rr.txIndex] = rr.receipt
 
-			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber, rr.st.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), p.baseStateDB.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")))
+			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "currBase", rr.st.CurrMergedNumber, "baseMergedNumber", p.baseStateDB.CurrMergedNumber, rr.st.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), p.baseStateDB.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), rr.st.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")), p.baseStateDB.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")))
 		} else {
 			if rr.st.TxIndex() > p.baseStateDB.CurrMergedNumber {
 				fmt.Println("again add to queue", rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber)
