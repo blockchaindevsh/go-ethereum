@@ -28,8 +28,8 @@ type pallTxManage struct {
 
 	merged bool
 
-	currTask map[int]map[int]struct{}
-	muTask   sync.RWMutex
+	//currTask map[int]map[int]struct{}
+	//muTask   sync.RWMutex
 
 	gp *GasPool
 }
@@ -64,8 +64,8 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		ch:           make(chan struct{}, 1),
 		txQueue:      priority_queue.New(),
 		receiptQueue: priority_queue.New(),
-		currTask:     make(map[int]map[int]struct{}, 0),
-		gp:           new(GasPool).AddGas(block.GasLimit()),
+		//currTask:     make(map[int]map[int]struct{}, 0),
+		gp: new(GasPool).AddGas(block.GasLimit()),
 	}
 	for index := 0; index < 4; index++ {
 		go p.txLoop()
@@ -74,34 +74,34 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	return p
 }
 
-func (p *pallTxManage) SetCurrTask(txIndex int, baseMergedIndex int) {
-	p.muTask.Lock()
-	defer p.muTask.Unlock()
-
-	if _, ok := p.currTask[txIndex]; !ok {
-		p.currTask[txIndex] = make(map[int]struct{})
-	}
-	p.currTask[txIndex][baseMergedIndex] = struct{}{}
-}
-func (p *pallTxManage) DeleteCurrTask(txIndex int, baseMergedIndex int) {
-	p.muTask.Lock()
-	defer p.muTask.Unlock()
-
-	if data, ok := p.currTask[txIndex]; ok {
-		delete(data, baseMergedIndex)
-	}
-}
-
-func (p *pallTxManage) InCurrTask(txIndex int, baseIndex int) bool {
-	p.muTask.RLock()
-	defer p.muTask.RUnlock()
-
-	if data, ok := p.currTask[txIndex]; ok {
-		_, ok1 := data[baseIndex]
-		return ok1
-	}
-	return false
-}
+//func (p *pallTxManage) SetCurrTask(txIndex int, baseMergedIndex int) {
+//	p.muTask.Lock()
+//	defer p.muTask.Unlock()
+//
+//	if _, ok := p.currTask[txIndex]; !ok {
+//		p.currTask[txIndex] = make(map[int]struct{})
+//	}
+//	p.currTask[txIndex][baseMergedIndex] = struct{}{}
+//}
+//func (p *pallTxManage) DeleteCurrTask(txIndex int, baseMergedIndex int) {
+//	p.muTask.Lock()
+//	defer p.muTask.Unlock()
+//
+//	if data, ok := p.currTask[txIndex]; ok {
+//		delete(data, baseMergedIndex)
+//	}
+//}
+//
+//func (p *pallTxManage) InCurrTask(txIndex int, baseIndex int) bool {
+//	p.muTask.RLock()
+//	defer p.muTask.RUnlock()
+//
+//	if data, ok := p.currTask[txIndex]; ok {
+//		_, ok1 := data[baseIndex]
+//		return ok1
+//	}
+//	return false
+//}
 
 func (p *pallTxManage) AddTxToQueue(tx *types.Transaction, txIndex int) {
 	p.muTx.Lock()
@@ -188,11 +188,11 @@ func (p *pallTxManage) mergeLoop() {
 
 func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	p.mubase.Lock()
-	if p.InCurrTask(txIndex, p.baseStateDB.MergedIndex) { //TODO delete task
-		fmt.Println("IIIIIIIIIIIIIInCurrTask", txIndex, tx.Hash().String(), p.baseStateDB.MergedIndex)
-		p.mubase.Unlock()
-		return true
-	}
+	//if p.InCurrTask(txIndex, p.baseStateDB.MergedIndex) { //TODO delete task
+	//	fmt.Println("IIIIIIIIIIIIIInCurrTask", txIndex, tx.Hash().String(), p.baseStateDB.MergedIndex)
+	//	p.mubase.Unlock()
+	//	return true
+	//}
 	if txIndex <= p.baseStateDB.MergedIndex { //已经merge过的，直接丢弃
 		p.mubase.Unlock()
 		return true
@@ -202,8 +202,8 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
-	p.SetCurrTask(txIndex, st.MergedIndex)
-	defer p.DeleteCurrTask(txIndex, st.MergedIndex)
+	//p.SetCurrTask(txIndex, st.MergedIndex)
+	//defer p.DeleteCurrTask(txIndex, st.MergedIndex)
 
 	//fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.MergedIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
