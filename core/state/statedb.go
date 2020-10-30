@@ -133,6 +133,7 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		logs:                make(map[common.Hash][]*types.Log),
 		preimages:           make(map[common.Hash][]byte),
 		journal:             newJournal(),
+		CurrMergedNumber:    -1,
 		rrww:                make(map[common.Address]bool, 0),
 		mergedRRWW:          make(map[int]map[common.Address]bool, 0),
 	}
@@ -731,20 +732,7 @@ func (s *StateDB) Snapshot() int {
 	return id
 }
 
-func (s *StateDB) Print(ss string) {
-	if !common.PrintData {
-		return
-	}
-	//fmt.Println("ready to print", "block.Number", s.tBlockNumber, len(s.journal.dirties), ss)
-	//for k, _ := range s.journal.dirties {
-	//fmt.Println(ss, "dirties", k.String(), s.stateObjects[k].Nonce())
-	//}
-	//for k, v := range s.stateObjects {
-	//fmt.Println(ss, "stateObjects", k.String(), v.data.Nonce)
-	//}
-}
-
-func (s *StateDB) GetReadAndWrite() {
+func (s *StateDB) CalReadAndWrite() {
 	write := make(map[common.Address]bool)
 	for k, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[k]

@@ -3033,7 +3033,6 @@ func TestInitThenFailCreateContract(t *testing.T) {
 }
 
 func TestFastDBSuiSide(t *testing.T) {
-	common.PrintData = true
 	common.FastDBMode = true
 	var (
 		key1, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa9f")
@@ -3119,7 +3118,6 @@ func TestFastDBSuiSide(t *testing.T) {
 }
 
 func TestFastDBSuiSideInOneBlock(t *testing.T) {
-	common.PrintData = true
 	common.FastDBMode = true
 	var (
 		key1, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa9f")
@@ -3201,7 +3199,6 @@ func TestFastDBSuiSideInOneBlock(t *testing.T) {
 
 func TestTrans(t *testing.T) {
 	common.FastDBMode = true
-	common.PrintData = true
 	var (
 		key1, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa9f")
 		key2, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa91")

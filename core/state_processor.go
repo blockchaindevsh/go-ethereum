@@ -79,8 +79,8 @@ func (p *StateProcessor) Proce1ss(block *types.Block, statedb *state.StateDB, cf
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
-	for index := 0; index < len(receipts); index++ {
-		fmt.Println("block.Number", block.NumberU64(), index, receipts[index].GasUsed)
+	if len(receipts) != 0 {
+		fmt.Println("block.Number", block.NumberU64(), len(block.Transactions()))
 	}
 	return receipts, allLogs, *usedGas, nil
 }
@@ -116,10 +116,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
-	if common.PrintData {
-		for index := 0; index < len(receipts); index++ {
-			//fmt.Println("block.Number", block.NumberU64(), index, receipts[index].GasUsed)
-		}
+	if len(receipts) != 0 {
+		fmt.Println("block.Number", block.NumberU64(), len(block.Transactions()))
 	}
 
 	return receipts, allLogs, *usedGas, nil
@@ -146,8 +144,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	// Update the state with pending changes
 
-	statedb.GetReadAndWrite()
-	//statedb.Print()
+	statedb.CalReadAndWrite()
 	var root []byte
 	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)

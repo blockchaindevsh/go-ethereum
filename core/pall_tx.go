@@ -153,22 +153,15 @@ func (p *pallTxManage) mergeLoop() {
 	for {
 		rr := p.GetReceiptFromQueue()
 		if rr == nil {
-			//fmt.Println("RRRRRRRRRRRRRRR", "empty")
-			//time.Sleep(1 * time.Second)
 			continue
 		}
 
 		p.mubase.Lock()
-
-		//fmt.Println("GetReFromQueue", p.block.NumberU64(), rr.txIndex, rr.st.CurrMergedNumber, p.baseStateDB.CurrMergedNumber)
-
 		if rr.st.CanMerge(p.baseStateDB) {
-			//fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
 			rr.st.Merge(p.baseStateDB)
 
 			p.gp.SubGas(rr.receipt.GasUsed)
 			p.receipts[rr.txIndex] = rr.receipt
-
 			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "currBase", rr.st.CurrMergedNumber, "baseMergedNumber", p.baseStateDB.CurrMergedNumber, rr.st.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), p.baseStateDB.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), rr.st.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")), p.baseStateDB.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")))
 		} else {
 			if rr.st.TxIndex() > p.baseStateDB.CurrMergedNumber {
@@ -182,7 +175,6 @@ func (p *pallTxManage) mergeLoop() {
 			return
 		}
 		p.mubase.Unlock()
-
 	}
 }
 
@@ -210,7 +202,6 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 		p.AddTxToQueue(tx, txIndex)
 		return false
 	}
-	//fmt.Println("AddReceiptttttt", txIndex, st.CurrMergedNumber)
 	p.AddReceiptToQueue(&ReceiptWithIndex{
 		tx:      tx,
 		st:      st,
