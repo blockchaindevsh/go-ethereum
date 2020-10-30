@@ -196,9 +196,9 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	defer p.DeleteCurrTask(txIndex, st.CurrMergedNumber)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 	if err != nil {
 		p.AddTxToQueue(tx, txIndex)
-		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{
