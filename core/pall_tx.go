@@ -191,7 +191,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	if p.InCurrTask(txIndex, p.baseStateDB.MergedIndex) { //TODO delete task
 		fmt.Println("IIIIIIIIIIIIIInCurrTask", txIndex, tx.Hash().String(), p.baseStateDB.MergedIndex)
 		p.mubase.Unlock()
-		return false
+		return true
 	}
 	if txIndex <= p.baseStateDB.MergedIndex { //已经merge过的，直接丢弃
 		p.mubase.Unlock()
@@ -206,8 +206,8 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	defer p.DeleteCurrTask(txIndex, st.MergedIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.MergedIndex, err)
 	if err != nil {
-		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.MergedIndex, err)
 		p.AddTxToQueue(tx, txIndex)
 		return false
 	}
