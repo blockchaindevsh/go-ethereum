@@ -187,7 +187,7 @@ func (p *pallTxManage) mergeLoop() {
 			fmt.Println("ready to merge", p.block.NumberU64(), rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber, p.gp.Gas())
 			rr.st.Merge(p.baseStateDB)
 			p.gp.SubGas(rr.receipt.GasUsed)
-			fmt.Println("ready to merge", p.block.NumberU64(), rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber, p.gp.Gas(), p.block.GasLimit()-uint64(21000*rr.txIndex))
+			fmt.Println("end to merge", p.block.NumberU64(), rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber, p.gp.Gas(), p.block.GasLimit()-uint64(21000*rr.txIndex))
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
