@@ -55,7 +55,7 @@ func (this *ReceiptWithIndex) Less(other interface{}) bool {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
-	st.CurrMergedNumber = -1
+	st.MergedIndex = -1
 	p := &pallTxManage{
 		block:        block,
 		baseStateDB:  st,
@@ -137,15 +137,12 @@ func (p *pallTxManage) txLoop() {
 			return
 		}
 		tx := p.GetTxFromQueue()
-
 		if tx != nil {
-			//fmt.Println("txloop start", tx.txIndex, tx.tx.Hash().String())
 			if !p.handleTx(tx.tx, tx.txIndex) {
 				p.AddTxToQueue(tx.tx, tx.txIndex)
 			}
-			//fmt.Println("txloop end", tx.txIndex, tx.tx.Hash().String())
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(1 * time.Second) //TODO need delete
 	}
 }
 
@@ -157,19 +154,28 @@ func (p *pallTxManage) mergeLoop() {
 		}
 
 		p.mubase.Lock()
+		if p.baseStateDB.MergedIndex+1 != rr.txIndex {
+			if p.baseStateDB.MergedIndex < rr.txIndex {
+				p.AddReceiptToQueue(rr)
+			}
+			p.mubase.Unlock()
+			continue
+		}
+
 		if rr.st.CanMerge(p.baseStateDB) {
 			rr.st.Merge(p.baseStateDB)
 
 			p.gp.SubGas(rr.receipt.GasUsed)
 			p.receipts[rr.txIndex] = rr.receipt
-			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "currBase", rr.st.CurrMergedNumber, "baseMergedNumber", p.baseStateDB.CurrMergedNumber, rr.st.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), p.baseStateDB.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), rr.st.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")), p.baseStateDB.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")))
+
+			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "currBase", rr.st.MergedIndex, "baseMergedNumber", p.baseStateDB.MergedIndex, rr.st.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), p.baseStateDB.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), rr.st.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")), p.baseStateDB.GetNonce(common.HexToAddress("0xF04842b2B7e246B4b3A95AE411175183DE614E07")))
 		} else {
-			if rr.st.TxIndex() > p.baseStateDB.CurrMergedNumber {
-				fmt.Println("again add to queue", rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber)
+			if rr.st.TxIndex() > p.baseStateDB.MergedIndex { // 产生冲突
+				fmt.Println("again add to queue", rr.st.TxIndex(), p.baseStateDB.MergedIndex)
 				p.AddTxToQueue(rr.tx, rr.txIndex)
 			}
 		}
-		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
+		if p.baseStateDB.MergedIndex == len(p.block.Transactions())-1 {
 			p.markEnd()
 			p.mubase.Unlock()
 			return
@@ -180,11 +186,12 @@ func (p *pallTxManage) mergeLoop() {
 
 func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	p.mubase.Lock()
-	if p.InCurrTask(txIndex, p.baseStateDB.CurrMergedNumber) {
+	if p.InCurrTask(txIndex, p.baseStateDB.MergedIndex) { //TODO delete task
+		fmt.Println("IIIIIIIIIIIIIInCurrTask", txIndex, tx.Hash().String(), p.baseStateDB.MergedIndex)
 		p.mubase.Unlock()
 		return false
 	}
-	if txIndex <= p.baseStateDB.CurrMergedNumber {
+	if txIndex <= p.baseStateDB.MergedIndex { //已经merge过的，直接丢弃
 		p.mubase.Unlock()
 		return true
 	}
@@ -193,12 +200,12 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
-	p.SetCurrTask(txIndex, st.CurrMergedNumber)
-	defer p.DeleteCurrTask(txIndex, st.CurrMergedNumber)
+	p.SetCurrTask(txIndex, st.MergedIndex)
+	defer p.DeleteCurrTask(txIndex, st.MergedIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
+		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.MergedIndex, err)
 		p.AddTxToQueue(tx, txIndex)
 		return false
 	}
@@ -218,16 +225,16 @@ func (p *pallTxManage) markEnd() {
 }
 
 func (p *pallTxManage) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
-	rs := make(types.Receipts, 0)
+	receipts := make(types.Receipts, 0)
 	logs := make([]*types.Log, 0)
 	txLen := len(p.block.Transactions())
-	all := uint64(0)
+	CumulativeGasUsed := uint64(0)
 	for index := 0; index < txLen; index++ {
-		all = all + p.receipts[index].GasUsed
-		p.receipts[index].CumulativeGasUsed = all
+		CumulativeGasUsed = CumulativeGasUsed + p.receipts[index].GasUsed
+		p.receipts[index].CumulativeGasUsed = CumulativeGasUsed
 		p.receipts[index].Bloom = types.CreateBloom(types.Receipts{p.receipts[index]})
-		rs = append(rs, p.receipts[index])
+		receipts = append(receipts, p.receipts[index])
 		logs = append(logs, p.receipts[index].Logs...)
 	}
-	return rs, logs, all
+	return receipts, logs, CumulativeGasUsed
 }

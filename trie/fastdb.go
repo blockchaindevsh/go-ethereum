@@ -53,7 +53,6 @@ func (f *FastDB) TryUpdate(key, value []byte) error {
 		deleted: false,
 	}
 	return nil
-	//return f.batch.Put(key, value)
 }
 func (f *FastDB) TryDelete(key []byte) error {
 	f.cache[string(key)] = tValue{

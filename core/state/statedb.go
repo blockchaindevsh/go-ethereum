@@ -112,9 +112,9 @@ type StateDB struct {
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
 
-	CurrMergedNumber int
-	mergedRRWW       map[int]map[common.Address]bool
-	rrww             map[common.Address]bool // true dirty ; false only read
+	MergedIndex int
+	mergedRW    map[int]map[common.Address]bool
+	thisTxRW    map[common.Address]bool // true dirty ; false only read
 }
 
 // New creates a new state from a given trie.
@@ -133,9 +133,9 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		logs:                make(map[common.Hash][]*types.Log),
 		preimages:           make(map[common.Hash][]byte),
 		journal:             newJournal(),
-		CurrMergedNumber:    -1,
-		rrww:                make(map[common.Address]bool, 0),
-		mergedRRWW:          make(map[int]map[common.Address]bool, 0),
+		MergedIndex:         -1,
+		thisTxRW:            make(map[common.Address]bool, 0),
+		mergedRW:            make(map[int]map[common.Address]bool, 0),
 	}
 	if sdb.snaps != nil {
 		if sdb.snap = sdb.snaps.Snapshot(root); sdb.snap != nil {
@@ -713,12 +713,12 @@ func (s *StateDB) Copy() *StateDB {
 	for hash, preimage := range s.preimages {
 		state.preimages[hash] = preimage
 	}
-	state.CurrMergedNumber = s.CurrMergedNumber
-	state.mergedRRWW = make(map[int]map[common.Address]bool)
-	for k, v := range s.mergedRRWW {
-		state.mergedRRWW[k] = make(map[common.Address]bool)
+	state.MergedIndex = s.MergedIndex
+	state.mergedRW = make(map[int]map[common.Address]bool)
+	for k, v := range s.mergedRW {
+		state.mergedRW[k] = make(map[common.Address]bool)
 		for kk, vv := range v {
-			state.mergedRRWW[k][kk] = vv
+			state.mergedRW[k][kk] = vv
 		}
 	}
 	return state
@@ -739,40 +739,38 @@ func (s *StateDB) CalReadAndWrite() {
 		write[k] = ok
 
 	}
-	s.rrww = write
-}
-
-func (s *StateDB) Merge(d *StateDB) {
-	tt := d.mergedRRWW
-	*d = *s
-	d.mergedRRWW[s.txIndex] = s.rrww
-	for k, v := range tt {
-		d.mergedRRWW[k] = v
-	}
-	d.CurrMergedNumber = s.txIndex
-	d.Finalise(false)
-
+	s.thisTxRW = write
 }
 
 func (s *StateDB) CanMerge(base *StateDB) bool {
-	if base.CurrMergedNumber+1 != s.txIndex {
-		return false
-	}
-
-	ss := make(map[common.Address]bool)
-	for index := s.CurrMergedNumber + 1; index < s.txIndex; index++ {
-		t := base.mergedRRWW[index]
-		for k, v := range t {
-			ss[k] = v
+	rwFromBase := make(map[common.Address]bool)
+	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
+		rw := base.mergedRW[index]
+		for k, v := range rw {
+			rwFromBase[k] = v
 		}
 	}
 
-	for k, _ := range s.rrww {
-		if ss[k] {
+	if len(rwFromBase) != 0 {
+		fmt.Println("CanMerge check", s.MergedIndex, s.txIndex, rwFromBase, s.thisTxRW)
+	}
+	for k, _ := range s.thisTxRW {
+		if rwFromBase[k] {
 			return false
 		}
 	}
 	return true
+}
+
+func (s *StateDB) Merge(d *StateDB) {
+	originMergedRW := d.mergedRW
+	*d = *s
+	d.mergedRW[s.txIndex] = s.thisTxRW
+	for k, v := range originMergedRW {
+		d.mergedRW[k] = v
+	}
+	d.MergedIndex = s.txIndex
+	//d.Finalise(false)
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.

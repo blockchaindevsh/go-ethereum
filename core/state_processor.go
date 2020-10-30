@@ -99,19 +99,16 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if len(block.Transactions()) > 32 {
 		pm := NewPallTxManage(block, statedb, p.bc)
 		for i, tx := range block.Transactions() {
-			//fmt.Println("pppppp", block.NumberU64(), tx.Hash().String(), i)
 			pm.AddTxToQueue(tx, i)
 		}
 		<-pm.ch
 		pm.mubase.Lock()
-
 		*statedb = *pm.baseStateDB
 		pm.mubase.Unlock()
-		//fmt.Println("eeeeeeeeeeeeeeeee", block.NumberU64(), statedb.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")))
+
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 
 	} else {
-		// not pall
 		return p.Proce1ss(block, statedb, cfg)
 	}
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
