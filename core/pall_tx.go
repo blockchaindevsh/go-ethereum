@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gansidui/priority_queue"
@@ -139,11 +140,11 @@ func (p *pallTxManage) txLoop() {
 		tx := p.GetTxFromQueue()
 
 		if tx != nil {
-			fmt.Println("txloop start", tx.txIndex, tx.tx.Hash().String())
+			//fmt.Println("txloop start", tx.txIndex, tx.tx.Hash().String())
 			if !p.handleTx(tx.tx, tx.txIndex) {
 				p.AddTxToQueue(tx.tx, tx.txIndex)
 			}
-			fmt.Println("txloop end", tx.txIndex, tx.tx.Hash().String())
+			//fmt.Println("txloop end", tx.txIndex, tx.tx.Hash().String())
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -153,23 +154,23 @@ func (p *pallTxManage) mergeLoop() {
 	for {
 		rr := p.GetReceiptFromQueue()
 		if rr == nil {
-			fmt.Println("RRRRRRRRRRRRRRR", "empty")
-			time.Sleep(1 * time.Second)
+			//fmt.Println("RRRRRRRRRRRRRRR", "empty")
+			//time.Sleep(1 * time.Second)
 			continue
 		}
 
 		p.mubase.Lock()
 
-		fmt.Println("GetReFromQueue", p.block.NumberU64(), rr.txIndex, rr.st.CurrMergedNumber, p.baseStateDB.CurrMergedNumber)
+		//fmt.Println("GetReFromQueue", p.block.NumberU64(), rr.txIndex, rr.st.CurrMergedNumber, p.baseStateDB.CurrMergedNumber)
 
 		if rr.st.CanMerge(p.baseStateDB) {
-			fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
+			//fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
 			rr.st.Merge(p.baseStateDB)
 
 			p.gp.SubGas(rr.receipt.GasUsed)
 			p.receipts[rr.txIndex] = rr.receipt
 
-			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
+			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber, rr.st.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")), p.baseStateDB.GetNonce(common.HexToAddress("0x54dAeb3E8a6BBC797E4aD2b0339f134b186e4637")))
 		} else {
 			if rr.st.TxIndex() > p.baseStateDB.CurrMergedNumber {
 				fmt.Println("again add to queue", rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber)
@@ -205,12 +206,12 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	defer p.DeleteCurrTask(txIndex, st.CurrMergedNumber)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 	if err != nil {
+		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 		p.AddTxToQueue(tx, txIndex)
 		return false
 	}
-	fmt.Println("AddReceiptttttt", txIndex, st.CurrMergedNumber)
+	//fmt.Println("AddReceiptttttt", txIndex, st.CurrMergedNumber)
 	p.AddReceiptToQueue(&ReceiptWithIndex{
 		tx:      tx,
 		st:      st,
