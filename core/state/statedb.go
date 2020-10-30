@@ -724,6 +724,13 @@ func (s *StateDB) Copy() *StateDB {
 		state.preimages[hash] = preimage
 	}
 	state.CurrMergedNumber = s.CurrMergedNumber
+	state.mergedRRWW = make(map[int]map[common.Address]bool)
+	for k, v := range s.mergedRRWW {
+		state.mergedRRWW[k] = make(map[common.Address]bool)
+		for kk, vv := range v {
+			state.mergedRRWW[k][kk] = vv
+		}
+	}
 	return state
 }
 
