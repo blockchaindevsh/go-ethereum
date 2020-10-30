@@ -107,12 +107,6 @@ func (p *pallTxManage) AddTxToQueue(tx *types.Transaction, txIndex int) {
 	p.muTx.Lock()
 	defer p.muTx.Unlock()
 
-	p.mubase.RLock()
-	if txIndex <= p.baseStateDB.MergedIndex {
-		return
-	}
-	p.mubase.RUnlock()
-
 	p.txQueue.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
 }
 func (p *pallTxManage) GetTxFromQueue() *TxWithIndex {
@@ -127,11 +121,6 @@ func (p *pallTxManage) GetTxFromQueue() *TxWithIndex {
 func (p *pallTxManage) AddReceiptToQueue(re *ReceiptWithIndex) {
 	p.muRe.Lock()
 	defer p.muRe.Unlock()
-	p.mubase.RLock()
-	if re.txIndex <= p.baseStateDB.MergedIndex {
-		return
-	}
-	p.mubase.RUnlock()
 
 	p.receiptQueue.Push(re)
 }
