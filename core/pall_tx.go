@@ -184,14 +184,11 @@ func (p *pallTxManage) mergeLoop() {
 		//fmt.Println("ready to merge")
 		p.mubase.Lock()
 		if rr.st.CanMerge(p.baseStateDB) { //merged
-			rr.st.Print(fmt.Sprintf("before gas:%v,,receipt:%v", p.gp.Gas(), rr.receipt.GasUsed))
+			fmt.Println("ready to merge", p.block.NumberU64(), rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber, p.gp.Gas())
 			rr.st.Merge(p.baseStateDB)
 			p.gp.SubGas(rr.receipt.GasUsed)
-			p.baseStateDB.Print(fmt.Sprintf("end %v", p.gp.Gas()))
-
-			//fmt.Println("-----------------", p.baseStateDB.CurrMergedNumber)
+			fmt.Println("ready to merge", p.block.NumberU64(), rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber, p.gp.Gas(), p.block.GasLimit()-uint64(21000*rr.txIndex))
 		}
-		//fmt.Println(">>>>>>>>>>>>>>>>>", p.baseStateDB.CurrMergedNumber, len(p.block.Transactions())-1)
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
 			p.mubase.Unlock()
