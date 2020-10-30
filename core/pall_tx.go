@@ -146,7 +146,7 @@ func (p *pallTxManage) GetMergedNumber() int {
 }
 func (p *pallTxManage) txLoop() {
 	if common.PrintData {
-		defer fmt.Println("txLoop end", p.block.NumberU64())
+		//defer fmt.Println("txLoop end", p.block.NumberU64())
 	}
 
 	for {
@@ -171,7 +171,7 @@ func (p *pallTxManage) txLoop() {
 
 func (p *pallTxManage) mergeLoop() {
 	if common.PrintData {
-		defer fmt.Println("mergeloop end", p.block.NumberU64())
+		//defer fmt.Println("mergeloop end", p.block.NumberU64())
 	}
 
 	for {
@@ -180,12 +180,15 @@ func (p *pallTxManage) mergeLoop() {
 			time.Sleep(1 * time.Second)
 			continue
 		}
+		//fmt.Println("ready to merge")
 		p.mubase.Lock()
 		if rr.st.CanMerge(p.baseStateDB) { //merged
-
+			rr.st.Print("before")
 			rr.st.Merge(p.baseStateDB)
-
+			p.baseStateDB.Print("end")
+			//fmt.Println("-----------------", p.baseStateDB.CurrMergedNumber)
 		}
+		//fmt.Println(">>>>>>>>>>>>>>>>>", p.baseStateDB.CurrMergedNumber, len(p.block.Transactions())-1)
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
 			p.mubase.Unlock()
@@ -206,6 +209,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
+	st.SetBlockNumber(p.block.NumberU64())
 	p.SetCurrTask(txIndex, st.CurrMergedNumber)
 	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
 
@@ -213,12 +217,12 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	if err != nil {
 		time.Sleep(1 * time.Second)
 		p.AddTx(tx, txIndex)
-
 		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
-		panic(err)
+		//panic(err)
 		return false
 	}
 
+	//fmt.Println("22333--handle tx")
 	p.AddRe(&Re{
 		st:      st,
 		txIndex: txIndex,

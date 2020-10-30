@@ -141,13 +141,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		return nil, err
 	}
 	// Update the state with pending changes
+
+	statedb.GetReadAndWrite()
+	//statedb.Print()
 	var root []byte
-	if true {
-		//statedb.Print()
-		statedb.GetReadAndWrite()
+	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)
 	} else {
-
+		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
 	if usedGas != nil {
 		*usedGas += result.UsedGas

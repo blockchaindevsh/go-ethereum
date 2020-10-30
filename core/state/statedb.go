@@ -87,6 +87,7 @@ type StateDB struct {
 	refund uint64
 
 	thash, bhash common.Hash
+	tBlockNumber uint64
 	txIndex      int
 	logs         map[common.Hash][]*types.Log
 	logSize      uint
@@ -113,10 +114,8 @@ type StateDB struct {
 	SnapshotCommits      time.Duration
 
 	CurrMergedNumber int
-
-	mergedRRWW map[int]map[common.Address]bool
-	rrww       map[common.Address]bool // true dirty ; false only read
-	jouranlNow map[common.Address]int
+	mergedRRWW       map[int]map[common.Address]bool
+	rrww             map[common.Address]bool // true dirty ; false only read
 }
 
 // New creates a new state from a given trie.
@@ -146,6 +145,10 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		}
 	}
 	return sdb, nil
+}
+
+func (s *StateDB) SetBlockNumber(number uint64) {
+	s.tBlockNumber = number
 }
 
 // setError remembers the first non-nil error it is called with.
@@ -268,11 +271,9 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		//fmt.Println("271111111", addr.String(), stateObject.Nonce())
 		return stateObject.Nonce()
 	}
 
-	//fmt.Println("274------", addr.String(), 0)
 	return 0
 }
 
@@ -466,11 +467,6 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	//debug.PrintStack()
-	//if addr.String() == "0xa1e4380a3b1f749673e270229993ee55f35663b4" {
-	//fmt.Println("ready to update", addr.String(), obj.data.Nonce)
-	//}
-
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -555,7 +551,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			return nil
 		}
 		if len(enc) == 0 {
-			//fmt.Println("empty", addr.String())
 			return nil
 		}
 		data = new(Account)
@@ -564,7 +559,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			log.Error("Failed to decode state object", "addr", addr, "err", err)
 			return nil
 		}
-		//fmt.Println("have data", addr.String(), data.Nonce)
 	}
 	// Insert into the live set
 	obj := newObject(s, addr, *data)
@@ -742,24 +736,14 @@ func (s *StateDB) Snapshot() int {
 	return id
 }
 
-func (s *StateDB) Print() {
-	fmt.Println("SSSSSSSSSSS---", s.bhash.String())
-	for k, v := range s.journal.dirties {
-		fmt.Println("dirties", k.String(), v)
+func (s *StateDB) Print(ss string) {
+	fmt.Println("ready to print", "block.Number", s.tBlockNumber, len(s.journal.dirties))
+	for k, _ := range s.journal.dirties {
+		fmt.Println(ss, "dirties", k.String(), s.stateObjects[k].Nonce())
 	}
-
-	for k, _ := range s.stateObjects {
-		fmt.Println("stateObjects", k.String())
+	for k, v := range s.stateObjects {
+		fmt.Println(ss, "stateObjects", k.String(), v.data.Nonce)
 	}
-
-	for k, _ := range s.stateObjectsPending {
-		fmt.Println("stateObjectsPending", k.String())
-	}
-	for k, _ := range s.stateObjectsDirty {
-		fmt.Println("stateObjectsDirty", k.String())
-	}
-
-	fmt.Println("EEEEEEEEEEEEEEEEEEEEEEE---", s.bhash.String())
 }
 
 func (s *StateDB) GetReadAndWrite() {
@@ -770,26 +754,19 @@ func (s *StateDB) GetReadAndWrite() {
 
 	}
 	s.rrww = write
-	s.jouranlNow = make(map[common.Address]int, 0)
-	for k, v := range s.journal.dirties {
-		s.jouranlNow[k] = v
-	}
-}
-
-func (s *StateDB) Getdiyrt() {
-	fmt.Println("dirty", s.journal.dirties, s.jouranlNow)
 }
 
 func (s *StateDB) Merge(d *StateDB) {
-	for k, v := range s.jouranlNow {
-		d.journal.dirties[k] = v
-	}
-	for k, v := range s.stateObjects {
-		d.stateObjects[k] = v.deepCopy(s)
-	}
+	fmt.Println("MMMMMMMMMMMMMM", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
+	tt := d.mergedRRWW
+	*d = *s
 	d.mergedRRWW[s.txIndex] = s.rrww
+	for k, v := range tt {
+		d.mergedRRWW[k] = v
+	}
 	d.CurrMergedNumber = s.txIndex
 	d.Finalise(false)
+	fmt.Println("MMMMMMMMMMMMMM-end", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
 }
 
 func (s *StateDB) CanMerge(base *StateDB) bool {
@@ -838,15 +815,8 @@ func (s *StateDB) GetRefund() uint64 {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
-	if common.PrintData {
-		//fmt.Println("Finalizse", s.journal.dirties)
-	}
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
-		if common.PrintData {
-			//fmt.Println("addd", addr, exist, obj.suicided, obj.empty())
-		}
-
 		if !exist {
 			// ripeMD is 'touched' at block 1714175, in tx 0x1237f737031e40bcde4a8b7e717b2d15e3ecadfe49bb1bbc71ee9deb09c6fcf2
 			// That tx goes out of gas, and although the notion of 'touched' does not exist there, the
@@ -884,9 +854,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
-	if common.PrintData {
-		//fmt.Println("Intermediatroot stateobPending", s.stateObjectsPending)
-	}
+
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
 		if obj.deleted {
