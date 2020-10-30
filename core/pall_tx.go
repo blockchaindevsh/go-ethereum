@@ -19,7 +19,6 @@ type pallTxManage struct {
 	currentIndex    int
 	currentReadMap  map[common.Address]struct{}
 	currentWriteMap map[common.Address]struct{}
-	gp              *GasPool
 	receipts        map[int]*types.Receipt
 	ch              chan struct{}
 	txList          chan *TxWithIndex
@@ -60,11 +59,11 @@ func (this *Re) Less(other interface{}) bool {
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
 	st.CurrMergedNumber = -1
+	st.GP = new(GasPool).AddGas(block.GasLimit())
 	p := &pallTxManage{
 		block:       block,
 		baseStateDB: st,
 		bc:          bc,
-		gp:          new(GasPool).AddGas(block.GasLimit()),
 		receipts:    make(map[int]*types.Receipt, 0),
 		ch:          make(chan struct{}, 1),
 		txList:      make(chan *TxWithIndex, 0),
@@ -213,7 +212,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	p.SetCurrTask(txIndex, st.CurrMergedNumber)
 	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
 
-	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, p.gp, st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, st.GP, st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		time.Sleep(1 * time.Second)
 		p.AddTx(tx, txIndex)

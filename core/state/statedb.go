@@ -20,6 +20,7 @@ package state
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core"
 	"math/big"
 	"sort"
 	"time"
@@ -116,6 +117,8 @@ type StateDB struct {
 	CurrMergedNumber int
 	mergedRRWW       map[int]map[common.Address]bool
 	rrww             map[common.Address]bool // true dirty ; false only read
+
+	GP *core.GasPool
 }
 
 // New creates a new state from a given trie.
@@ -761,7 +764,7 @@ func (s *StateDB) GetReadAndWrite() {
 
 func (s *StateDB) Merge(d *StateDB) {
 	if common.PrintData {
-		fmt.Println("MMMMMMMMMMMMMM", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
+		fmt.Println("MMMMMMMMMMMMMM", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber, d.GP, s.GP)
 	}
 
 	tt := d.mergedRRWW
@@ -773,7 +776,7 @@ func (s *StateDB) Merge(d *StateDB) {
 	d.CurrMergedNumber = s.txIndex
 	d.Finalise(false)
 	if common.PrintData {
-		fmt.Println("MMMMMMMMMMMMMM-end", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber)
+		fmt.Println("MMMMMMMMMMMMMM-end", "height", s.tBlockNumber, "txIndex", s.txIndex, "calMergetNumber", s.CurrMergedNumber, "baseMergedNumber", d.CurrMergedNumber, d.GP, s.GP)
 	}
 
 }
