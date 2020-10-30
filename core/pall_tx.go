@@ -36,6 +36,8 @@ type pallTxManage struct {
 	//		key:currentMergedIndex
 	currTask map[int]map[int]struct{}
 	mu       sync.RWMutex
+
+	gp *GasPool
 }
 
 type TxWithIndex struct {
@@ -59,7 +61,6 @@ func (this *Re) Less(other interface{}) bool {
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
 	st.CurrMergedNumber = -1
-	st.GP = new(GasPool).AddGas(block.GasLimit())
 	p := &pallTxManage{
 		block:       block,
 		baseStateDB: st,
@@ -70,6 +71,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		ququeTx:     priority_queue.New(),
 		ququeRe:     priority_queue.New(),
 		currTask:    make(map[int]map[int]struct{}, 0),
+		gp:          new(GasPool).AddGas(block.GasLimit()),
 	}
 	for index := 0; index < 4; index++ {
 		go p.txLoop()
@@ -182,9 +184,11 @@ func (p *pallTxManage) mergeLoop() {
 		//fmt.Println("ready to merge")
 		p.mubase.Lock()
 		if rr.st.CanMerge(p.baseStateDB) { //merged
-			rr.st.Print("before")
+			rr.st.Print(fmt.Sprintf("before gas:%s,,receipt:%s", p.gp.Gas(), rr.receipt.GasUsed))
 			rr.st.Merge(p.baseStateDB)
-			p.baseStateDB.Print("end")
+			p.gp.SubGas(rr.receipt.GasUsed)
+			p.baseStateDB.Print(fmt.Sprintf("end %s", p.gp.Gas()))
+
 			//fmt.Println("-----------------", p.baseStateDB.CurrMergedNumber)
 		}
 		//fmt.Println(">>>>>>>>>>>>>>>>>", p.baseStateDB.CurrMergedNumber, len(p.block.Transactions())-1)
@@ -212,7 +216,7 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 	p.SetCurrTask(txIndex, st.CurrMergedNumber)
 	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
 
-	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, st.GP, st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		time.Sleep(1 * time.Second)
 		p.AddTx(tx, txIndex)
