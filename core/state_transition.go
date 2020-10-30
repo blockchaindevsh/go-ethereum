@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 
@@ -193,7 +192,7 @@ func (st *StateTransition) preCheck() error {
 	if st.msg.CheckNonce() {
 		nonce := st.state.GetNonce(st.msg.From())
 		if nonce < st.msg.Nonce() {
-			fmt.Println("nonce to high", st.msg.From().String(), nonce, st.msg.Nonce())
+			//fmt.Println("nonce to high", st.msg.From().String(), nonce, st.msg.Nonce())
 			return ErrNonceTooHigh
 		} else if nonce > st.msg.Nonce() {
 			return ErrNonceTooLow
