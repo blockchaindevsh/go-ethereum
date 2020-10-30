@@ -157,11 +157,9 @@ func (p *pallTxManage) txLoop() {
 				if tx.txIndex > p.GetMergedNumber() { //baseStateDB 可能会更新
 					p.AddTx(tx.tx, tx.txIndex)
 				}
-				continue
 			}
-		} else {
-			time.Sleep(1 * time.Second)
 		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
