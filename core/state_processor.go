@@ -99,7 +99,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if len(block.Transactions()) > 32 {
 		pm := NewPallTxManage(block, statedb, p.bc)
 		for i, tx := range block.Transactions() {
-			pm.AddTx(tx, i)
+			pm.AddTxToQueue(tx, i)
 		}
 		<-pm.ch
 		pm.mubase.Lock()

@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gansidui/priority_queue"
@@ -14,28 +13,22 @@ type pallTxManage struct {
 	block *types.Block
 	bc    *BlockChain
 
-	mubase          sync.RWMutex
-	baseStateDB     *state.StateDB
-	currentIndex    int
-	currentReadMap  map[common.Address]struct{}
-	currentWriteMap map[common.Address]struct{}
-	receipts        map[int]*types.Receipt
-	ch              chan struct{}
-	txList          chan *TxWithIndex
+	mubase      sync.RWMutex
+	baseStateDB *state.StateDB
+	receipts    map[int]*types.Receipt
+
+	ch chan struct{}
 
 	muTx    sync.RWMutex
-	ququeTx *priority_queue.PriorityQueue
+	txQueue *priority_queue.PriorityQueue
 
-	muRe    sync.RWMutex
-	ququeRe *priority_queue.PriorityQueue
+	muRe         sync.RWMutex
+	receiptQueue *priority_queue.PriorityQueue
 
 	merged bool
 
-	// key txIndex
-	//value:
-	//		key:currentMergedIndex
 	currTask map[int]map[int]struct{}
-	mu       sync.RWMutex
+	muTask   sync.RWMutex
 
 	gp *GasPool
 }
@@ -45,7 +38,8 @@ type TxWithIndex struct {
 	txIndex int
 }
 
-type Re struct {
+type ReceiptWithIndex struct {
+	tx      *types.Transaction
 	st      *state.StateDB
 	txIndex int
 	receipt *types.Receipt
@@ -55,95 +49,85 @@ func (this *TxWithIndex) Less(other interface{}) bool {
 	return this.txIndex < other.(*TxWithIndex).txIndex
 }
 
-func (this *Re) Less(other interface{}) bool {
-	return this.txIndex < other.(*Re).txIndex
+func (this *ReceiptWithIndex) Less(other interface{}) bool {
+	return this.txIndex < other.(*ReceiptWithIndex).txIndex
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManage {
 	st.CurrMergedNumber = -1
 	p := &pallTxManage{
-		block:       block,
-		baseStateDB: st,
-		bc:          bc,
-		receipts:    make(map[int]*types.Receipt, 0),
-		ch:          make(chan struct{}, 1),
-		txList:      make(chan *TxWithIndex, 0),
-		ququeTx:     priority_queue.New(),
-		ququeRe:     priority_queue.New(),
-		currTask:    make(map[int]map[int]struct{}, 0),
-		gp:          new(GasPool).AddGas(block.GasLimit()),
+		block:        block,
+		baseStateDB:  st,
+		bc:           bc,
+		receipts:     make(map[int]*types.Receipt, 0),
+		ch:           make(chan struct{}, 1),
+		txQueue:      priority_queue.New(),
+		receiptQueue: priority_queue.New(),
+		currTask:     make(map[int]map[int]struct{}, 0),
+		gp:           new(GasPool).AddGas(block.GasLimit()),
 	}
 	for index := 0; index < 4; index++ {
 		go p.txLoop()
 	}
-
 	go p.mergeLoop()
-
 	return p
 }
 
-func (p *pallTxManage) SetCurrTask(txInde int, baseMergedIndex int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *pallTxManage) SetCurrTask(txIndex int, baseMergedIndex int) {
+	p.muTask.Lock()
+	defer p.muTask.Unlock()
 
-	if _, ok := p.currTask[txInde]; !ok {
-		p.currTask[txInde] = make(map[int]struct{})
+	if _, ok := p.currTask[txIndex]; !ok {
+		p.currTask[txIndex] = make(map[int]struct{})
 	}
-	p.currTask[txInde][baseMergedIndex] = struct{}{}
+	p.currTask[txIndex][baseMergedIndex] = struct{}{}
 }
-func (p *pallTxManage) DelteCurrTask(txInd int, baseMergedIndex int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *pallTxManage) DeleteCurrTask(txIndex int, baseMergedIndex int) {
+	p.muTask.Lock()
+	defer p.muTask.Unlock()
 
-	if data, ok := p.currTask[txInd]; ok {
+	if data, ok := p.currTask[txIndex]; ok {
 		delete(data, baseMergedIndex)
 	}
 }
 
-func (p *pallTxManage) InCurrTask(txIndex int, baseMetgedIndex int) bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+func (p *pallTxManage) InCurrTask(txIndex int, baseIndex int) bool {
+	p.muTask.RLock()
+	defer p.muTask.RUnlock()
 
 	if data, ok := p.currTask[txIndex]; ok {
-		_, ok1 := data[baseMetgedIndex]
+		_, ok1 := data[baseIndex]
 		return ok1
 	}
 	return false
 }
 
-func (p *pallTxManage) AddTx(tx *types.Transaction, txIndex int) {
+func (p *pallTxManage) AddTxToQueue(tx *types.Transaction, txIndex int) {
 	p.muTx.Lock()
 	defer p.muTx.Unlock()
-	p.ququeTx.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
+	p.txQueue.Push(&TxWithIndex{tx: tx, txIndex: txIndex})
 }
-func (p *pallTxManage) GetTx() *TxWithIndex {
+func (p *pallTxManage) GetTxFromQueue() *TxWithIndex {
 	p.muTx.Lock()
 	defer p.muTx.Unlock()
-	if p.ququeTx.Len() == 0 {
+	if p.txQueue.Len() == 0 {
 		return nil
 	}
-
-	return p.ququeTx.Pop().(*TxWithIndex)
+	return p.txQueue.Pop().(*TxWithIndex)
 }
 
-func (p *pallTxManage) AddRe(re *Re) {
+func (p *pallTxManage) AddReceiptToQueue(re *ReceiptWithIndex) {
 	p.muRe.Lock()
 	defer p.muRe.Unlock()
-	p.ququeRe.Push(re)
+	p.receiptQueue.Push(re)
 }
-func (p *pallTxManage) GetRe() *Re {
+func (p *pallTxManage) GetReceiptFromQueue() *ReceiptWithIndex {
 	p.muRe.Lock()
 	defer p.muRe.Unlock()
-	if p.ququeRe.Len() == 0 {
+	if p.receiptQueue.Len() == 0 {
 		return nil
 	}
-	return p.ququeRe.Pop().(*Re)
-}
-
-func (p *pallTxManage) GetMergedNumber() int {
-	p.mubase.RLock()
-	defer p.mubase.RUnlock()
-	return p.baseStateDB.CurrMergedNumber
+	return p.receiptQueue.Pop().(*ReceiptWithIndex)
 }
 
 func (p *pallTxManage) txLoop() {
@@ -151,12 +135,10 @@ func (p *pallTxManage) txLoop() {
 		if p.merged {
 			return
 		}
-		tx := p.GetTx()
+		tx := p.GetTxFromQueue()
 		if tx != nil {
 			if !p.handleTx(tx.tx, tx.txIndex) {
-				if tx.txIndex > p.GetMergedNumber() { //baseStateDB 可能会更新
-					p.AddTx(tx.tx, tx.txIndex)
-				}
+				p.AddTxToQueue(tx.tx, tx.txIndex)
 			}
 		}
 		time.Sleep(1 * time.Second)
@@ -164,26 +146,25 @@ func (p *pallTxManage) txLoop() {
 }
 
 func (p *pallTxManage) mergeLoop() {
-	if common.PrintData {
-		//defer fmt.Println("mergeloop end", p.block.NumberU64())
-	}
-
 	for {
-		rr := p.GetRe()
+		rr := p.GetReceiptFromQueue()
 		if rr == nil {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		//fmt.Println("ready to merge")
+
 		p.mubase.Lock()
-		if rr.st.CanMerge(p.baseStateDB) { //merged
+		if rr.st.CanMerge(p.baseStateDB) {
 			fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
 			rr.st.Merge(p.baseStateDB)
 
 			p.gp.SubGas(rr.receipt.GasUsed)
 			p.receipts[rr.txIndex] = rr.receipt
 
-			fmt.Println("ready to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
+			fmt.Println("end to merge", "blockNumber", p.block.NumberU64(), "txIndex", rr.st.TxIndex(), "txHash", "baseMergedNumber", p.baseStateDB.CurrMergedNumber)
+		} else {
+			fmt.Println("again add to queue", rr.st.TxIndex(), p.baseStateDB.CurrMergedNumber)
+			p.AddTxToQueue(rr.tx, rr.txIndex)
 		}
 		if p.baseStateDB.CurrMergedNumber == len(p.block.Transactions())-1 {
 			p.markEnd()
@@ -201,21 +182,25 @@ func (p *pallTxManage) handleTx(tx *types.Transaction, txIndex int) bool {
 		p.mubase.Unlock()
 		return false
 	}
+	if txIndex <= p.baseStateDB.CurrMergedNumber {
+		return true
+	}
 	st := p.baseStateDB.Copy()
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
 	p.SetCurrTask(txIndex, st.CurrMergedNumber)
-	defer p.DelteCurrTask(txIndex, st.CurrMergedNumber)
+	defer p.DeleteCurrTask(txIndex, st.CurrMergedNumber)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		p.AddTx(tx, txIndex)
+		p.AddTxToQueue(tx, txIndex)
 		fmt.Println("??????????????????????????-handle tx", tx.Hash().String(), txIndex, st.CurrMergedNumber, err)
 		return false
 	}
-	p.AddRe(&Re{
+	p.AddReceiptToQueue(&ReceiptWithIndex{
+		tx:      tx,
 		st:      st,
 		txIndex: txIndex,
 		receipt: receipt,
