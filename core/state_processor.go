@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -112,9 +111,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
-	if len(receipts) != 0 {
-		fmt.Println("block.Number", block.NumberU64(), len(block.Transactions()))
-	}
+	//if len(receipts) != 0 {
+	//	fmt.Println("block.Number", block.NumberU64(), len(block.Transactions()))
+	//}
 
 	return receipts, allLogs, *usedGas, nil
 }
