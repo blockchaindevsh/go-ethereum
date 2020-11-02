@@ -65,3 +65,7 @@ func VersionWithCommit(gitCommit, gitDate string) string {
 	}
 	return vsn
 }
+
+var (
+	MinTxForParallel = int(32)
+)

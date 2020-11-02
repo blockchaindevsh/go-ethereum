@@ -96,17 +96,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	if len(block.Transactions()) > 32 {
+	if len(block.Transactions()) > params.MinTxForParallel {
 		pm := NewPallTxManage(block, statedb, p.bc)
-		for i, tx := range block.Transactions() {
-			pm.AddTxToQueue(tx, i)
+		for i, _ := range block.Transactions() {
+			pm.AddTxToQueue(i)
 		}
 		<-pm.ch
-		pm.mubase.Lock()
-		*statedb = *pm.baseStateDB
-		pm.mubase.Unlock()
-
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
+
+		//for index := 0; index < len(receipts); index++ {
+		//	fmt.Println("rrrrrr--", block.NumberU64(), index, receipts[index].GasUsed)
+		//}
 
 	} else {
 		return p.Proce1ss(block, statedb, cfg)
