@@ -79,9 +79,9 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
-	if len(receipts) != 0 {
-		fmt.Println("block.Number", block.NumberU64(), len(block.Transactions()))
-	}
+	//if len(receipts) != 0 {
+	//	fmt.Println("block.Number", block.NumberU64(), len(block.Transactions()))
+	//}
 	return receipts, allLogs, *usedGas, nil
 }
 

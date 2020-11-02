@@ -744,7 +744,7 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool) bool {
 
 	for k, _ := range s.ThisTxRW {
 		if rwFromBase[k] {
-			fmt.Println("have conflict", s.MergedIndex, s.txIndex, rwFromBase, s.ThisTxRW, k.String())
+			fmt.Println("have conflict", s.MergedIndex, s.txIndex, k.String())
 			return false
 		}
 	}
