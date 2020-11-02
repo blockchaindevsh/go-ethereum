@@ -103,10 +103,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		pm.AddTxToQueue(i)
 	}
 	<-pm.ch
+	close(pm.txQueue)
 	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 
 	//for index := 0; index < len(receipts); index++ {
-	//	fmt.Println("rrrrrr--", block.NumberU64(), index, receipts[index].GasUsed)
+	//fmt.Println("rrrrrr--", block.NumberU64(), index, receipts[index].GasUsed)
 	//}
 
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())

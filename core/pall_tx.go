@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/gansidui/priority_queue"
 	"sync"
 )
 
@@ -14,17 +13,14 @@ type pallTxManager struct {
 	txLen int
 	bc    *BlockChain
 
-	mubase      sync.RWMutex
-	baseStateDB *state.StateDB
-
+	mubase         sync.RWMutex
+	baseStateDB    *state.StateDB
 	mergedReceipts map[int]*types.Receipt
 	mergedRW       map[int]map[common.Address]bool
 	ch             chan struct{}
 	mergedNumber   int
 
-	muTx    sync.RWMutex
-	txQueue *priority_queue.PriorityQueue
-
+	txQueue      chan int
 	receiptQueue []*ReceiptWithIndex
 
 	gp *GasPool
@@ -34,12 +30,6 @@ type ReceiptWithIndex struct {
 	st      *state.StateDB
 	txIndex int
 	receipt *types.Receipt
-}
-
-type Index int
-
-func (this Index) Less(other interface{}) bool {
-	return this < other.(Index)
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
@@ -55,34 +45,35 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		ch:             make(chan struct{}, 1),
 		mergedNumber:   -1,
 		receiptQueue:   make([]*ReceiptWithIndex, txLen, txLen),
-		txQueue:        priority_queue.New(),
+		txQueue:        make(chan int, txLen),
 		gp:             new(GasPool).AddGas(block.GasLimit()),
 	}
-	for index := 0; index < 4; index++ {
+	for index := 0; index < 32; index++ {
 		go p.txLoop()
 	}
 	return p
 }
 
 func (p *pallTxManager) AddTxToQueue(txIndex int) {
-	p.muTx.Lock()
-	defer p.muTx.Unlock()
-	p.txQueue.Push(Index(txIndex))
+	p.txQueue <- txIndex
 }
 
-func (p *pallTxManager) GetTxFromQueue() int {
-	p.muTx.Lock()
-	defer p.muTx.Unlock()
-	if p.txQueue.Len() == 0 {
-		return -1
-	}
-	return int(p.txQueue.Pop().(Index))
+func (p *pallTxManager) GetTxFromQueue() (int, bool) {
+	data, ok := <-p.txQueue
+	return data, ok == false
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 	p.receiptQueue[re.txIndex] = re
-
 	startTxIndex := re.txIndex
+
+	p.mubase.Lock()
+	defer p.mubase.Unlock()
+
+	if p.Done() {
+		return
+	}
+
 	for p.mergedNumber+1 == startTxIndex && startTxIndex < p.txLen && p.receiptQueue[startTxIndex] != nil {
 		p.handleReceipt(p.receiptQueue[startTxIndex])
 		startTxIndex++
@@ -99,22 +90,17 @@ func (p *pallTxManager) Done() bool {
 
 func (p *pallTxManager) txLoop() {
 	for {
-		if p.Done() {
+		tx, isClosed := p.GetTxFromQueue()
+		if isClosed {
 			return
 		}
-		tx := p.GetTxFromQueue()
-		if tx != -1 {
-			if !p.handleTx(tx) {
-				p.AddTxToQueue(tx)
-			}
+		if !p.handleTx(tx) {
+			p.AddTxToQueue(tx)
 		}
 	}
 }
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
-	p.mubase.Lock()
-	defer p.mubase.Unlock()
-
 	if rr.st.CanMerge(p.mergedRW) {
 		rr.st.Merge(p.baseStateDB)
 		p.gp.SubGas(rr.receipt.GasUsed)
@@ -123,9 +109,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		p.mergedNumber = rr.txIndex
 		fmt.Println("merge end", "blockNumber", p.block.NumberU64(), p.mergedNumber)
 	} else {
-		if rr.st.TxIndex() > p.baseStateDB.MergedIndex { // conflict
-			p.AddTxToQueue(rr.txIndex)
-		}
+		p.AddTxToQueue(rr.txIndex)
 	}
 }
 
@@ -137,13 +121,14 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		return true
 	}
 	st := p.baseStateDB.Copy()
+	gas := p.gp.Gas()
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
-	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		fmt.Println("apply tx err", err, "blockNumber", p.block.NumberU64(), txIndex)
+		fmt.Println("apply tx err", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{
