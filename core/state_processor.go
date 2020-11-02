@@ -54,7 +54,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Proce1ss(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -92,25 +92,24 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		header   = block.Header()
 		allLogs  []*types.Log
 	)
+	if len(block.Transactions()) < params.MinTxForParallel {
+		return p.ProcessSerial(block, statedb, cfg)
+	}
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	if len(block.Transactions()) > params.MinTxForParallel {
-		pm := NewPallTxManage(block, statedb, p.bc)
-		for i, _ := range block.Transactions() {
-			pm.AddTxToQueue(i)
-		}
-		<-pm.ch
-		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
-
-		//for index := 0; index < len(receipts); index++ {
-		//	fmt.Println("rrrrrr--", block.NumberU64(), index, receipts[index].GasUsed)
-		//}
-
-	} else {
-		return p.Proce1ss(block, statedb, cfg)
+	pm := NewPallTxManage(block, statedb, p.bc)
+	for i, _ := range block.Transactions() {
+		pm.AddTxToQueue(i)
 	}
+	<-pm.ch
+	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
+
+	//for index := 0; index < len(receipts); index++ {
+	//	fmt.Println("rrrrrr--", block.NumberU64(), index, receipts[index].GasUsed)
+	//}
+
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	if len(receipts) != 0 {
