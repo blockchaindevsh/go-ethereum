@@ -99,9 +99,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 	pm := NewPallTxManage(block, statedb, p.bc)
-	for i, _ := range block.Transactions() {
-		pm.AddTxToQueue(i)
-	}
+	//for i, _ := range block.Transactions() {
+	//	pm.AddTxToQueue(i)
+	//}
 	<-pm.ch
 	close(pm.txQueue)
 	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
