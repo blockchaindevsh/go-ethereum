@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -43,17 +44,17 @@ func (this Index) Less(other interface{}) bool {
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	st.MergedIndex = -1
-	txlen := len(block.Transactions())
+	txLen := len(block.Transactions())
 	p := &pallTxManager{
 		block:          block,
-		txLen:          txlen,
+		txLen:          txLen,
 		baseStateDB:    st,
 		bc:             bc,
 		mergedReceipts: make(map[int]*types.Receipt, 0),
 		mergedRW:       make(map[int]map[common.Address]bool),
 		ch:             make(chan struct{}, 1),
 		mergedNumber:   -1,
-		receiptQueue:   make([]*ReceiptWithIndex, txlen, txlen),
+		receiptQueue:   make([]*ReceiptWithIndex, txLen, txLen),
 		txQueue:        priority_queue.New(),
 		gp:             new(GasPool).AddGas(block.GasLimit()),
 	}
@@ -120,6 +121,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 		p.mergedRW[rr.txIndex] = rr.st.ThisTxRW
 		p.mergedNumber = rr.txIndex
+		fmt.Println("merge end", "blockNumber", p.block.NumberU64(), p.mergedNumber)
 	} else {
 		if rr.st.TxIndex() > p.baseStateDB.MergedIndex { // conflict
 			p.AddTxToQueue(rr.txIndex)
@@ -141,6 +143,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(p.gp.Gas()), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
+		fmt.Println("apply tx err", err, "blockNumber", p.block.NumberU64(), txIndex)
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{
