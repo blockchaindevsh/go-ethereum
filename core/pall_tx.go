@@ -92,11 +92,11 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 }
 
 func (p *pallTxManager) Print() {
-	fmt.Print("block Print", p.block.Number())
+	fmt.Println("block Print", p.block.Number(), "groupSize", len(p.groupList))
 	for k, v := range p.txIndexToGroupID {
-		fmt.Print("txIndex", k, "groupID", v)
+		fmt.Println("txIndex", k, "groupID", v)
 	}
-	fmt.Print("groupSize", len(p.groupList))
+	fmt.Println("groupSize", len(p.groupList))
 }
 
 func (p *pallTxManager) AddTxToQueue(txIndex int) {
