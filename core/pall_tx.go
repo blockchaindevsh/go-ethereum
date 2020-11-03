@@ -69,9 +69,17 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		if _, ok := p.addressToGroupID[sender]; !ok {
 			p.addressToGroupID[sender] = len(p.groupList)
 		}
+		if v.To() != nil {
+			if _, ok := p.addressToGroupID[*v.To()]; !ok {
+				p.addressToGroupID[*v.To()] = len(p.groupList)
+			}
+		}
+
 		p.groupList[p.addressToGroupID[sender]] = append(p.groupList[p.addressToGroupID[sender]], k)
 		p.txIndexToGroupID[k] = p.addressToGroupID[sender]
 	}
+
+	p.Print()
 
 	for index := 0; index < 8; index++ {
 		go p.txLoop()
@@ -81,6 +89,14 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		p.AddTxToQueue(p.groupList[index][0])
 	}
 	return p
+}
+
+func (p *pallTxManager) Print() {
+	fmt.Print("block Print", p.block.Number())
+	for k, v := range p.txIndexToGroupID {
+		fmt.Print("txIndex", k, "groupID", v)
+	}
+	fmt.Print("groupSize", len(p.groupList))
 }
 
 func (p *pallTxManager) AddTxToQueue(txIndex int) {
