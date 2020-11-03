@@ -498,6 +498,15 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	return nil
 }
 
+func (s *StateDB) Print(tt string) {
+	nn := ""
+	for k, v := range s.stateObjects {
+		nn += fmt.Sprintf("%v:%v;", k.String(), v.data.Nonce)
+	}
+
+	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", s.stateObjects, "nn", nn)
+}
+
 // getDeletedStateObject is similar to getStateObject, but instead of returning
 // nil for a deleted state object, it returns the actual object with the deleted
 // flag set. This is needed by the state journal to revert to the correct s-
