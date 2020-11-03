@@ -21,16 +21,15 @@ type pallTxManager struct {
 	mergedNumber   int
 
 	lastHandleInGroup map[int]int
+	txIndexToGroupID  map[int]int
 
-	txIndexToGroupID map[int]int
-	addressToGroupID map[common.Address]int
-	groupList        map[int][]int // key sender ; value tx index List
+	groupList map[int][]int
 
 	txQueue      chan int
 	receiptQueue []*ReceiptWithIndex
 
-	gp     *GasPool
-	signer types.Signer
+	gp uint64
+	//signer types.Signer
 }
 
 type ReceiptWithIndex struct {
@@ -52,29 +51,24 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		ch:                make(chan struct{}, 1),
 		txQueue:           make(chan int, txLen),
 		txIndexToGroupID:  make(map[int]int, 0),
-		addressToGroupID:  make(map[common.Address]int, 0),
 		lastHandleInGroup: make(map[int]int),
 
 		mergedNumber: -1,
 		groupList:    make(map[int][]int, 0),
 		receiptQueue: make([]*ReceiptWithIndex, txLen, txLen),
 
-		gp:     new(GasPool).AddGas(block.GasLimit()),
-		signer: types.MakeSigner(bc.chainConfig, block.Number()),
+		gp: block.GasLimit(),
 	}
 
-	for k, v := range block.Transactions() {
-		sender, _ := types.Sender(p.signer, v)
+	signer := types.MakeSigner(bc.chainConfig, block.Number())
+	addrToGroupID := make(map[common.Address]int, 0)
+	for index, tx := range block.Transactions() {
+		sender, _ := types.Sender(signer, tx)
+		groupID := p.calGroup(addrToGroupID, sender, tx.To())
 
-		groupID := p.calGroup(sender, v.To())
-
-		p.groupList[groupID] = append(p.groupList[groupID], k)
-		p.txIndexToGroupID[k] = groupID
+		p.groupList[groupID] = append(p.groupList[groupID], index)
+		p.txIndexToGroupID[index] = groupID
 	}
-
-	//if len(p.groupList) >= 8 {
-	//	fmt.Println("block Print", p.block.Number(), "txs", len(p.block.Transactions()), "groupSize", len(p.groupList))
-	//}
 
 	for index := 0; index < 8; index++ {
 		go p.txLoop()
@@ -86,22 +80,21 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	return p
 }
 
-func (p *pallTxManager) calGroup(from common.Address, to *common.Address) int {
+func (p *pallTxManager) calGroup(mp map[common.Address]int, from common.Address, to *common.Address) int {
 	groupID := len(p.groupList)
 
 	if to != nil {
-		if data, ok := p.addressToGroupID[*to]; ok {
+		if data, ok := mp[*to]; ok {
 			groupID = data
 		}
 	}
-
-	if data, ok := p.addressToGroupID[from]; ok {
+	if data, ok := mp[from]; ok {
 		groupID = data
 	}
-	p.addressToGroupID[from] = groupID
 
+	mp[from] = groupID
 	if to != nil {
-		p.addressToGroupID[*to] = groupID
+		mp[*to] = groupID
 	}
 	return groupID
 }
@@ -155,7 +148,7 @@ func (p *pallTxManager) txLoop() {
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	if rr.st.CanMerge(p.mergedRW) {
 		rr.st.Merge(p.baseStateDB)
-		p.gp.SubGas(rr.receipt.GasUsed)
+		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 		p.mergedRW[rr.txIndex] = rr.st.ThisTxRW
 		p.mergedNumber = rr.txIndex
@@ -171,6 +164,10 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	}
 }
 
+var (
+	PP = false
+)
+
 func (p *pallTxManager) handleTx(txIndex int) bool {
 	tx := p.block.Transactions()[txIndex]
 	p.mubase.Lock()
@@ -179,14 +176,19 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		return true
 	}
 	st := p.baseStateDB.Copy()
-	gas := p.gp.Gas()
+	gas := p.gp
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
+
+	if PP {
+		fmt.Println("---apply tx PPPP---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
+	}
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
+		PP = true
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{

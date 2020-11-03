@@ -12,8 +12,9 @@ type tValue struct {
 }
 
 type FastDB struct {
-	db    *Database
-	cache map[string]tValue
+	db         *Database
+	cache      map[string]tValue
+	cachedHash common.Hash
 }
 
 func NewFastDB(db *Database) *FastDB {
@@ -62,7 +63,9 @@ func (f *FastDB) TryDelete(key []byte) error {
 	return nil
 }
 func (f *FastDB) Hash() common.Hash {
-	return common.Hash{}
+	if f.cachedHash.Big().Uint64() != 0 {
+		return f.cachedHash
+	}
 	keyList := make([]string, 0, len(f.cache))
 	for k, _ := range f.cache {
 		keyList = append(keyList, k)
@@ -76,7 +79,8 @@ func (f *FastDB) Hash() common.Hash {
 		seed = append(seed, []byte(k)...)
 		seed = append(seed, f.cache[k].value...)
 	}
-	return common.BytesToHash(crypto.Keccak256(seed))
+	f.cachedHash = common.BytesToHash(crypto.Keccak256(seed))
+	return f.cachedHash
 }
 
 func (f *FastDB) Commit(onleaf LeafCallback) (common.Hash, error) {
@@ -89,7 +93,7 @@ func (f *FastDB) Commit(onleaf LeafCallback) (common.Hash, error) {
 		}
 	}
 	batch.Write()
-	return common.Hash{}, nil
+	return f.Hash(), nil
 }
 func (f *FastDB) NodeIterator(startKey []byte) NodeIterator {
 	panic("fastdb NodeIterator not implement")
