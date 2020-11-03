@@ -146,7 +146,7 @@ func (p *pallTxManager) txLoop() {
 }
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
-	if rr.st.CanMerge(p.mergedRW) {
+	if rr.st.CanMerge(p.mergedRW, p.block.Coinbase()) {
 		rr.st.Merge(p.baseStateDB)
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt

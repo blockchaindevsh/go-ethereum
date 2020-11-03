@@ -501,7 +501,7 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 func (s *StateDB) Print(tt string) {
 	nn := ""
 	for k, v := range s.stateObjects {
-		nn += fmt.Sprintf("%v:%v;", k.String(), v.data.Nonce)
+		nn += fmt.Sprintf("%v-%v-%v ;", k.String(), v.data.Nonce, v.data.Balance.String())
 	}
 
 	rw := ""
@@ -749,7 +749,7 @@ func (s *StateDB) CalReadAndWrite() {
 	s.ThisTxRW = write
 }
 
-func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool) bool {
+func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner common.Address) bool {
 	rwFromBase := make(map[common.Address]bool)
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
@@ -770,7 +770,7 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool) bool {
 				base += fmt.Sprintf("%v", kk.String())
 			}
 			base += ".."
-			fmt.Println("have conflict", s.MergedIndex, s.txIndex, k.String(), ttRW, base)
+			fmt.Println("have conflict", s.MergedIndex, s.txIndex, miner.String(), k.String(), ttRW, base)
 			return false
 		}
 	}
@@ -778,7 +778,16 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool) bool {
 }
 
 func (s *StateDB) Merge(base *StateDB) {
-	*base = *s
+	for k, v := range s.stateObjects {
+		if data, ok := base.stateObjects[k]; ok { //money
+			tt := new(big.Int).Add(v.data.Balance, data.data.Balance)
+			base.stateObjects[k].data.Balance = tt
+			fmt.Println("mmmmmmmmmmmmmmmmmmm", k.String(), v.data.Balance, data.data.Balance, tt)
+		} else {
+			base.stateObjects[k] = v.deepCopy(s)
+		}
+
+	}
 	base.MergedIndex = s.txIndex
 }
 
