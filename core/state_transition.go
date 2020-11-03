@@ -247,7 +247,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	// Check clause 6
 	if msg.Value().Sign() > 0 && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
-		return nil, fmt.Errorf("from=%v balance=%v err=%v", msg.From().String(), "balance", st.state.GetBalance(msg.From()), msg.Value(), ErrInsufficientFundsForTransfer)
+		return nil, fmt.Errorf("from=%v balance=%v value=%v err=%v", msg.From().String(), st.state.GetBalance(msg.From()), msg.Value(), ErrInsufficientFundsForTransfer)
 	}
 	var (
 		ret   []byte
