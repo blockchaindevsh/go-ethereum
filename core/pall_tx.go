@@ -67,6 +67,10 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		sender, _ := types.Sender(p.signer, v)
 
 		groupID := p.calGroup(sender, v.To())
+		if block.NumberU64() == 116625 {
+			fmt.Println("txIndex", k, groupID)
+		}
+
 		p.groupList[groupID] = append(p.groupList[groupID], k)
 		p.txIndexToGroupID[k] = groupID
 	}
