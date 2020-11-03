@@ -72,9 +72,9 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		p.txIndexToGroupID[k] = groupID
 	}
 
-	if len(p.groupList) >= 8 {
-		fmt.Println("block Print", p.block.Number(), "txs", len(p.block.Transactions()), "groupSize", len(p.groupList))
-	}
+	//if len(p.groupList) >= 8 {
+	//	fmt.Println("block Print", p.block.Number(), "txs", len(p.block.Transactions()), "groupSize", len(p.groupList))
+	//}
 
 	for index := 0; index < 8; index++ {
 		go p.txLoop()
