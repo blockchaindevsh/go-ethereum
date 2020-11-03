@@ -101,8 +101,17 @@ func (p *pallTxManager) calGroup(from common.Address, to *common.Address) int {
 	}
 
 	p.addressToGroupID[from] = groupID
+	if p.block.NumberU64() == 116525 {
+		fmt.Println("FFFFFFFFFFF", from.String(), groupID)
+	}
+
 	if to != nil {
 		p.addressToGroupID[*to] = groupID
+		p.addressToGroupID[from] = groupID
+		if p.block.NumberU64() == 116525 {
+			fmt.Println("TTTTTTTTTTTT", (*to).String(), groupID)
+		}
+
 	}
 	return groupID
 }
