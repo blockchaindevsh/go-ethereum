@@ -506,7 +506,7 @@ func (s *StateDB) Print(tt string) {
 
 	rw := ""
 	for k, _ := range s.ThisTxRW {
-		rw += fmt.Sprintf("%v ", k)
+		rw += fmt.Sprintf("%v ", k.String())
 	}
 	rw += ","
 
