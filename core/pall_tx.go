@@ -161,6 +161,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		p.baseStateDB.Print(fmt.Sprintf("blockNumber=%v merged end mergedNumbe=%v", p.block.NumberU64(), p.mergedNumber))
 
 	} else {
+		fmt.Println("cccccccccccccc", p.block.NumberU64(), p.mergedNumber, rr.txIndex)
 		p.AddTxToQueue(rr.txIndex)
 	}
 }
