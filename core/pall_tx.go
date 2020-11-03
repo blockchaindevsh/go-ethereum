@@ -70,9 +70,10 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		groupID := len(p.groupList)
 		if p.addressToGroupID[sender] != 0 {
 			groupID = p.addressToGroupID[sender]
-		}
-		if to != nil && p.addressToGroupID[*to] != 0 {
-			groupID = p.addressToGroupID[*to]
+		} else {
+			if to != nil && p.addressToGroupID[*to] != 0 {
+				groupID = p.addressToGroupID[*to]
+			}
 		}
 
 		p.groupList[groupID] = append(p.groupList[groupID], k)
