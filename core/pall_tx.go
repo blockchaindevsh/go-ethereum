@@ -75,6 +75,9 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 				groupID = p.addressToGroupID[*to]
 			}
 		}
+		if to != nil {
+			fmt.Println("blockNumber", block.NumberU64(), "txIndex", k, "groupID", groupID, p.addressToGroupID[sender], p.addressToGroupID[*to])
+		}
 
 		p.groupList[groupID] = append(p.groupList[groupID], k)
 		p.txIndexToGroupID[k] = groupID
