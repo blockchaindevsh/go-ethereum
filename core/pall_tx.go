@@ -100,6 +100,7 @@ func (p *pallTxManager) calGroup(from common.Address, to *common.Address) int {
 	if to != nil {
 		p.addressToGroupID[*to] = groupID
 	}
+	return groupID
 }
 
 func (p *pallTxManager) AddTxToQueue(txIndex int) {
