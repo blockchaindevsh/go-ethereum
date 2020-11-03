@@ -171,6 +171,10 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		p.mubase.Unlock()
 		return true
 	}
+	preBaseMerged := p.baseStateDB.MergedIndex
+	if p.mergedNumber != p.baseStateDB.MergedIndex {
+		panic(fmt.Errorf("bug here %v != %v", p.mergedNumber, p.baseStateDB.MergedIndex))
+	}
 	st := p.baseStateDB.Copy()
 	gas := p.gp
 	p.mubase.Unlock()
@@ -179,7 +183,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
+		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", preBaseMerged, "currTxIndex", txIndex, "groupList", p.groupList)
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{
