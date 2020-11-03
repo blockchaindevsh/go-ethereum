@@ -65,18 +65,23 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 	for k, v := range block.Transactions() {
 		sender, _ := types.Sender(p.signer, v)
+		to := v.To()
 
-		if _, ok := p.addressToGroupID[sender]; !ok {
-			p.addressToGroupID[sender] = len(p.groupList)
+		groupID := len(p.groupList)
+		if p.addressToGroupID[sender] != 0 {
+			groupID = p.addressToGroupID[sender]
 		}
-		if v.To() != nil {
-			if _, ok := p.addressToGroupID[*v.To()]; !ok {
-				p.addressToGroupID[*v.To()] = len(p.groupList)
-			}
+		if to != nil && p.addressToGroupID[*to] != 0 {
+			groupID = p.addressToGroupID[*to]
 		}
 
-		p.groupList[p.addressToGroupID[sender]] = append(p.groupList[p.addressToGroupID[sender]], k)
-		p.txIndexToGroupID[k] = p.addressToGroupID[sender]
+		p.groupList[groupID] = append(p.groupList[groupID], k)
+		p.txIndexToGroupID[k] = groupID
+
+		p.addressToGroupID[sender] = groupID
+		if to != nil {
+			p.addressToGroupID[*to] = groupID
+		}
 	}
 
 	p.Print()
