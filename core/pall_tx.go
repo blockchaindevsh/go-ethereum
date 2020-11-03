@@ -143,7 +143,7 @@ func (p *pallTxManager) txLoop() {
 		if isClosed {
 			return
 		}
-		if !p.handleTx(tx) {
+		if !p.handleTx(tx) && !p.Done() {
 			p.AddTxToQueue(tx)
 		}
 	}
@@ -184,7 +184,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		fmt.Println("apply tx err", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
+		fmt.Println("apply tx err", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{
