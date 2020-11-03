@@ -67,9 +67,6 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		sender, _ := types.Sender(p.signer, v)
 
 		groupID := p.calGroup(sender, v.To())
-		if block.NumberU64() == 116525 {
-			fmt.Println("txIndex", k, groupID)
-		}
 
 		p.groupList[groupID] = append(p.groupList[groupID], k)
 		p.txIndexToGroupID[k] = groupID
@@ -105,7 +102,6 @@ func (p *pallTxManager) calGroup(from common.Address, to *common.Address) int {
 
 	if to != nil {
 		p.addressToGroupID[*to] = groupID
-		p.addressToGroupID[from] = groupID
 	}
 	return groupID
 }
@@ -163,7 +159,6 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 		p.mergedRW[rr.txIndex] = rr.st.ThisTxRW
 		p.mergedNumber = rr.txIndex
-		//fmt.Println("merge end", "blockNumber", p.block.NumberU64(), p.mergedNumber)
 
 		groupID := p.txIndexToGroupID[rr.txIndex]
 		p.lastHandleInGroup[groupID]++
@@ -190,11 +185,6 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	//if sender, err := types.Sender(p.signer, tx); err == nil {
-	//	if sender.String() == "0xa9Ac1233699BDae25abeBae4f9Fb54DbB1b44700" {
-	//		fmt.Println("????", "blockNumber", p.block.NumberU64(), "txIndex", txIndex, st.GetNonce(sender))
-	//	}
-	//}
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
 		return false
@@ -216,7 +206,8 @@ func (p *pallTxManager) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint
 	for index := 0; index < p.txLen; index++ {
 		CumulativeGasUsed = CumulativeGasUsed + p.mergedReceipts[index].GasUsed
 		p.mergedReceipts[index].CumulativeGasUsed = CumulativeGasUsed
-		p.mergedReceipts[index].Bloom = types.CreateBloom(types.Receipts{p.mergedReceipts[index]})
+		//p.mergedReceipts[index].Bloom = types.CreateBloom(types.Receipts{p.mergedReceipts[index]})
+
 		receipts = append(receipts, p.mergedReceipts[index])
 		logs = append(logs, p.mergedReceipts[index].Logs...)
 	}
