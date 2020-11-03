@@ -176,7 +176,7 @@ func (st *StateTransition) to() common.Address {
 func (st *StateTransition) buyGas() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
-		return fmt.Errorf("from=%v,balance=%v,msgval=%v err=%v", st.msg.From(), st.state.GetBalance(st.msg.From()), mgval, ErrInsufficientFunds)
+		return fmt.Errorf("from=%v,balance=%v,msgval=%v err=%v", st.msg.From().String(), st.state.GetBalance(st.msg.From()), mgval, ErrInsufficientFunds)
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
