@@ -168,7 +168,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 func (p *pallTxManager) handleTx(txIndex int) bool {
 	tx := p.block.Transactions()[txIndex]
 	p.mubase.Lock()
-	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil {
+	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.Done() {
 		p.mubase.Unlock()
 		return true
 	}
