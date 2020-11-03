@@ -164,10 +164,6 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	}
 }
 
-var (
-	PP = false
-)
-
 func (p *pallTxManager) handleTx(txIndex int) bool {
 	tx := p.block.Transactions()[txIndex]
 	p.mubase.Lock()
@@ -182,13 +178,8 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-
-	if PP {
-		fmt.Println("---apply tx PPPP---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
-	}
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
-		PP = true
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{
