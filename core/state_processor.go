@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -101,6 +102,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		close(pm.txQueue)
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 	}
+	fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64())
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 	return receipts, allLogs, *usedGas, nil
 }

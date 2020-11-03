@@ -158,7 +158,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		if p.lastHandleInGroup[groupID] < len(p.groupList[groupID]) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
-		p.baseStateDB.Print(fmt.Sprintf("merged end mergedNumbe=%v", p.mergedNumber))
+		p.baseStateDB.Print(fmt.Sprintf("blockNumber=%v merged end mergedNumbe=%v", p.block.NumberU64(), p.mergedNumber))
 
 	} else {
 		p.AddTxToQueue(rr.txIndex)
@@ -180,12 +180,12 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	gas := p.gp
 	p.mubase.Unlock()
 
-	st.Print(fmt.Sprintf("apply tx before preBaseMerged=%v txIndex=%v", preBaseMerged, txIndex))
+	st.Print(fmt.Sprintf("blockNumber=%v apply tx before preBaseMerged=%v txIndex=%v", p.block.NumberU64(), preBaseMerged, txIndex))
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	st.Print(fmt.Sprintf("apply tx end preBaseMerged=%v txIndex=%v", preBaseMerged, txIndex))
+	st.Print(fmt.Sprintf("blockNumber=%v apply tx end preBaseMerged=%v txIndex=%v", p.block.NumberU64(), preBaseMerged, txIndex))
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", preBaseMerged, "currTxIndex", txIndex, "groupList", p.groupList)
 		return false
