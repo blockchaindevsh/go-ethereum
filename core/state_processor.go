@@ -91,31 +91,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		header   = block.Header()
 		allLogs  []*types.Log
 	)
-	if len(block.Transactions()) < params.MinTxForParallel {
-		return p.ProcessSerial(block, statedb, cfg)
-	}
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	pm := NewPallTxManage(block, statedb, p.bc)
-	//for i, _ := range block.Transactions() {
-	//	pm.AddTxToQueue(i)
-	//}
-	<-pm.ch
-	close(pm.txQueue)
-	receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
-
-	//for index := 0; index < len(receipts); index++ {
-	//fmt.Println("rrrrrr--", block.NumberU64(), index, receipts[index].GasUsed)
-	//}
-
+	if len(block.Transactions()) != 0 {
+		pm := NewPallTxManage(block, statedb, p.bc)
+		<-pm.ch
+		close(pm.txQueue)
+		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
+	}
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
-
-	//if len(receipts) != 0 {
-	//	fmt.Println("block.Number", block.NumberU64(), len(block.Transactions()))
-	//}
-
 	return receipts, allLogs, *usedGas, nil
 }
 

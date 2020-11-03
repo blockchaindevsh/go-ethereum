@@ -65,32 +65,15 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 	for k, v := range block.Transactions() {
 		sender, _ := types.Sender(p.signer, v)
-		to := v.To()
 
-		groupID := len(p.groupList)
-		if _, ok := p.addressToGroupID[sender]; ok {
-			groupID = p.addressToGroupID[sender]
-		} else {
-			if to != nil {
-				if _, ok := p.addressToGroupID[*to]; ok {
-					groupID = p.addressToGroupID[*to]
-				}
-			}
-		}
-		//if to != nil {
-		//	fmt.Println("blockNumber", block.NumberU64(), "txIndex", k, "groupID", groupID, p.addressToGroupID[sender], p.addressToGroupID[*to])
-		//}
-
+		groupID := p.calGroup(sender, v.To())
 		p.groupList[groupID] = append(p.groupList[groupID], k)
 		p.txIndexToGroupID[k] = groupID
-
-		p.addressToGroupID[sender] = groupID
-		if to != nil {
-			p.addressToGroupID[*to] = groupID
-		}
 	}
 
-	p.Print()
+	if len(p.groupList) >= 8 {
+		fmt.Println("block Print", p.block.Number(), "txs", len(p.block.Transactions()), "groupSize", len(p.groupList))
+	}
 
 	for index := 0; index < 8; index++ {
 		go p.txLoop()
@@ -102,16 +85,21 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	return p
 }
 
-func (p *pallTxManager) Print() {
-	fmt.Println("block Print", p.block.Number(), "txs", len(p.block.Transactions()), "groupSize", len(p.groupList))
-	if p.block.NumberU64() == 129668 {
-		for k, v := range p.txIndexToGroupID {
-			fmt.Println("txIndex", k, "groupID", v)
+func (p *pallTxManager) calGroup(from common.Address, to *common.Address) int {
+	groupID := len(p.groupList)
+	if data, ok := p.addressToGroupID[from]; ok {
+		groupID = data
+	}
+	if to != nil {
+		if data, ok := p.addressToGroupID[*to]; ok {
+			groupID = data
 		}
-		fmt.Println("groupList", p.groupList)
 	}
 
-	//fmt.Println("groupSize", len(p.groupList))
+	p.addressToGroupID[from] = groupID
+	if to != nil {
+		p.addressToGroupID[*to] = groupID
+	}
 }
 
 func (p *pallTxManager) AddTxToQueue(txIndex int) {
