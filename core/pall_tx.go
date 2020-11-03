@@ -190,11 +190,11 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	if sender, err := types.Sender(p.signer, tx); err == nil {
-		if sender.String() == "0xa9Ac1233699BDae25abeBae4f9Fb54DbB1b44700" {
-			fmt.Println("????", "blockNumber", p.block.NumberU64(), "txIndex", txIndex, st.GetNonce(sender))
-		}
-	}
+	//if sender, err := types.Sender(p.signer, tx); err == nil {
+	//	if sender.String() == "0xa9Ac1233699BDae25abeBae4f9Fb54DbB1b44700" {
+	//		fmt.Println("????", "blockNumber", p.block.NumberU64(), "txIndex", txIndex, st.GetNonce(sender))
+	//	}
+	//}
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
 		return false
