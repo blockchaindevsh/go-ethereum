@@ -102,17 +102,10 @@ func (p *pallTxManager) calGroup(from common.Address, to *common.Address) int {
 		groupID = data
 	}
 	p.addressToGroupID[from] = groupID
-	if p.block.NumberU64() == 116525 {
-		fmt.Println("FFFFFFFFFFF", from.String(), groupID)
-	}
 
 	if to != nil {
 		p.addressToGroupID[*to] = groupID
 		p.addressToGroupID[from] = groupID
-		if p.block.NumberU64() == 116525 {
-			fmt.Println("TTTTTTTTTTTT", (*to).String(), groupID)
-		}
-
 	}
 	return groupID
 }
@@ -197,8 +190,13 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	if sender, err := types.Sender(p.signer, tx); err != nil {
+		if sender.String() == "0xa9Ac1233699BDae25abeBae4f9Fb54DbB1b44700" {
+			fmt.Println("????", "blockNumber", p.block.NumberU64(), "txIndex", txIndex, st.GetNonce(sender))
+		}
+	}
 	if err != nil {
-		fmt.Println("apply tx err", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
+		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
 		return false
 	}
 	p.AddReceiptToQueue(&ReceiptWithIndex{
