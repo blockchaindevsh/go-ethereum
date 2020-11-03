@@ -504,7 +504,13 @@ func (s *StateDB) Print(tt string) {
 		nn += fmt.Sprintf("%v:%v;", k.String(), v.data.Nonce)
 	}
 
-	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "nn", nn)
+	rw := ""
+	for k, _ := range s.ThisTxRW {
+		rw += fmt.Sprintf("%v ", k)
+	}
+	rw += ","
+
+	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "nn", nn, rw)
 }
 
 // getDeletedStateObject is similar to getStateObject, but instead of returning
