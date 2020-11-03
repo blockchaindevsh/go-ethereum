@@ -91,15 +91,16 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 func (p *pallTxManager) calGroup(from common.Address, to *common.Address) int {
 	groupID := len(p.groupList)
-	if data, ok := p.addressToGroupID[from]; ok {
-		groupID = data
-	}
+
 	if to != nil {
 		if data, ok := p.addressToGroupID[*to]; ok {
 			groupID = data
 		}
 	}
 
+	if data, ok := p.addressToGroupID[from]; ok {
+		groupID = data
+	}
 	p.addressToGroupID[from] = groupID
 	if p.block.NumberU64() == 116525 {
 		fmt.Println("FFFFFFFFFFF", from.String(), groupID)
