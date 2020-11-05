@@ -105,8 +105,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if block.NumberU64() == 47218 {
 		panic("ssss")
 	}
-	fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64())
+	for k, v := range receipts {
+		fmt.Println("block", block.NumberU64(), k, v.GasUsed)
+	}
+	//fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64())
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
+	//fmt.Println("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF-end", block.NumberU64())
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -134,6 +138,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	statedb.CalReadAndWrite()
 	var root []byte
 	if config.IsByzantium(header.Number) {
+		//root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 		statedb.Finalise(true)
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()

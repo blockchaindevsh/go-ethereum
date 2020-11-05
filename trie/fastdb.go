@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -17,6 +18,13 @@ type FastDB struct {
 	cachedHash common.Hash
 }
 
+func (f *FastDB) DDD() string {
+	ss := fmt.Sprintf("len=%v", len(f.cache))
+	for k, v := range f.cache {
+		ss += fmt.Sprintf("k:%v v:%v", k, v)
+	}
+	return ss
+}
 func NewFastDB(db *Database) *FastDB {
 	return &FastDB{
 		db:    db,
@@ -49,6 +57,7 @@ func (f *FastDB) TryGet(key []byte) ([]byte, error) {
 	return data, nil
 }
 func (f *FastDB) TryUpdate(key, value []byte) error {
+	//fmt.Println("600000000000000", hex.EncodeToString(key), hex.EncodeToString(value))
 	f.cache[string(key)] = tValue{
 		value:   value,
 		deleted: false,

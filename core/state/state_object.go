@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/trie"
 	"io"
 	"math/big"
 	"time"
@@ -64,10 +65,11 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	address  common.Address
-	addrHash common.Hash // hash of ethereum address of the account
-	data     Account
-	db       *StateDB
+	preStateObject *stateObject
+	address        common.Address
+	addrHash       common.Hash // hash of ethereum address of the account
+	data           Account
+	db             *StateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -98,6 +100,14 @@ func (s *stateObject) empty() bool {
 	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash)
 }
 
+func (s *stateObject) RangeTrie() string {
+	t, ok := s.trie.(*trie.FastDB)
+	if !ok {
+		return "trie is empty"
+	}
+	return t.DDD()
+}
+
 // Account is the Ethereum consensus representation of accounts.
 // These objects are stored in the main account trie.
 type Account struct {
@@ -108,8 +118,18 @@ type Account struct {
 	Deleted     bool
 }
 
+func (a Account) copy() *Account {
+	return &Account{
+		Nonce:       a.Nonce,
+		Balance:     new(big.Int).Set(a.Balance),
+		CodeHash:    a.CodeHash,
+		Incarnation: a.Incarnation,
+		Deleted:     a.Deleted,
+	}
+}
+
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data Account) *stateObject {
+func newObject(db *StateDB, address common.Address, data Account, pre *stateObject) *stateObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
@@ -120,6 +140,7 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	//	data.Root = emptyRoot
 	//}
 	return &stateObject{
+		preStateObject: pre,
 		db:             db,
 		address:        address,
 		addrHash:       crypto.Keccak256Hash(address[:]),
@@ -179,6 +200,11 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
 		return value
+	}
+	if s.preStateObject != nil && !s.preStateObject.data.Deleted {
+		if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
+			return value
+		}
 	}
 	// Otherwise return the entry's original value
 	return s.GetCommittedState(db, key)
@@ -436,7 +462,7 @@ func (s *stateObject) setBalance(amount *big.Int) {
 func (s *stateObject) ReturnGas(gas *big.Int) {}
 
 func (s *stateObject) deepCopy(db *StateDB) *stateObject {
-	stateObject := newObject(db, s.address, s.data)
+	stateObject := newObject(db, s.address, s.data, nil)
 	if s.trie != nil {
 		stateObject.trie = db.db.CopyTrie(s.trie)
 	}

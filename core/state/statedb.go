@@ -71,6 +71,7 @@ type StateDB struct {
 	snapAccounts  map[common.Hash][]byte
 	snapStorage   map[common.Hash]map[common.Hash][]byte
 
+	mergedStateObjects map[common.Address]map[int]*stateObject
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects        map[common.Address]*stateObject
 	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
@@ -127,6 +128,7 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		db:                  db,
 		trie:                tr,
 		snaps:               snaps,
+		mergedStateObjects:  make(map[common.Address]map[int]*stateObject),
 		stateObjects:        make(map[common.Address]*stateObject),
 		stateObjectsPending: make(map[common.Address]struct{}),
 		stateObjectsDirty:   make(map[common.Address]struct{}),
@@ -144,6 +146,13 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		}
 	}
 	return sdb, nil
+}
+
+func (s *StateDB) SetObjs(mm map[common.Address]map[int]*stateObject) {
+	s.mergedStateObjects = mm
+}
+func (s *StateDB) GetObjs() map[common.Address]map[int]*stateObject {
+	return s.mergedStateObjects
 }
 
 // setError remembers the first non-nil error it is called with.
@@ -266,6 +275,7 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		//fmt.Println("ready to getNonce", addr.String(), stateObject.Nonce())
 		return stateObject.Nonce()
 	}
 
@@ -430,6 +440,7 @@ func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after Suicide.
 func (s *StateDB) Suicide(addr common.Address) bool {
+	//fmt.Println("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSsuiside", addr.String())
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
 		return false
@@ -462,6 +473,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
+	//fmt.Println("update---", addr.String(), obj.data.Nonce, obj.data.Balance)
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -499,18 +511,40 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 }
 
 func (s *StateDB) Print(tt string) {
-	nn := ""
+	//return
+	sts := "sts:"
 	for k, v := range s.stateObjects {
-		nn += fmt.Sprintf("%v-%v-%v ;", k.String(), v.data.Nonce, v.data.Balance.String())
+		sts += fmt.Sprintf("addr:%v-%v-%v ;", k.String(), v.data.Nonce, v.data.Deleted)
 	}
 
-	rw := ""
+	rw := "rw:"
 	for k, _ := range s.ThisTxRW {
 		rw += fmt.Sprintf("%v ", k.String())
 	}
 	rw += ","
 
-	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "nn", nn, rw)
+	dirty := "dirty:"
+	for k, _ := range s.journal.dirties {
+		dirty += fmt.Sprintf("%v-", k.String())
+	}
+
+	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "sts", sts, "rw", rw, "dirty", dirty, "pendingSts", len(s.stateObjectsPending), "dirtySts", len(s.stateObjectsDirty))
+}
+
+func (s *StateDB) GetLastState(addr common.Address, txlen int) *stateObject {
+	data, ok := s.mergedStateObjects[addr]
+	if !ok {
+		return nil
+	}
+	//fmt.Println("GGGGGGGGGGG", addr.String(), len(data), s.txIndex)
+	var res *stateObject
+
+	for index := 0; index < txlen; index++ {
+		if data[index] != nil {
+			res = data[index]
+		}
+	}
+	return res
 }
 
 // getDeletedStateObject is similar to getStateObject, but instead of returning
@@ -520,6 +554,7 @@ func (s *StateDB) Print(tt string) {
 func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
+		//fmt.Println("553-------")
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -550,28 +585,36 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			//}
 		}
 	}
+	var preStaeObject *stateObject
 	// If snapshot unavailable or reading from it failed, load from the database
 	if s.snap == nil || err != nil {
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.AccountReads += time.Since(start) }(time.Now())
 		}
-		enc, err := s.trie.TryGet(addr.Bytes())
-		if err != nil {
-			s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
-			return nil
-		}
-		if len(enc) == 0 {
-			return nil
-		}
-		data = new(Account)
 
-		if err := rlp.DecodeBytes(enc, data); err != nil {
-			log.Error("Failed to decode state object", "addr", addr, "err", err)
-			return nil
+		if preStaeObject = s.GetLastState(addr, s.txIndex); preStaeObject != nil {
+			data = preStaeObject.data.copy()
+			//fmt.Println("data-----------", addr.String(), data.Deleted, data.Nonce, data.Incarnation)
+		} else {
+			enc, err := s.trie.TryGet(addr.Bytes())
+			if err != nil {
+				s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
+				return nil
+			}
+			if len(enc) == 0 {
+				return nil
+			}
+			data = new(Account)
+
+			if err := rlp.DecodeBytes(enc, data); err != nil {
+				log.Error("Failed to decode state object", "addr", addr, "err", err)
+				return nil
+			}
 		}
+
 	}
 	// Insert into the live set
-	obj := newObject(s, addr, *data)
+	obj := newObject(s, addr, *data, preStaeObject)
 	s.setStateObject(obj)
 	return obj
 }
@@ -601,7 +644,7 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 			s.snapDestructs[prev.addrHash] = struct{}{}
 		}
 	}
-	newobj = newObject(s, addr, Account{})
+	newobj = newObject(s, addr, Account{}, s.GetLastState(addr, s.txIndex))
 	newobj.setNonce(0) // sets the object to dirty
 	if prev == nil {
 		s.journal.append(createObjectChange{account: &addr})
@@ -749,7 +792,7 @@ func (s *StateDB) CalReadAndWrite() {
 	s.ThisTxRW = write
 }
 
-func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner common.Address) bool {
+func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Address]bool, miner common.Address) bool {
 	rwFromBase := make(map[common.Address]bool)
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
@@ -759,6 +802,17 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner commo
 
 	for k, _ := range s.ThisTxRW {
 		if rwFromBase[k] {
+			if k.String() == miner.String() {
+				if s.stateObjects[k].Nonce() != baseStateDB.stateObjects[k].Nonce() {
+					return false
+				} else {
+					return true
+				}
+			} else {
+				//fmt.Println("????????", s.stateObjects[k] == nil, baseStateDB.stateObjects[k] == nil)
+				//fmt.Println("is miner", s.stateObjects[k].data, baseStateDB.stateObjects[k].data)
+
+			}
 			ttRW := ""
 			for kk, _ := range s.ThisTxRW {
 				ttRW += fmt.Sprintf("%v ", kk.String())
@@ -770,25 +824,58 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner commo
 				base += fmt.Sprintf("%v", kk.String())
 			}
 			base += ".."
-			fmt.Println("have conflict", s.MergedIndex, s.txIndex, miner.String(), k.String(), ttRW, base)
+			//fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), ttRW, base)
 			return false
 		}
 	}
 	return true
 }
 
-func (s *StateDB) Merge(base *StateDB) {
+func (s *StateDB) Merge(base *StateDB, miner common.Address) {
+	preMinerBalance := new(big.Int)
+	if acc, ok := s.stateObjects[miner]; ok {
+		preMinerBalance = acc.Balance()
+	}
+
 	for k, v := range s.stateObjects {
-		if data, ok := base.stateObjects[k]; ok { //money
-			tt := new(big.Int).Add(v.data.Balance, data.data.Balance)
-			base.stateObjects[k].data.Balance = tt
-			fmt.Println("mmmmmmmmmmmmmmmmmmm", k.String(), v.data.Balance, data.data.Balance, tt)
-		} else {
-			base.stateObjects[k] = v.deepCopy(s)
+		if _, ok := s.mergedStateObjects[k]; !ok {
+			base.mergedStateObjects[k] = make(map[int]*stateObject)
+		}
+		base.mergedStateObjects[k][s.txIndex] = v
+		base.mergedStateObjects[k][s.txIndex].preStateObject = nil
+
+		//fmt.Println("merge ", "addr", k.String(), v == nil, reflect.TypeOf(v.trie), v.RangeTrie())
+
+		if miner.String() == k.String() {
+			//fmt.Println("isminer", preMinerBalance, v.data.Balance)
+			base.mergedStateObjects[k][s.txIndex].data.Balance = new(big.Int).Add(preMinerBalance, v.data.Balance)
+		}
+	}
+	base.MergedIndex = s.txIndex
+
+	//fmt.Println("MMMMMMMMMMMMMMMMMM--end", len(s.stateObjects), len(base.mergedStateObjects))
+}
+
+func (s *StateDB) ENd(mp map[int]map[common.Address]bool, txLen int) {
+	s.journal.dirties = make(map[common.Address]int)
+	for index := 0; index < txLen; index++ {
+		for k, _ := range mp[index] {
+			if _, ok := s.journal.dirties[k]; !ok {
+				s.journal.dirties[k] = 0
+			}
+
+		}
+	}
+	//fmt.Println("?>?????????????????", s.journal.dirties)
+	for addr, _ := range s.journal.dirties {
+		if _, exist := s.stateObjects[addr]; !exist {
+			s.stateObjects[addr] = s.GetLastState(addr, txLen)
+			if s.stateObjects[addr] == nil {
+				//fmt.Println("PPPPPPPPPPPPPPPPPP", addr.String())
+			}
 		}
 
 	}
-	base.MergedIndex = s.txIndex
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
@@ -827,8 +914,14 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			// Thus, we can safely ignore it here
 			continue
 		}
+		//fmt.Println("objjjjjjjjjjjjjjjjjjj", obj == nil)
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
+			//if addr.String() == "0x5A1D83B59f5e715b91F1e30Af5FdC9e53de928fd" {
+			//	debug.PrintStack()
+			//}
+			//fmt.Println("KKKKKKKKKKKKKKKKKKKKKKK", addr.String())
 			obj.deleted = true
+			obj.data.Deleted = true
 
 			// If state snapshotting is active, also mark the destruction there.
 			// Note, we can't do this only at the end of a block because multiple
@@ -845,6 +938,10 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		s.stateObjectsPending[addr] = struct{}{}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
+	//if obj, ok := s.stateObjects[common.HexToAddress("0x5A1D83B59f5e715b91F1e30Af5FdC9e53de928fd")]; ok {
+	//	fmt.Println("===================", obj.deleted)
+	//}
+
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
@@ -856,9 +953,16 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
 
+	pendingAddr := "pendingAddr"
+	for k, _ := range s.stateObjectsPending {
+		pendingAddr += fmt.Sprintf("%v-", k.String())
+	}
+	//fmt.Println("IIIIIIIIIIIIIIIIntermediateRoot-", pendingAddr)
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
+		//fmt.Println("90333333", addr.String(), obj.address.String(), obj.deleted)
 		if obj.deleted {
+			//fmt.Println("999999999999999999999999999", addr.String())
 			obj.data.Deleted = true
 		}
 		obj.updateRoot(s.db)
@@ -893,12 +997,15 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
+	//fmt.Println("begin commit")
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}
 	// Finalize any pending changes and merge everything into the tries
+	//fmt.Println("begin inter")
 	s.IntermediateRoot(deleteEmptyObjects)
 
+	//fmt.Println("end inter")
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
@@ -959,5 +1066,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 		}
 		s.snap, s.snapDestructs, s.snapAccounts, s.snapStorage = nil, nil, nil, nil
 	}
+	//fmt.Println("end commit")
 	return root, err
 }

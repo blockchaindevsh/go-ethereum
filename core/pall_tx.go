@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"sync"
+	"time"
 )
 
 type pallTxManager struct {
@@ -18,7 +19,7 @@ type pallTxManager struct {
 	mergedReceipts map[int]*types.Receipt
 	mergedRW       map[int]map[common.Address]bool
 	ch             chan struct{}
-	mergedNumber   int
+	//mergedNumber   int
 
 	lastHandleInGroup map[int]int
 	txIndexToGroupID  map[int]int
@@ -29,6 +30,8 @@ type pallTxManager struct {
 	receiptQueue []*ReceiptWithIndex
 
 	gp uint64
+
+	ended bool
 	//signer types.Signer
 }
 
@@ -53,7 +56,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		txIndexToGroupID:  make(map[int]int, 0),
 		lastHandleInGroup: make(map[int]int),
 
-		mergedNumber: -1,
+		//mergedNumber: -1,
 		groupList:    make(map[int][]int, 0),
 		receiptQueue: make([]*ReceiptWithIndex, txLen, txLen),
 
@@ -115,22 +118,25 @@ func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 	p.mubase.Lock()
 	defer p.mubase.Unlock()
 
-	if p.Done() {
+	if p.ended {
 		return
 	}
 
-	for p.mergedNumber+1 == startTxIndex && startTxIndex < p.txLen && p.receiptQueue[startTxIndex] != nil {
+	for p.baseStateDB.MergedIndex+1 == startTxIndex && startTxIndex < p.txLen && p.receiptQueue[startTxIndex] != nil {
 		p.handleReceipt(p.receiptQueue[startTxIndex])
 		startTxIndex++
 	}
 
-	if p.Done() {
+	if p.baseStateDB.MergedIndex+1 == p.txLen {
 		p.ch <- struct{}{}
-	}
-}
+		p.ended = true
 
-func (p *pallTxManager) Done() bool {
-	return p.mergedNumber+1 == p.txLen
+		//fmt.Println("========ssssscccccccfffffffffff", p.mergedRW)
+		//fmt.Println("========ssssscccccccfffffffffff", p.baseStateDB.GetObjs())
+		//p.baseStateDB.Prepare(common.Hash{},common.Hash{},)
+		p.baseStateDB.ENd(p.mergedRW, p.txLen)
+
+	}
 }
 
 func (p *pallTxManager) txLoop() {
@@ -139,29 +145,29 @@ func (p *pallTxManager) txLoop() {
 		if isClosed {
 			return
 		}
-		if !p.handleTx(tx) && !p.Done() {
+		if !p.handleTx(tx) && !p.ended {
 			p.AddTxToQueue(tx)
 		}
 	}
 }
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
-	if rr.st.CanMerge(p.mergedRW, p.block.Coinbase()) {
-		rr.st.Merge(p.baseStateDB)
+	if rr.st.CanMerge(p.baseStateDB, p.mergedRW, p.block.Coinbase()) {
+		rr.st.Merge(p.baseStateDB, p.block.Coinbase())
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 		p.mergedRW[rr.txIndex] = rr.st.ThisTxRW
-		p.mergedNumber = rr.txIndex
+		p.baseStateDB.MergedIndex = rr.txIndex
 
 		groupID := p.txIndexToGroupID[rr.txIndex]
 		p.lastHandleInGroup[groupID]++
 		if p.lastHandleInGroup[groupID] < len(p.groupList[groupID]) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
-		p.baseStateDB.Print(fmt.Sprintf("blockNumber=%v merged end mergedNumbe=%v", p.block.NumberU64(), p.mergedNumber))
+		p.baseStateDB.Print(fmt.Sprintf("blockNumber=%v merged end mergedNumbe=%v", p.block.NumberU64(), p.baseStateDB.MergedIndex))
 
 	} else {
-		fmt.Println("cccccccccccccc", p.block.NumberU64(), p.mergedNumber, rr.txIndex)
+		//fmt.Println("cccccccccccccc", p.block.NumberU64(), p.baseStateDB.MergedIndex, rr.txIndex)
 		p.AddTxToQueue(rr.txIndex)
 	}
 }
@@ -169,37 +175,43 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 func (p *pallTxManager) handleTx(txIndex int) bool {
 	tx := p.block.Transactions()[txIndex]
 	p.mubase.Lock()
-	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.Done() {
-		fmt.Println("ddddddddddd", txIndex <= p.baseStateDB.MergedIndex, p.receiptQueue[txIndex] != nil, p.Done())
+	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.ended {
+		//fmt.Println("ddddddddddd", txIndex <= p.baseStateDB.MergedIndex, p.receiptQueue[txIndex] != nil, p.ended)
 		p.mubase.Unlock()
 		return true
 	}
 	preBaseMerged := p.baseStateDB.MergedIndex
-	if p.mergedNumber != p.baseStateDB.MergedIndex {
-		panic(fmt.Errorf("bug here %v != %v", p.mergedNumber, p.baseStateDB.MergedIndex))
+	if p.baseStateDB.MergedIndex != p.baseStateDB.MergedIndex {
+		panic(fmt.Errorf("bug here %v != %v", p.baseStateDB.MergedIndex, p.baseStateDB.MergedIndex))
 	}
-	st := p.baseStateDB.Copy()
+	st, err := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
+	if err != nil {
+		panic(err)
+	}
+	st.SetObjs(p.baseStateDB.GetObjs())
+	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
 	p.mubase.Unlock()
 
 	st.Print(fmt.Sprintf("blockNumber=%v apply tx before preBaseMerged=%v txIndex=%v", p.block.NumberU64(), preBaseMerged, txIndex))
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-
+	//fmt.Println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb")
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	st.Print(fmt.Sprintf("blockNumber=%v apply tx end preBaseMerged=%v txIndex=%v ermsg=%v", p.block.NumberU64(), preBaseMerged, txIndex, err))
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", preBaseMerged, "currTxIndex", txIndex, "groupList", p.groupList)
+		time.Sleep(5 * time.Second)
 		return false
 	}
 
-	fmt.Println("ready to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
+	//fmt.Println("ready to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
 	p.AddReceiptToQueue(&ReceiptWithIndex{
 		st:      st,
 		txIndex: txIndex,
 		receipt: receipt,
 	})
-	fmt.Println("end to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
+	//fmt.Println("end to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
 	return true
 
 }
