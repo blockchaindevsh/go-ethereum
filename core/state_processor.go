@@ -102,13 +102,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		close(pm.txQueue)
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 	}
-	if block.NumberU64() == 47218 {
-		panic("ssss")
-	}
-	for k, v := range receipts {
-		fmt.Println("block", block.NumberU64(), k, v.GasUsed)
-	}
-	//fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64())
+	//if block.NumberU64() == 47218 {
+	//	panic("ssss")
+	//}
+	//for k, v := range receipts {
+	//	fmt.Println("block", block.NumberU64(), k, v.GasUsed)
+	//}
+	fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64())
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 	//fmt.Println("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF-end", block.NumberU64())
 	return receipts, allLogs, *usedGas, nil

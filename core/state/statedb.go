@@ -803,10 +803,10 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	for k, _ := range s.ThisTxRW {
 		if rwFromBase[k] {
 			if k.String() == miner.String() {
-				if s.stateObjects[k].Nonce() != baseStateDB.stateObjects[k].Nonce() {
+				if baseStateDB.stateObjects[k] != nil && s.stateObjects[k].Nonce() != baseStateDB.stateObjects[k].Nonce() {
 					return false
 				} else {
-					return true
+					continue
 				}
 			} else {
 				//fmt.Println("????????", s.stateObjects[k] == nil, baseStateDB.stateObjects[k] == nil)
