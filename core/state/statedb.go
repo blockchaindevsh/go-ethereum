@@ -865,8 +865,9 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 
 	for k, v := range s.stateObjects {
 		if v.preStateObject != nil {
-			fmt.Println(":kkkkkkkkkk", k.String(), len(v.preStateObject.dirtyStorage), len(v.preStateObject.pendingStorage))
-			for ks, vs := range v.preStateObject.pendingStorage {
+			fmt.Println(":kkkkkkkkkk-pre", k.String(), len(v.preStateObject.dirtyStorage), len(v.preStateObject.originStorage), len(v.preStateObject.pendingStorage))
+			fmt.Println(":kkkkkkkkkk-v", k.String(), len(v.dirtyStorage), len(v.originStorage), len(v.pendingStorage))
+			for ks, vs := range v.preStateObject.originStorage {
 				if _, ok := v.pendingStorage[ks]; !ok {
 					v.pendingStorage[ks] = vs
 					fmt.Println("87-----", k.String(), ks.String(), vs.String())
