@@ -210,7 +210,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
-	if p.block.NumberU64() == 55258 && txIndex == 2 {
+	if p.block.NumberU64() == 51259 && txIndex == 1 {
 		common.PrintData = true
 	}
 	//fmt.Println("TTTTTTTTTTTTTTTTTTTTTT", p.block.NumberU64(), txIndex, tx.Nonce(), tx.Hash().String())
