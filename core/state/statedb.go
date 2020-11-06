@@ -867,7 +867,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 		if v.preStateObject != nil {
 			fmt.Println(":kkkkkkkkkk-pre", k.String(), len(v.preStateObject.dirtyStorage), len(v.preStateObject.originStorage), len(v.preStateObject.pendingStorage))
 			fmt.Println(":kkkkkkkkkk-v", k.String(), len(v.dirtyStorage), len(v.originStorage), len(v.pendingStorage))
-			for ks, vs := range v.preStateObject.originStorage {
+			for ks, vs := range v.preStateObject.pendingStorage {
 				if _, ok := v.pendingStorage[ks]; !ok {
 					v.pendingStorage[ks] = vs
 					fmt.Println("87-----", k.String(), ks.String(), vs.String())
@@ -884,7 +884,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 			fmt.Println("mmmmmmmmmmmmmm", base.MergedIndex, s.txIndex, v.GetState(s.db, common.BigToHash(common.Big3)))
 		}
 
-		//fmt.Println("merge ", "addr", k.String(), s.txIndex, base.MergedIndex, v == nil, reflect.TypeOf(v.trie), v.RangeTrie())
+		fmt.Println("merge ", "addr", k.String(), "dorty", v.dirtyStorage, "origin", v.originStorage, "pending", v.pendingStorage)
 
 	}
 	base.MergedIndex = s.txIndex
