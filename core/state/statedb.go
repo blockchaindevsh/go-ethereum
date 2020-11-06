@@ -876,7 +876,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 		}
 		v.preStateObject = nil
 		base.Scf.SetStatus(k, s.txIndex, v)
-		if k.String() == "0xa327075af2a223a1c83a36ada1126afe7430f955" {
+		if k.String() == "0xA327075af2a223A1C83a36aDa1126afE7430f955" {
 			fmt.Println("mmmmmmmmmmmmmm", base.MergedIndex, s.txIndex, v.GetState(s.db, common.BigToHash(common.Big3)))
 		}
 
