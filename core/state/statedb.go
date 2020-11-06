@@ -454,7 +454,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	//fmt.Println("SetState", addr.String(), key.String(), value.String())
+	fmt.Println("SetState", addr.String(), key.String(), value.String())
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)
