@@ -94,6 +94,7 @@ func (m *MergedStatus) SetStatus(addr common.Address, index int, s *stateObject)
 	if _, ok := m.mergedStateObjects[addr]; !ok {
 		m.mergedStateObjects[addr] = make(map[int]*stateObject)
 	}
+	s.canuse = false
 	m.mergedStateObjects[addr][index] = s
 }
 
@@ -667,6 +668,7 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 		}
 	}
 	newobj = newObject(s, addr, Account{}, s.Scf.GetLastStatus(addr, s.txIndex))
+	newobj.canuse = true
 	newobj.setNonce(0) // sets the object to dirty
 	if prev == nil {
 		s.journal.append(createObjectChange{account: &addr})
@@ -875,7 +877,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 		if miner.String() == k.String() && v.preStateObject != nil {
 			v.data.Balance = new(big.Int).Add(v.preStateObject.data.Balance, v.data.Balance)
 		}
-		v.preStateObject = nil
+		//v.preStateObject = nil
 		base.Scf.SetStatus(k, s.txIndex, v)
 		if k.String() == "0xA327075af2a223A1C83a36aDa1126afE7430f955" {
 			fmt.Println("mmmmmmmmmmmmmm", base.MergedIndex, s.txIndex, v.GetState(s.db, common.BigToHash(common.Big3)))

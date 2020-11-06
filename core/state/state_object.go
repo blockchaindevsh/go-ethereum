@@ -64,6 +64,7 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
+	canuse         bool
 	preStateObject *stateObject
 	address        common.Address
 	addrHash       common.Hash // hash of ethereum address of the account
@@ -200,7 +201,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	if dirty {
 		return value
 	}
-	if s.preStateObject != nil && !s.preStateObject.data.Deleted {
+	if s.canuse && s.preStateObject != nil && !s.preStateObject.data.Deleted {
 		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
 		if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
 			return value
