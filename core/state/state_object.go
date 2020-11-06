@@ -140,6 +140,7 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 	//	data.Root = emptyRoot
 	//}
 	return &stateObject{
+		canuse:         true,
 		preStateObject: pre,
 		db:             db,
 		address:        address,
