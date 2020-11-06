@@ -183,6 +183,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	fmt.Println("handle tx txIndex mu start", txIndex)
 	tx := p.block.Transactions()[txIndex]
 	p.mubase.Lock()
+	fmt.Println("111111111")
 	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.ended {
 		//fmt.Println("ddddddddddd", txIndex <= p.baseStateDB.MergedIndex, p.receiptQueue[txIndex] != nil, p.ended)
 		p.mubase.Unlock()
@@ -192,6 +193,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	if p.baseStateDB.MergedIndex != p.baseStateDB.MergedIndex {
 		panic(fmt.Errorf("bug here %v != %v", p.baseStateDB.MergedIndex, p.baseStateDB.MergedIndex))
 	}
+	fmt.Println("2222222222")
 	st, err := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
 	if err != nil {
 		panic(err)
@@ -199,6 +201,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	st.Scf = p.baseStateDB.Scf
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
+	fmt.Println("3333333333")
 	p.mubase.Unlock()
 
 	fmt.Println("hande tx txIndex mu end", txIndex)
