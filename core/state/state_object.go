@@ -201,6 +201,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		return value
 	}
 	if s.preStateObject != nil && !s.preStateObject.data.Deleted {
+		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
 		if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
 			return value
 		}
@@ -217,6 +218,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
+		fmt.Println("2211111", key.String(), value.String())
 		return value
 	}
 	if value, cached := s.originStorage[key]; cached {
