@@ -202,7 +202,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		return value
 	}
 	if s.canuse && s.preStateObject != nil && !s.preStateObject.data.Deleted {
-		//fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
+		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
 		if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
 			return value
 		}
@@ -223,7 +223,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		return value
 	}
 	if value, cached := s.originStorage[key]; cached {
-		//fmt.Println("22555", value)
+		fmt.Println("22555", value)
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
