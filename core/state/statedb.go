@@ -843,7 +843,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 				base += fmt.Sprintf("%v", kk.String())
 			}
 			base += ".."
-			//fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), ttRW, base)
+			fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), ttRW, base)
 			return false
 		}
 	}
