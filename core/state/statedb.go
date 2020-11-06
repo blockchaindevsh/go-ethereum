@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -636,7 +635,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	// Insert into the live set
 	obj := newObject(s, addr, *data, preStaeObject)
 	if addr.String() == "0x0000000000000000000000000000000000000000" && s.bhash.String() == "0x96670c528cce9d8591712aae07df846ccabdd6fe1f712c478701f2b71f1fbcc1" && s.txIndex == 1 {
-		debug.PrintStack()
+		//debug.PrintStack()
 	}
 	s.setStateObject(obj)
 	return obj

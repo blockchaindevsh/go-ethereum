@@ -143,10 +143,13 @@ func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 func (p *pallTxManager) txLoop() {
 	for {
 		tx, isClosed := p.GetTxFromQueue()
+		fmt.Println("GGGGGGGGGGGGGGGGG", isClosed, tx, !p.ended)
 		if isClosed {
 			return
 		}
+		fmt.Println("15000000000")
 		if !p.handleTx(tx) && !p.ended {
+			fmt.Println("AAAAAAAAAa")
 			p.AddTxToQueue(tx)
 		}
 	}
@@ -177,6 +180,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 }
 
 func (p *pallTxManager) handleTx(txIndex int) bool {
+	fmt.Println("handle tx txIndex mu start", txIndex)
 	tx := p.block.Transactions()[txIndex]
 	p.mubase.Lock()
 	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.ended {
@@ -197,6 +201,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	gas := p.gp
 	p.mubase.Unlock()
 
+	fmt.Println("hande tx txIndex mu end", txIndex)
 	st.Print(fmt.Sprintf("blockNumber=%v apply tx before preBaseMerged=%v txIndex=%v", p.block.NumberU64(), preBaseMerged, txIndex))
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
