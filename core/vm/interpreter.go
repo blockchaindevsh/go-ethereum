@@ -19,6 +19,7 @@ package vm
 import (
 	"fmt"
 	"hash"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -310,7 +311,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			fmt.Println("31000")
 			return res, ErrExecutionReverted
 		case operation.halts:
-			fmt.Println("313333---")
+			fmt.Println("313333---", reflect.TypeOf(operation))
 			return res, nil
 		case !operation.jumps:
 			pc++
