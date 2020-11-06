@@ -202,7 +202,10 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		fmt.Println("202222")
 		return value
 	}
-	fmt.Println("ssssssssss", s.canuse, s.preStateObject != nil, !s.preStateObject.data.Deleted)
+	fmt.Println("ssssssssss", s.canuse, s.preStateObject != nil)
+	if s.preStateObject != nil {
+		fmt.Println("dddddddddddd", s.preStateObject.data.Deleted)
+	}
 	if s.canuse && s.preStateObject != nil && !s.preStateObject.data.Deleted {
 		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
 		if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
