@@ -881,6 +881,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 
 	}
 	base.MergedIndex = s.txIndex
+	if base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")] != nil {
+		fmt.Println("EEEEEEEEEEEEE", base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex].GetState(s.db, common.BigToHash(common.Big3)).String())
+	}
+
 	//fmt.Println("MMMMMMMMMMMMMMMMMM--end", len(s.stateObjects), len(base.mergedStateObjects))
 }
 
