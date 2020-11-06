@@ -125,6 +125,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 
 	for p.baseStateDB.MergedIndex+1 == startTxIndex && startTxIndex < p.txLen && p.receiptQueue[startTxIndex] != nil {
 		p.handleReceipt(p.receiptQueue[startTxIndex])
+		p.receiptQueue[re.txIndex] = nil
 		startTxIndex++
 	}
 
