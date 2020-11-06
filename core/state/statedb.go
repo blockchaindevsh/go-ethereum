@@ -871,17 +871,17 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 		}
 
 		if miner.String() == k.String() && v.preStateObject != nil {
-
 			v.data.Balance = new(big.Int).Add(v.preStateObject.data.Balance, v.data.Balance)
 		}
 		v.preStateObject = nil
 		base.Scf.SetStatus(k, s.txIndex, v)
 
+		fmt.Println("mmmmmmmmmmmmmm", base.MergedIndex, s.txIndex, v.GetState(s.db, common.BigToHash(common.Big3)))
 		//fmt.Println("merge ", "addr", k.String(), s.txIndex, base.MergedIndex, v == nil, reflect.TypeOf(v.trie), v.RangeTrie())
 
 	}
 	base.MergedIndex = s.txIndex
-	if base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")] != nil {
+	if base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")] != nil && base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex] != nil {
 		fmt.Println("EEEEEEEEEEEEE", base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex].GetState(s.db, common.BigToHash(common.Big3)).String())
 	}
 
