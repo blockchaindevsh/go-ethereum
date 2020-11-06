@@ -25,6 +25,7 @@ func (f *FastDB) DDD() string {
 	}
 	return ss
 }
+
 func NewFastDB(db *Database) *FastDB {
 	return &FastDB{
 		db:    db,
@@ -32,18 +33,8 @@ func NewFastDB(db *Database) *FastDB {
 	}
 }
 
-func (f *FastDB) cacheCopy() map[string]tValue {
-	ans := make(map[string]tValue, 0)
-	for k, v := range f.cache {
-		ans[k] = v
-	}
-	return ans
-}
 func (f *FastDB) Copy() *FastDB {
-	return &FastDB{
-		db:    f.db,
-		cache: f.cacheCopy(),
-	}
+	return NewFastDB(f.db)
 }
 
 func (f *FastDB) GetKey(key []byte) []byte {
@@ -93,8 +84,12 @@ func (f *FastDB) Hash() common.Hash {
 }
 
 func (f *FastDB) Commit(onleaf LeafCallback) (common.Hash, error) {
+
+	//debug.PrintStack()
+	//fmt.Println("FFFFFFFFFF-CCCCCCCCCCCCc", len(f.cache))
 	batch := f.db.diskdb.NewBatch()
 	for k, v := range f.cache {
+		//fmt.Println("CCCCCCCCCCCCCCCCCCCc", hex.EncodeToString([]byte(k)), hex.EncodeToString(v.value))
 		if v.deleted {
 			batch.Delete([]byte(k))
 		} else {

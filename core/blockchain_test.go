@@ -3202,36 +3202,83 @@ func TestTrans(t *testing.T) {
 	var (
 		key1, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa9f")
 		key2, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa91")
+		key3, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa92")
+		key4, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa93")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
+		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
+		addr4   = crypto.PubkeyToAddress(key4.PublicKey)
 
 		db = rawdb.NewMemoryDatabase()
 		// this code generates a log
 		//code    = common.Hex2Bytes("1953dc7300000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000001a0000000000000000000000000000000000000000000000000000000000000001d5065656c546f547261636b31343138393437323030537465636b6c6572000000000000000000000000000000000000000000000000000000000000000000000d5065656c20546f20547261636b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064b657272656e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008537465636b6c65720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007436f676e61746500000000000000000000000000000000000000000000000000")
-		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
+		gspec = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{
+			addr1: {Balance: big.NewInt(10000000000000)},
+			addr2: {Balance: big.NewInt(10000000000000)},
+			addr3: {Balance: big.NewInt(10000000000000)},
+			addr4: {Balance: big.NewInt(10000000000000)},
+		}}
 		genesis = gspec.MustCommit(db)
 		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
+	fmt.Println("addr1", addr1.String())
+	fmt.Println("addr2", addr2.String())
+	fmt.Println("addr3", addr3.String())
+	fmt.Println("addr4", addr4.String())
 	defaultCacheConfig1 := defaultCacheConfig
 	defaultCacheConfig1.SnapshotLimit = 0
 	blockchain, _ := NewBlockChain(db, defaultCacheConfig1, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
 
-	chain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {
-		if i == 0 {
-			tx, err := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, new(big.Int), 3100000, new(big.Int), nil), signer, key1)
-			if err != nil {
-				t.Fatalf("failed to create tx: %v", err)
-			}
-			gen.AddTx(tx)
-		}
+	chain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {
 	})
+
+	fmt.Println("chain0", chain[0].Hash().String())
+	txs0 := make(types.Transactions, 0)
+	tx1, _ := types.SignTx(types.NewTransaction(0, addr2, new(big.Int), 3100000, new(big.Int), nil), signer, key1)
+	tx2, _ := types.SignTx(types.NewTransaction(0, addr4, new(big.Int), 3100000, new(big.Int), nil), signer, key3)
+	txs0 = append(txs0, tx1)
+	txs0 = append(txs0, tx2)
+	bh0 := chain[0].Header()
+	bh0.GasUsed = 42000
+	bb0 := types.NewBlock(bh0, txs0, nil, nil, new(trie.Trie))
+	chain[0] = bb0
+	//
+	txs1 := make(types.Transactions, 0)
+	tx3, _ := types.SignTx(types.NewTransaction(1, addr2, new(big.Int), 3100000, new(big.Int), nil), signer, key1)
+	tx4, _ := types.SignTx(types.NewTransaction(2, addr4, new(big.Int), 3100000, new(big.Int), nil), signer, key1)
+	txs1 = append(txs1, tx3)
+	txs1 = append(txs1, tx4)
+	bh1 := chain[1].Header()
+	bh1.ParentHash = chain[0].Hash()
+	bh1.GasUsed = 42000
+	bb1 := types.NewBlock(bh1, txs1, nil, nil, new(trie.Trie))
+	chain[1] = bb1
+
+	txs2 := make(types.Transactions, 0)
+	tx5, _ := types.SignTx(types.NewTransaction(3, addr2, new(big.Int), 3100000, new(big.Int), nil), signer, key1)
+	tx6, _ := types.SignTx(types.NewTransaction(0, addr4, new(big.Int), 3100000, new(big.Int), nil), signer, key2)
+	txs2 = append(txs2, tx5)
+	txs2 = append(txs2, tx6)
+	bh2 := chain[2].Header()
+	bh2.ParentHash = chain[1].Hash()
+	bh2.GasUsed = 42000
+	bb2 := types.NewBlock(bh2, txs2, nil, nil, new(trie.Trie))
+	chain[2] = bb2
+
+	//fmt.Println("tx1", tx1.Hash().String())
+	//fmt.Println("tx2", tx2.Hash().String())
+	//fmt.Println("tx3", tx3.Hash().String())
+	//fmt.Println("tx4", tx4.Hash().String())
+	//fmt.Println("tx5", tx5.Hash().String())
+	//fmt.Println("tx6", tx6.Hash().String())
+
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		t.Fatalf("failed to insert chain: %v", err)
 	}
 
-	curr, err := blockchain.State()
-	nonce := curr.GetNonce(addr1)
-	fmt.Println("err", err, nonce)
+	//curr, err := blockchain.State()
+	//nonce := curr.GetNonce(addr1)
+	//fmt.Println("err", err, nonce)
 }
 
 func TestAsd(t *testing.T) {

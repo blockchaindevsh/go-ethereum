@@ -109,6 +109,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	//	fmt.Println("block", block.NumberU64(), k, v.GasUsed)
 	//}
 	fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64())
+
+	//fmt.Println("=====addr1", statedb.GetNonce(common.HexToAddress("0xD4487b40506c522e60E2294307c432f678795897")))
+	//fmt.Println("=====addr2", statedb.GetNonce(common.HexToAddress("0xbaB51af55a138B20b44A3D4E758a5C8ADcc3f07D")))
+	//fmt.Println("=====addr3", statedb.GetNonce(common.HexToAddress("0xD001F7364271c6045A358B9561083FE52da86cF5")))
+	//fmt.Println("=====addr4", statedb.GetNonce(common.HexToAddress("0xd5217d447BFDcb9307D3378a961D1d6A2aCc1f93")))
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 	//fmt.Println("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF-end", block.NumberU64())
 	return receipts, allLogs, *usedGas, nil

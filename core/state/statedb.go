@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -56,6 +57,46 @@ func (n *proofList) Delete(key []byte) error {
 	panic("not supported")
 }
 
+type MergedStatus struct {
+	mergedStateObjects map[common.Address]map[int]*stateObject
+	mu                 sync.RWMutex
+}
+
+func NewMerged() *MergedStatus {
+	return &MergedStatus{
+		mergedStateObjects: make(map[common.Address]map[int]*stateObject),
+		mu:                 sync.RWMutex{},
+	}
+}
+
+func (m *MergedStatus) GetLastStatus(addr common.Address, txlen int) *stateObject {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	data, ok := m.mergedStateObjects[addr]
+	if !ok {
+		return nil
+	}
+	//fmt.Println("GGGGGGGGGGG", addr.String(), len(data), s.txIndex)
+	var res *stateObject
+
+	for index := 0; index < txlen; index++ {
+		if data[index] != nil {
+			res = data[index]
+		}
+	}
+	return res
+}
+
+func (m *MergedStatus) SetStatus(addr common.Address, index int, s *stateObject) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.mergedStateObjects[addr]; !ok {
+		m.mergedStateObjects[addr] = make(map[int]*stateObject)
+	}
+	m.mergedStateObjects[addr][index] = s
+}
+
 // StateDB structs within the ethereum protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
 // nested states. It's the general query interface to retrieve:
@@ -71,7 +112,7 @@ type StateDB struct {
 	snapAccounts  map[common.Hash][]byte
 	snapStorage   map[common.Hash]map[common.Hash][]byte
 
-	mergedStateObjects map[common.Address]map[int]*stateObject
+	Scf *MergedStatus
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects        map[common.Address]*stateObject
 	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
@@ -128,7 +169,7 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		db:                  db,
 		trie:                tr,
 		snaps:               snaps,
-		mergedStateObjects:  make(map[common.Address]map[int]*stateObject),
+		Scf:                 NewMerged(),
 		stateObjects:        make(map[common.Address]*stateObject),
 		stateObjectsPending: make(map[common.Address]struct{}),
 		stateObjectsDirty:   make(map[common.Address]struct{}),
@@ -146,13 +187,6 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		}
 	}
 	return sdb, nil
-}
-
-func (s *StateDB) SetObjs(mm map[common.Address]map[int]*stateObject) {
-	s.mergedStateObjects = mm
-}
-func (s *StateDB) GetObjs() map[common.Address]map[int]*stateObject {
-	return s.mergedStateObjects
 }
 
 // setError remembers the first non-nil error it is called with.
@@ -419,6 +453,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
+	//fmt.Println("SetState", addr.String(), key.String(), value.String())
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)
@@ -531,22 +566,6 @@ func (s *StateDB) Print(tt string) {
 	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "sts", sts, "rw", rw, "dirty", dirty, "pendingSts", len(s.stateObjectsPending), "dirtySts", len(s.stateObjectsDirty))
 }
 
-func (s *StateDB) GetLastState(addr common.Address, txlen int) *stateObject {
-	data, ok := s.mergedStateObjects[addr]
-	if !ok {
-		return nil
-	}
-	//fmt.Println("GGGGGGGGGGG", addr.String(), len(data), s.txIndex)
-	var res *stateObject
-
-	for index := 0; index < txlen; index++ {
-		if data[index] != nil {
-			res = data[index]
-		}
-	}
-	return res
-}
-
 // getDeletedStateObject is similar to getStateObject, but instead of returning
 // nil for a deleted state object, it returns the actual object with the deleted
 // flag set. This is needed by the state journal to revert to the correct s-
@@ -592,7 +611,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			defer func(start time.Time) { s.AccountReads += time.Since(start) }(time.Now())
 		}
 
-		if preStaeObject = s.GetLastState(addr, s.txIndex); preStaeObject != nil {
+		if preStaeObject = s.Scf.GetLastStatus(addr, s.txIndex); preStaeObject != nil {
 			data = preStaeObject.data.copy()
 			//fmt.Println("data-----------", addr.String(), data.Deleted, data.Nonce, data.Incarnation)
 		} else {
@@ -644,7 +663,7 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 			s.snapDestructs[prev.addrHash] = struct{}{}
 		}
 	}
-	newobj = newObject(s, addr, Account{}, s.GetLastState(addr, s.txIndex))
+	newobj = newObject(s, addr, Account{}, s.Scf.GetLastStatus(addr, s.txIndex))
 	newobj.setNonce(0) // sets the object to dirty
 	if prev == nil {
 		s.journal.append(createObjectChange{account: &addr})
@@ -832,27 +851,31 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address) {
-	preMinerBalance := new(big.Int)
-	if acc, ok := s.stateObjects[miner]; ok {
-		preMinerBalance = acc.Balance()
-	}
+	//preMinerBalance := new(big.Int)
+	//if acc, ok := s.stateObjects[miner]; ok {
+	//	preMinerBalance = acc.Balance()
+	//}
 
 	for k, v := range s.stateObjects {
-		if _, ok := s.mergedStateObjects[k]; !ok {
-			base.mergedStateObjects[k] = make(map[int]*stateObject)
+		if v.preStateObject != nil {
+			for ks, vs := range v.preStateObject.pendingStorage {
+				if _, ok := v.pendingStorage[ks]; !ok {
+					v.pendingStorage[ks] = vs
+				}
+			}
 		}
-		base.mergedStateObjects[k][s.txIndex] = v
-		base.mergedStateObjects[k][s.txIndex].preStateObject = nil
 
-		//fmt.Println("merge ", "addr", k.String(), v == nil, reflect.TypeOf(v.trie), v.RangeTrie())
+		if miner.String() == k.String() && v.preStateObject != nil {
 
-		if miner.String() == k.String() {
-			//fmt.Println("isminer", preMinerBalance, v.data.Balance)
-			base.mergedStateObjects[k][s.txIndex].data.Balance = new(big.Int).Add(preMinerBalance, v.data.Balance)
+			v.data.Balance = new(big.Int).Add(v.preStateObject.data.Balance, v.data.Balance)
 		}
+		v.preStateObject = nil
+		base.Scf.SetStatus(k, s.txIndex, v)
+
+		//fmt.Println("merge ", "addr", k.String(), s.txIndex, base.MergedIndex, v == nil, reflect.TypeOf(v.trie), v.RangeTrie())
+
 	}
 	base.MergedIndex = s.txIndex
-
 	//fmt.Println("MMMMMMMMMMMMMMMMMM--end", len(s.stateObjects), len(base.mergedStateObjects))
 }
 
@@ -869,7 +892,7 @@ func (s *StateDB) ENd(mp map[int]map[common.Address]bool, txLen int) {
 	//fmt.Println("?>?????????????????", s.journal.dirties)
 	for addr, _ := range s.journal.dirties {
 		if _, exist := s.stateObjects[addr]; !exist {
-			s.stateObjects[addr] = s.GetLastState(addr, txLen)
+			s.stateObjects[addr] = s.Scf.GetLastStatus(addr, txLen)
 			if s.stateObjects[addr] == nil {
 				//fmt.Println("PPPPPPPPPPPPPPPPPP", addr.String())
 			}
@@ -997,6 +1020,7 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
+	//fmt.Println("CCCCCCCCCCCCCCCCCCCCCC")
 	//fmt.Println("begin commit")
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
@@ -1038,6 +1062,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// The onleaf func is called _serially_, so we can reuse the same account
 	// for unmarshalling every time.
 	var account Account
+	//fmt.Println("dassssssssssssss")
 	root, err := s.trie.Commit(func(leaf []byte, parent common.Hash) error {
 		if err := rlp.DecodeBytes(leaf, &account); err != nil {
 			return nil

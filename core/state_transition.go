@@ -195,6 +195,7 @@ func (st *StateTransition) preCheck() error {
 		if nonce < st.msg.Nonce() {
 			return fmt.Errorf("from=%v nonce=%v txNonce=%v err=%v ", st.msg.From().String(), nonce, st.msg.Nonce(), ErrNonceTooHigh)
 		} else if nonce > st.msg.Nonce() {
+			fmt.Println("PPPPPPPPPPPPPPPPPPP", st.msg.From().String(), st.msg.To().String(), st.msg.Nonce(), nonce)
 			return fmt.Errorf("from=%v nonce=%v txNonce=%v err=%v ", st.msg.From().String(), nonce, st.msg.Nonce(), ErrNonceTooLow)
 		}
 	}

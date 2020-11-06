@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/trie"
 	"io"
 	"math/big"
 	"time"
@@ -101,11 +100,11 @@ func (s *stateObject) empty() bool {
 }
 
 func (s *stateObject) RangeTrie() string {
-	t, ok := s.trie.(*trie.FastDB)
-	if !ok {
-		return "trie is empty"
+	ss := fmt.Sprintf("Addr=%v len(s.dirtyStorage)=%v len(s.pendingStorage)=%v", s.address.String(), len(s.dirtyStorage), len(s.pendingStorage))
+	for k, _ := range s.dirtyStorage {
+		ss += fmt.Sprintf("key:%v ", k.String())
 	}
-	return t.DDD()
+	return ss
 }
 
 // Account is the Ethereum consensus representation of accounts.
@@ -275,6 +274,7 @@ func (s *stateObject) SetState(db Database, key, value common.Hash) {
 	// If the new value is the same as old, don't set
 	prev := s.GetState(db, key)
 	if prev == value {
+		//fmt.Println("2788888888888888888888888", s.address.String(), key.String(), value.String())
 		return
 	}
 	// New value is different, update and journal the change
@@ -364,8 +364,10 @@ func (s *stateObject) updateTrie(db Database) Trie {
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
 	for key, value := range s.pendingStorage {
+		//fmt.Println("3677777777777777777", key.String(), value.String())
 		// Skip noop changes, persist actual changes
 		if value == s.originStorage[key] {
+			//fmt.Println("371----------")
 			continue
 		}
 		s.originStorage[key] = value
@@ -416,6 +418,7 @@ func (s *stateObject) CommitTrie(db Database) error {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
+	//fmt.Println("42222222", s.address.String())
 	_, err := s.trie.Commit(nil)
 	if err == nil {
 		//s.data.Root = root

@@ -189,7 +189,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	if err != nil {
 		panic(err)
 	}
-	st.SetObjs(p.baseStateDB.GetObjs())
+	st.Scf = p.baseStateDB.Scf
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
 	p.mubase.Unlock()
@@ -198,6 +198,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
+	//fmt.Println("TTTTTTTTTTTTTTTTTTTTTT", p.block.NumberU64(), txIndex, tx.Nonce(), tx.Hash().String())
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	st.Print(fmt.Sprintf("blockNumber=%v apply tx end preBaseMerged=%v txIndex=%v ermsg=%v", p.block.NumberU64(), preBaseMerged, txIndex, err))
 	if err != nil {
