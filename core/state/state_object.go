@@ -199,11 +199,14 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
+		fmt.Println("202222")
 		return value
 	}
+	fmt.Println("ssssssssss", s.canuse, s.preStateObject != nil, !s.preStateObject.data.Deleted)
 	if s.canuse && s.preStateObject != nil && !s.preStateObject.data.Deleted {
 		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
 		if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
+			fmt.Println("209------------")
 			return value
 		}
 	}
@@ -265,7 +268,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	//fmt.Println("26777777", value.String())
+	fmt.Println("26777777", value.String())
 	return value
 }
 
