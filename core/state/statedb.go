@@ -818,6 +818,13 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 			rwFromBase[k] = v
 		}
 	}
+	ttRW := ""
+	for kk, v := range s.ThisTxRW {
+		ttRW += fmt.Sprintf("%v-%v ", kk.String(), v)
+	}
+	ttRW += ",,"
+
+	//fmt.Println("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM", "mergedIndex", baseStateDB.MergedIndex, "txIndex", s.txIndex, "ttww", ttRW, "len(s.ThisTxRw)", len(s.ThisTxRW))
 
 	for k, _ := range s.ThisTxRW {
 		if rwFromBase[k] {
@@ -832,11 +839,6 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 				//fmt.Println("is miner", s.stateObjects[k].data, baseStateDB.stateObjects[k].data)
 
 			}
-			ttRW := ""
-			for kk, _ := range s.ThisTxRW {
-				ttRW += fmt.Sprintf("%v ", kk.String())
-			}
-			ttRW += ",,"
 
 			base := ""
 			for kk, _ := range rwFromBase {
