@@ -548,20 +548,20 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 func (s *StateDB) Print(tt string) {
 	//return
 	sts := "sts:"
-	for k, v := range s.stateObjects {
-		sts += fmt.Sprintf("addr:%v-%v-%v ;", k.String(), v.data.Nonce, v.data.Deleted)
-	}
+	//for k, v := range s.stateObjects {
+	//	sts += fmt.Sprintf("addr:%v-%v-%v ;", k.String(), v.data.Nonce, v.data.Deleted)
+	//}
 
 	rw := "rw:"
-	for k, _ := range s.ThisTxRW {
-		rw += fmt.Sprintf("%v ", k.String())
-	}
+	//for k, _ := range s.ThisTxRW {
+	//	rw += fmt.Sprintf("%v ", k.String())
+	//}
 	rw += ","
 
 	dirty := "dirty:"
-	for k, _ := range s.journal.dirties {
-		dirty += fmt.Sprintf("%v-", k.String())
-	}
+	//for k, _ := range s.journal.dirties {
+	dirty += fmt.Sprintf("%v-", k.String())
+	//}
 
 	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "sts", sts, "rw", rw, "dirty", dirty, "pendingSts", len(s.stateObjectsPending), "dirtySts", len(s.stateObjectsDirty))
 }
