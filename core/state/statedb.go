@@ -560,7 +560,7 @@ func (s *StateDB) Print(tt string) {
 
 	dirty := "dirty:"
 	//for k, _ := range s.journal.dirties {
-	dirty += fmt.Sprintf("%v-", k.String())
+	//dirty += fmt.Sprintf("%v-", k.String())
 	//}
 
 	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "sts", sts, "rw", rw, "dirty", dirty, "pendingSts", len(s.stateObjectsPending), "dirtySts", len(s.stateObjectsDirty))

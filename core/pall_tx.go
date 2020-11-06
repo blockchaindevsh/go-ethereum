@@ -153,8 +153,11 @@ func (p *pallTxManager) txLoop() {
 }
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
+	fmt.Println("handle Receipt", p.baseStateDB.MergedIndex, rr.txIndex)
 	if rr.st.CanMerge(p.baseStateDB, p.mergedRW, p.block.Coinbase()) {
+		fmt.Println("readt to merge")
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase())
+		fmt.Println("merge end")
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 		p.mergedRW[rr.txIndex] = rr.st.ThisTxRW
@@ -207,13 +210,13 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		return false
 	}
 
-	//fmt.Println("ready to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
+	fmt.Println("ready to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
 	p.AddReceiptToQueue(&ReceiptWithIndex{
 		st:      st,
 		txIndex: txIndex,
 		receipt: receipt,
 	})
-	//fmt.Println("end to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
+	fmt.Println("end to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
 	return true
 
 }
