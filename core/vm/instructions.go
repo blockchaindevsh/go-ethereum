@@ -137,6 +137,7 @@ func opEq(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte
 
 func opIszero(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	x := callContext.stack.peek()
+	fmt.Println("140000000", x, x.IsZero())
 	if x.IsZero() {
 		x.SetOne()
 	} else {
