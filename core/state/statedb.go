@@ -867,6 +867,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 			for ks, vs := range v.preStateObject.pendingStorage {
 				if _, ok := v.pendingStorage[ks]; !ok {
 					v.pendingStorage[ks] = vs
+					fmt.Println("87-----", k.String(), ks.String(), vs.String())
 				}
 			}
 		}
