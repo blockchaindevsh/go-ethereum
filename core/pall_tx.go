@@ -129,13 +129,13 @@ func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 	}
 
 	if p.baseStateDB.MergedIndex+1 == p.txLen {
+		p.baseStateDB.ENd(p.mergedRW, p.txLen)
 		p.ch <- struct{}{}
 		p.ended = true
 
 		//fmt.Println("========ssssscccccccfffffffffff", p.mergedRW)
 		//fmt.Println("========ssssscccccccfffffffffff", p.baseStateDB.GetObjs())
 		//p.baseStateDB.Prepare(common.Hash{},common.Hash{},)
-		p.baseStateDB.ENd(p.mergedRW, p.txLen)
 
 	}
 }
