@@ -210,6 +210,9 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 
+	if p.block.NumberU64() == 55258 && txIndex == 3 {
+		common.PrintData = true
+	}
 	//fmt.Println("TTTTTTTTTTTTTTTTTTTTTT", p.block.NumberU64(), txIndex, tx.Nonce(), tx.Hash().String())
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	st.Print(fmt.Sprintf("blockNumber=%v apply tx end preBaseMerged=%v txIndex=%v ermsg=%v", p.block.NumberU64(), preBaseMerged, txIndex, err))
@@ -218,14 +221,15 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		time.Sleep(5 * time.Second)
 		return false
 	}
+	common.PrintData = false
 
-	fmt.Println("ready to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
+	//fmt.Println("ready to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
 	p.AddReceiptToQueue(&ReceiptWithIndex{
 		st:      st,
 		txIndex: txIndex,
 		receipt: receipt,
 	})
-	fmt.Println("end to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
+	//fmt.Println("end to add receipt", p.block.NumberU64(), preBaseMerged, txIndex)
 	return true
 
 }
