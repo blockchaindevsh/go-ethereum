@@ -222,6 +222,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		return value
 	}
 	if value, cached := s.originStorage[key]; cached {
+		fmt.Println("22555", value)
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -263,6 +264,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
+	fmt.Println("26777777", value.String())
 	return value
 }
 
