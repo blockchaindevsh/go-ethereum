@@ -137,7 +137,7 @@ func opEq(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte
 
 func opIszero(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	x := callContext.stack.peek()
-	fmt.Println("140000000", x, x.IsZero())
+	//fmt.Println("140000000", x, x.IsZero())
 	if x.IsZero() {
 		x.SetOne()
 	} else {
@@ -511,6 +511,7 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
+	fmt.Println("GetState--", callContext.contract.Address().String(), hash.String(), val.String())
 	loc.SetBytes(val.Bytes())
 	return nil, nil
 }
