@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"io"
 	"math/big"
 	"time"
@@ -203,16 +204,27 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		fmt.Println("202222")
 		return value
 	}
-	fmt.Println("ssssssssss", s.canuse, s.preStateObject != nil)
-	if s.preStateObject != nil {
-		fmt.Println("dddddddddddd", s.preStateObject.data.Deleted)
-	}
+	//fmt.Println("ssssssssss", s.canuse, s.preStateObject != nil)
+	//if s.preStateObject != nil {
+	//fmt.Println("dddddddddddd", s.preStateObject.data.Deleted)
+	//}
 	if s.canuse && s.preStateObject != nil && !s.preStateObject.data.Deleted {
 		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
-		if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
-			fmt.Println("209------------")
-			return value
+		data, ok := s.preStateObject.originStorage[key]
+		if ok {
+			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!-1", key.String(), data.String())
+			return data
 		}
+		data, ok = s.preStateObject.pendingStorage[key]
+		if ok {
+			fmt.Println("222222222222222222222222--", key.String(), data.String())
+			return data
+		}
+
+		//if value := s.preStateObject.GetState(db, key); value.Big().Cmp(common.Big0) != 0 {
+		//	fmt.Println("209------------")
+		//	return value
+		//}
 	}
 	// Otherwise return the entry's original value
 	return s.GetCommittedState(db, key)
@@ -272,7 +284,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	fmt.Println("26777777", value.String())
+	fmt.Println("26777777", s.address.String(), key.String(), value.String())
 	return value
 }
 
@@ -286,7 +298,7 @@ func (s *stateObject) SetState(db Database, key, value common.Hash) {
 	// If the new value is the same as old, don't set
 	prev := s.GetState(db, key)
 	if prev == value {
-		//fmt.Println("2788888888888888888888888", s.address.String(), key.String(), value.String())
+		fmt.Println("2788888888888888888888888", s.address.String(), key.String(), value.String())
 		return
 	}
 	// New value is different, update and journal the change
@@ -295,6 +307,7 @@ func (s *stateObject) SetState(db Database, key, value common.Hash) {
 		key:      key,
 		prevalue: prev,
 	})
+	fmt.Println("DDDDDDDDDDDDDDDDDDDDDDDDDDDD", s.address.String(), key.String(), value.String())
 	s.setState(key, value)
 }
 
@@ -324,6 +337,7 @@ func (s *stateObject) setState(key, value common.Hash) {
 // committed later. It is invoked at the end of every transaction.
 func (s *stateObject) finalise() {
 	for key, value := range s.dirtyStorage {
+		fmt.Println("dirty to pending", s.address.String(), key.String(), value.String())
 		s.pendingStorage[key] = value
 	}
 	if len(s.dirtyStorage) > 0 {
@@ -350,15 +364,17 @@ func makeFastDbKey(addr common.Address, index uint64, key common.Hash) []byte {
 
 // updateTrie writes cached storage modifications into the object's storage trie.
 // It will return nil if the trie has not been loaded and no changes have been made
-func (s *stateObject) updateTrie(db Database) Trie {
+func (s *stateObject) updateTrie(db Database, commit bool) Trie {
+	//fmt.Println("uuu-1")
 	if s.data.Deleted {
 		return nil
 	}
+	//fmt.Println("tailuuu-=2", commit, s.address.String())
 	// Make sure all dirty slots are finalized into the pending storage area
 	s.finalise()
-	if len(s.pendingStorage) == 0 {
-		return s.trie
-	}
+	//if len(s.originStorage) == 0 {
+	//	return s.trie
+	//}
 	// Track the amount of time wasted on updating the storge trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
@@ -373,17 +389,23 @@ func (s *stateObject) updateTrie(db Database) Trie {
 			s.db.snapStorage[s.addrHash] = storage
 		}
 	}
+
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
+	//fmt.Println("uuu-3", s.address.String(), len(s.pendingStorage))
 	for key, value := range s.pendingStorage {
-		//fmt.Println("3677777777777777777", key.String(), value.String())
+		fmt.Println("3677777777777777777", key.String(), value.String())
 		// Skip noop changes, persist actual changes
-		if value == s.originStorage[key] {
-			//fmt.Println("371----------")
-			continue
+		if d, ok := s.originStorage[key]; ok {
+			if value == d {
+				fmt.Println("371----------")
+				continue
+			}
 		}
 		s.originStorage[key] = value
-
+		if !commit {
+			continue
+		}
 		var v []byte
 		if (value == common.Hash{}) {
 			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
@@ -397,6 +419,29 @@ func (s *stateObject) updateTrie(db Database) Trie {
 			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
 		}
 	}
+	//fmt.Println("uuuu-4")
+	if commit {
+		if len(s.originStorage) != 0 {
+			stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
+			for k, v := range s.originStorage {
+				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
+			}
+			fmt.Println("ready to commit", stroageToDB)
+		}
+
+		for key, value := range s.originStorage {
+
+			var v []byte
+			if (value == common.Hash{}) {
+				s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
+			} else {
+				//fmt.Println("uuuuuuuuuuu--kkkkkkkkkkkkkkkkkk", s.address.String(), key.String(), value.String())
+				// Encoding []byte cannot fail, ok to ignore the error.
+				v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
+				s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
+			}
+		}
+	}
 	if len(s.pendingStorage) > 0 {
 		s.pendingStorage = make(Storage)
 	}
@@ -406,7 +451,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 // UpdateRoot sets the trie root to the current root hash of
 func (s *stateObject) updateRoot(db Database) {
 	// If nothing changed, don't bother with hashing anything
-	if s.updateTrie(db) == nil {
+	if s.updateTrie(db, false) == nil {
 		return
 	}
 	// Track the amount of time wasted on hashing the storge trie
@@ -418,9 +463,9 @@ func (s *stateObject) updateRoot(db Database) {
 
 // CommitTrie the storage trie of the object to db.
 // This updates the trie root.
-func (s *stateObject) CommitTrie(db Database) error {
+func (s *stateObject) CommitTrie(db Database, commit bool) error {
 	// If nothing changed, don't bother with hashing anything
-	if s.updateTrie(db) == nil {
+	if s.updateTrie(db, commit) == nil {
 		return nil
 	}
 	if s.dbErr != nil {
@@ -504,6 +549,12 @@ func (s *stateObject) Address() common.Address {
 func (s *stateObject) Code(db Database) []byte {
 	if s.code != nil {
 		return s.code
+	}
+	if s.canuse {
+		pre := s.preStateObject
+		if pre != nil {
+			return pre.code
+		}
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return nil

@@ -400,7 +400,7 @@ func (s *StateDB) StorageTrie(addr common.Address) Trie {
 		return nil
 	}
 	cpy := stateObject.deepCopy(s)
-	cpy.updateTrie(s.db)
+	cpy.updateTrie(s.db, true)
 	return cpy.getTrie(s.db)
 }
 
@@ -857,7 +857,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	return true
 }
 
-func (s *StateDB) Merge(base *StateDB, miner common.Address) {
+func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address) {
 	//preMinerBalance := new(big.Int)
 	//if acc, ok := s.stateObjects[miner]; ok {
 	//	preMinerBalance = acc.Balance()
@@ -865,31 +865,40 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address) {
 
 	for k, v := range s.stateObjects {
 		if v.preStateObject != nil {
-			fmt.Println(":kkkkkkkkkk-pre", k.String(), len(v.preStateObject.dirtyStorage), len(v.preStateObject.originStorage), len(v.preStateObject.pendingStorage))
-			fmt.Println(":kkkkkkkkkk-v", k.String(), len(v.dirtyStorage), len(v.originStorage), len(v.pendingStorage))
-			for ks, vs := range v.preStateObject.pendingStorage {
-				if _, ok := v.pendingStorage[ks]; !ok {
-					v.pendingStorage[ks] = vs
-					fmt.Println("87-----", k.String(), ks.String(), vs.String())
+			for ks, vs := range v.preStateObject.originStorage {
+				if _, ok := v.originStorage[ks]; !ok {
+					v.originStorage[ks] = vs
 				}
 			}
+			v.code = v.preStateObject.code
 		}
 
-		if miner.String() == k.String() && v.preStateObject != nil {
-			v.data.Balance = new(big.Int).Add(v.preStateObject.data.Balance, v.data.Balance)
+		if miner.String() == k.String() {
+			preBalance := new(big.Int)
+			data := s.Scf.GetLastStatus(miner, s.txIndex)
+			if data != nil {
+				preBalance = new(big.Int).Set(data.data.Balance)
+				//preNonce = data.data.Nonce
+			}
+			if miner.String() != sender.String() && data != nil {
+				v.data.Nonce = data.Nonce()
+			}
+			v.data.Balance = new(big.Int).Add(preBalance, v.data.Balance)
+			fmt.Println("MMMMMMMMMMMMM", preBalance, v.data.Balance, v.data.Nonce)
+
 		}
 		//v.preStateObject = nil
 		base.Scf.SetStatus(k, s.txIndex, v)
-		if k.String() == "0xA327075af2a223A1C83a36aDa1126afE7430f955" {
-			fmt.Println("mmmmmmmmmmmmmm", base.MergedIndex, s.txIndex, v.GetState(s.db, common.BigToHash(common.Big3)))
-		}
+		//if k.String() == "0xA327075af2a223A1C83a36aDa1126afE7430f955" {
+		//fmt.Println("mmmmmmmmmmmmmm", base.MergedIndex, s.txIndex, v.GetState(s.db, common.BigToHash(common.Big3)))
+		//}
 
-		fmt.Println("merge ", "addr", k.String(), "dorty", v.dirtyStorage, "origin", v.originStorage, "pending", v.pendingStorage)
+		fmt.Println("merge ", "addr", k.String(), v.data.Balance, "dorty", "origin", "pending")
 
 	}
 	base.MergedIndex = s.txIndex
 	if base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")] != nil && base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex] != nil {
-		fmt.Println("EEEEEEEEEEEEE", base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex].GetState(s.db, common.BigToHash(common.Big3)).String())
+		//fmt.Println("EEEEEEEEEEEEE", base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex].GetState(s.db, common.BigToHash(common.Big3)).String())
 	}
 
 	//fmt.Println("MMMMMMMMMMMMMMMMMM--end", len(s.stateObjects), len(base.mergedStateObjects))
@@ -907,10 +916,11 @@ func (s *StateDB) ENd(mp map[int]map[common.Address]bool, txLen int) {
 	}
 	//fmt.Println("?>?????????????????", s.journal.dirties)
 	for addr, _ := range s.journal.dirties {
+		fmt.Println("end---", addr.String())
 		if _, exist := s.stateObjects[addr]; !exist {
 			s.stateObjects[addr] = s.Scf.GetLastStatus(addr, txLen)
-			if s.stateObjects[addr] == nil {
-				//fmt.Println("PPPPPPPPPPPPPPPPPP", addr.String())
+			if s.stateObjects[addr] != nil {
+				fmt.Println("end-22", s.stateObjects[addr].Nonce())
 			}
 		}
 
@@ -1036,7 +1046,7 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
-	//fmt.Println("CCCCCCCCCCCCCCCCCCCCCC")
+	fmt.Println("CCCCCCCCCCCCCCCCCCCCCC")
 	//fmt.Println("begin commit")
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
@@ -1049,6 +1059,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
+		fmt.Println("addr", addr.String(), s.stateObjects[addr].deleted)
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {
@@ -1056,8 +1067,9 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				obj.dirtyCode = false
 			}
 
+			//fmt.Println("trie==coccc")
 			// Write any storage changes in the state object to its storage trie
-			if err := obj.CommitTrie(s.db); err != nil {
+			if err := obj.CommitTrie(s.db, true); err != nil {
 				return common.Hash{}, err
 			}
 		}

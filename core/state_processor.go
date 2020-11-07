@@ -108,7 +108,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	//for k, v := range receipts {
 	//	fmt.Println("block", block.NumberU64(), k, v.GasUsed)
 	//}
-	fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64())
+	fmt.Println("fffffffffffffffffffffffffffffffffffffffffffff", block.NumberU64(), statedb.GetNonce(common.HexToAddress("0xe6A7a1d47ff21B6321162AEA7C6CB457D5476Bca")))
 
 	//fmt.Println("=====addr1", statedb.GetNonce(common.HexToAddress("0xD4487b40506c522e60E2294307c432f678795897")))
 	//fmt.Println("=====addr2", statedb.GetNonce(common.HexToAddress("0xbaB51af55a138B20b44A3D4E758a5C8ADcc3f07D")))
