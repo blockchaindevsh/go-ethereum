@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
 	"io"
 	"math/big"
 	"time"
@@ -208,7 +207,11 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	//if s.preStateObject != nil {
 	//fmt.Println("dddddddddddd", s.preStateObject.data.Deleted)
 	//}
-	if s.canuse && s.preStateObject != nil && !s.preStateObject.data.Deleted {
+	if s.canuse && s.preStateObject != nil {
+		if s.preStateObject.deleted {
+			fmt.Println("AAAAAAAAAAAAAAAAAA", s.address.String())
+			return common.Hash{}
+		}
 		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
 		data, ok := s.preStateObject.originStorage[key]
 		if ok {
