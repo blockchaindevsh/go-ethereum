@@ -476,7 +476,6 @@ func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after Suicide.
 func (s *StateDB) Suicide(addr common.Address) bool {
-	//fmt.Println("SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSsuiside", addr.String())
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
 		return false
@@ -509,7 +508,6 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	//fmt.Println("update---", addr.String(), obj.data.Nonce, obj.data.Balance)
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -574,7 +572,6 @@ func (s *StateDB) Print(tt string) {
 func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
-		//fmt.Println("553-------")
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -614,7 +611,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 
 		if preStaeObject = s.Scf.GetLastStatus(addr, s.txIndex); preStaeObject != nil {
 			data = preStaeObject.data.copy()
-			//fmt.Println("data-----------", addr.String(), data.Deleted, data.Nonce, data.Incarnation)
 		} else {
 			enc, err := s.trie.TryGet(addr.Bytes())
 			if err != nil {
@@ -829,8 +825,6 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	}
 	ttRW += ",,"
 
-	//fmt.Println("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM", "mergedIndex", baseStateDB.MergedIndex, "txIndex", s.txIndex, "ttww", ttRW, "len(s.ThisTxRw)", len(s.ThisTxRW))
-
 	for k, _ := range s.ThisTxRW {
 		if rwFromBase[k] {
 			if k.String() == miner.String() {
@@ -839,10 +833,6 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 				} else {
 					continue
 				}
-			} else {
-				//fmt.Println("????????", s.stateObjects[k] == nil, baseStateDB.stateObjects[k] == nil)
-				//fmt.Println("is miner", s.stateObjects[k].data, baseStateDB.stateObjects[k].data)
-
 			}
 
 			base := ""
@@ -858,11 +848,6 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address) {
-	//preMinerBalance := new(big.Int)
-	//if acc, ok := s.stateObjects[miner]; ok {
-	//	preMinerBalance = acc.Balance()
-	//}
-
 	for k, v := range s.stateObjects {
 		if v.preStateObject != nil {
 			for ks, vs := range v.preStateObject.originStorage {
@@ -878,30 +863,19 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			data := s.Scf.GetLastStatus(miner, s.txIndex)
 			if data != nil {
 				preBalance = new(big.Int).Set(data.data.Balance)
-				//preNonce = data.data.Nonce
 			}
 			if miner.String() != sender.String() && data != nil {
 				v.data.Nonce = data.Nonce()
 			}
 			v.data.Balance = new(big.Int).Add(preBalance, v.data.Balance)
-			fmt.Println("MMMMMMMMMMMMM", preBalance, v.data.Balance, v.data.Nonce)
 
 		}
-		//v.preStateObject = nil
 		base.Scf.SetStatus(k, s.txIndex, v)
-		//if k.String() == "0xA327075af2a223A1C83a36aDa1126afE7430f955" {
-		//fmt.Println("mmmmmmmmmmmmmm", base.MergedIndex, s.txIndex, v.GetState(s.db, common.BigToHash(common.Big3)))
-		//}
 
-		fmt.Println("merge ", "addr", k.String(), v.data.Balance, "dorty", "origin", "pending")
+		fmt.Println("merge ", "addr", k.String(), v.data.Balance, v.data.Deleted, v.data.Incarnation, "dorty", len(v.dirtyStorage), "origin", len(v.originStorage), "pending", len(v.pendingStorage))
 
 	}
 	base.MergedIndex = s.txIndex
-	if base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")] != nil && base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex] != nil {
-		//fmt.Println("EEEEEEEEEEEEE", base.Scf.mergedStateObjects[common.HexToAddress("0xa327075af2a223a1c83a36ada1126afe7430f955")][s.txIndex].GetState(s.db, common.BigToHash(common.Big3)).String())
-	}
-
-	//fmt.Println("MMMMMMMMMMMMMMMMMM--end", len(s.stateObjects), len(base.mergedStateObjects))
 }
 
 func (s *StateDB) ENd(mp map[int]map[common.Address]bool, txLen int) {
@@ -914,14 +888,10 @@ func (s *StateDB) ENd(mp map[int]map[common.Address]bool, txLen int) {
 
 		}
 	}
-	//fmt.Println("?>?????????????????", s.journal.dirties)
+
 	for addr, _ := range s.journal.dirties {
-		fmt.Println("end---", addr.String())
 		if _, exist := s.stateObjects[addr]; !exist {
 			s.stateObjects[addr] = s.Scf.GetLastStatus(addr, txLen)
-			if s.stateObjects[addr] != nil {
-				fmt.Println("end-22", s.stateObjects[addr].Nonce())
-			}
 		}
 
 	}
@@ -963,12 +933,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			// Thus, we can safely ignore it here
 			continue
 		}
-		//fmt.Println("objjjjjjjjjjjjjjjjjjj", obj == nil)
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
-			//if addr.String() == "0x5A1D83B59f5e715b91F1e30Af5FdC9e53de928fd" {
-			//	debug.PrintStack()
-			//}
-			//fmt.Println("KKKKKKKKKKKKKKKKKKKKKKK", addr.String())
 			obj.deleted = true
 			obj.data.Deleted = true
 
@@ -987,10 +952,6 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		s.stateObjectsPending[addr] = struct{}{}
 		s.stateObjectsDirty[addr] = struct{}{}
 	}
-	//if obj, ok := s.stateObjects[common.HexToAddress("0x5A1D83B59f5e715b91F1e30Af5FdC9e53de928fd")]; ok {
-	//	fmt.Println("===================", obj.deleted)
-	//}
-
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }
@@ -1006,12 +967,10 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	for k, _ := range s.stateObjectsPending {
 		pendingAddr += fmt.Sprintf("%v-", k.String())
 	}
-	//fmt.Println("IIIIIIIIIIIIIIIIntermediateRoot-", pendingAddr)
+
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
-		//fmt.Println("90333333", addr.String(), obj.address.String(), obj.deleted)
 		if obj.deleted {
-			//fmt.Println("999999999999999999999999999", addr.String())
 			obj.data.Deleted = true
 		}
 		obj.updateRoot(s.db)
@@ -1047,19 +1006,16 @@ func (s *StateDB) clearJournalAndRefund() {
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	fmt.Println("CCCCCCCCCCCCCCCCCCCCCC")
-	//fmt.Println("begin commit")
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}
 	// Finalize any pending changes and merge everything into the tries
-	//fmt.Println("begin inter")
 	s.IntermediateRoot(deleteEmptyObjects)
 
-	//fmt.Println("end inter")
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
-		fmt.Println("addr", addr.String(), s.stateObjects[addr].deleted)
+		fmt.Println("cccc--dirty_addr", addr.String())
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {
@@ -1067,7 +1023,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				obj.dirtyCode = false
 			}
 
-			//fmt.Println("trie==coccc")
 			// Write any storage changes in the state object to its storage trie
 			if err := obj.CommitTrie(s.db, true); err != nil {
 				return common.Hash{}, err
@@ -1090,7 +1045,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// The onleaf func is called _serially_, so we can reuse the same account
 	// for unmarshalling every time.
 	var account Account
-	//fmt.Println("dassssssssssssss")
 	root, err := s.trie.Commit(func(leaf []byte, parent common.Hash) error {
 		if err := rlp.DecodeBytes(leaf, &account); err != nil {
 			return nil
@@ -1119,6 +1073,5 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 		}
 		s.snap, s.snapDestructs, s.snapAccounts, s.snapStorage = nil, nil, nil, nil
 	}
-	//fmt.Println("end commit")
 	return root, err
 }
