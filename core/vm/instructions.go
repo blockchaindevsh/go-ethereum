@@ -17,6 +17,8 @@
 package vm
 
 import (
+	"encoding/hex"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -511,7 +513,7 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
 	//if common.PrintData {
-	//	fmt.Println("GetState--", callContext.contract.Address().String(), hash.String(), val.String())
+	//fmt.Println("GetState--", callContext.contract.Address().String(), hash.String(), val.String())
 	//}
 
 	loc.SetBytes(val.Bytes())
@@ -523,7 +525,7 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	val := callContext.stack.pop()
 	interpreter.evm.StateDB.SetState(callContext.contract.Address(),
 		common.Hash(loc.Bytes32()), common.Hash(val.Bytes32()))
-	//fmt.Println("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", loc.String(), val.String())
+	//fmt.Println("SetState", loc.String(), val.String())
 	return nil, nil
 }
 
@@ -621,7 +623,9 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 		bigVal = value.ToBig()
 	}
 
+	fmt.Println("before --cc", len(input), gas, bigVal.String())
 	res, addr, returnGas, suberr := interpreter.evm.Create(callContext.contract, input, gas, bigVal)
+	fmt.Println("end -ccc", returnGas, suberr, hex.EncodeToString(res))
 	// Push item on the stack based on the returned error. If the ruleset is
 	// homestead we must check for CodeStoreOutOfGasError (homestead only
 	// rule) and treat as an error, if the ruleset is frontier we must

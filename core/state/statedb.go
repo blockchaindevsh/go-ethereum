@@ -507,6 +507,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
+	//fmt.Println("UUUUUUUUUUUUUUUUUUUU", addr.String(), obj.data.Nonce)
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -620,7 +621,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 				return nil
 			}
 			data = new(Account)
-
+			//fmt.Println("623-------------")
 			if err := rlp.DecodeBytes(enc, data); err != nil {
 				log.Error("Failed to decode state object", "addr", addr, "err", err)
 				return nil
@@ -858,6 +859,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			} else {
 				v.data.Deleted = v.deleted
 			}
+			if !s.ThisTxRW[addr] {
+				//v.data.Nonce = v.preStateObject.Nonce()
+			}
+
 		}
 
 		if miner.String() == addr.String() {
@@ -875,13 +880,14 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
+		//fmt.Println("8820000-=---merge", addr.String(), v.data.Nonce)
 	}
 	base.MergedIndex = s.txIndex
 }
 
 func (s *StateDB) FinalMerge(mp map[int]map[common.Address]bool) {
 	s.journal.dirties = make(map[common.Address]int)
-	txLen := s.txIndex + 1
+	txLen := s.MergedIndex + 1
 	for index := 0; index < txLen; index++ {
 		for k, _ := range mp[index] {
 			if _, ok := s.journal.dirties[k]; !ok {
@@ -891,9 +897,11 @@ func (s *StateDB) FinalMerge(mp map[int]map[common.Address]bool) {
 	}
 
 	for addr, _ := range s.journal.dirties {
-		if _, exist := s.stateObjects[addr]; !exist {
-			s.stateObjects[addr] = s.MergedSts.GetLastStatus(addr, txLen)
-		}
+		//if _, exist := s.stateObjects[addr]; !exist {
+		s.stateObjects[addr] = s.MergedSts.GetLastStatus(addr, txLen)
+		//}
+
+		//fmt.Println("FFFFFFFFFF---",  addr.String(), s.stateObjects[addr].data.Nonce)
 
 	}
 }
@@ -1006,6 +1014,7 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
+	//fmt.Println("CCCCCCCCCCC--")
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}

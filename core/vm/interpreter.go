@@ -251,7 +251,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// Static portion of gas
 		cost = operation.constantGas // For tracing
 		if !contract.UseGas(operation.constantGas) {
-			fmt.Println("254---")
+			fmt.Println("254---", ErrOutOfGas)
 			return nil, ErrOutOfGas
 		}
 
@@ -281,7 +281,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			dynamicCost, err = operation.dynamicGas(in.evm, contract, stack, mem, memorySize)
 			cost += dynamicCost // total cost, for debug tracing
 			if err != nil || !contract.UseGas(dynamicCost) {
-				fmt.Println("284---")
+				//fmt.Println("284---")
 				return nil, ErrOutOfGas
 			}
 		}

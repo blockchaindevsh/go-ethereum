@@ -3288,7 +3288,7 @@ func TestAsd(t *testing.T) {
 		panic(err)
 	}
 
-	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(116526))
+	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(1244061))
 	if err != nil {
 		panic(err)
 	}
