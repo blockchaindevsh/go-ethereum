@@ -17,8 +17,6 @@
 package vm
 
 import (
-	"encoding/hex"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -623,9 +621,9 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 		bigVal = value.ToBig()
 	}
 
-	fmt.Println("before --cc", len(input), gas, bigVal.String())
+	//fmt.Println("before --cc", len(input), gas, bigVal.String())
 	res, addr, returnGas, suberr := interpreter.evm.Create(callContext.contract, input, gas, bigVal)
-	fmt.Println("end -ccc", returnGas, suberr, hex.EncodeToString(res))
+	//fmt.Println("end -ccc", returnGas, suberr, hex.EncodeToString(res))
 	// Push item on the stack based on the returned error. If the ruleset is
 	// homestead we must check for CodeStoreOutOfGasError (homestead only
 	// rule) and treat as an error, if the ruleset is frontier we must

@@ -309,7 +309,6 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		//fmt.Println("ready to getNonce", addr.String(), stateObject.Nonce())
 		return stateObject.Nonce()
 	}
 
@@ -453,7 +452,6 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	//fmt.Println("SetState", addr.String(), key.String(), value.String())
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)
@@ -507,7 +505,6 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	//fmt.Println("UUUUUUUUUUUUUUUUUUUU", addr.String(), obj.data.Nonce)
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -542,27 +539,6 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 		return obj
 	}
 	return nil
-}
-
-func (s *StateDB) Print(tt string) {
-	//return
-	sts := "sts:"
-	//for k, v := range s.stateObjects {
-	//	sts += fmt.Sprintf("addr:%v-%v-%v ;", k.String(), v.data.Nonce, v.data.Deleted)
-	//}
-
-	rw := "rw:"
-	//for k, _ := range s.ThisTxRW {
-	//	rw += fmt.Sprintf("%v ", k.String())
-	//}
-	rw += ","
-
-	dirty := "dirty:"
-	//for k, _ := range s.journal.dirties {
-	//dirty += fmt.Sprintf("%v-", k.String())
-	//}
-
-	fmt.Println("StateDB Print", tt, "len(dirty)", len(s.journal.dirties), "len(sts)", len(s.stateObjects), "sts", sts, "rw", rw, "dirty", dirty, "pendingSts", len(s.stateObjectsPending), "dirtySts", len(s.stateObjectsDirty))
 }
 
 // getDeletedStateObject is similar to getStateObject, but instead of returning
@@ -621,7 +597,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 				return nil
 			}
 			data = new(Account)
-			//fmt.Println("623-------------")
 			if err := rlp.DecodeBytes(enc, data); err != nil {
 				log.Error("Failed to decode state object", "addr", addr, "err", err)
 				return nil
@@ -631,9 +606,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	}
 	// Insert into the live set
 	obj := newObject(s, addr, *data, preStaeObject)
-	if addr.String() == "0x0000000000000000000000000000000000000000" && s.bhash.String() == "0x96670c528cce9d8591712aae07df846ccabdd6fe1f712c478701f2b71f1fbcc1" && s.txIndex == 1 {
-		//debug.PrintStack()
-	}
 	s.setStateObject(obj)
 	return obj
 }
@@ -880,7 +852,6 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		//fmt.Println("8820000-=---merge", s.txIndex, addr.String(), v.data.Nonce)
 	}
 	base.MergedIndex = s.txIndex
 }
@@ -897,12 +868,7 @@ func (s *StateDB) FinalMerge(mp map[int]map[common.Address]bool) {
 	}
 
 	for addr, _ := range s.journal.dirties {
-		//if _, exist := s.stateObjects[addr]; !exist {
 		s.stateObjects[addr] = s.MergedSts.GetLastStatus(addr, txLen)
-		//}
-
-		//fmt.Println("FFFFFFFFFF---",  addr.String(), s.stateObjects[addr].data.Nonce)
-
 	}
 }
 
@@ -1014,7 +980,6 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
-	//fmt.Println("CCCCCCCCCCC--")
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}
@@ -1024,7 +989,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
-		//fmt.Println("cccc--dirty_addr", addr.String())
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {

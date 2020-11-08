@@ -38,7 +38,7 @@ type ReceiptWithIndex struct {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
-	if block.NumberU64() == 1000000*1 {
+	if block.NumberU64() == 1000000*2 {
 		panic(fmt.Errorf("baocun %v", block.NumberU64()))
 	}
 	st.MergedIndex = -1
@@ -162,7 +162,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
 		if rr.txIndex == 0 {
-			fmt.Println("MERGE END blockNumber", p.block.NumberU64(), "mergedNumbe", p.baseStateDB.MergedIndex, " gasUsed", rr.receipt.GasUsed, "groupList", p.groupList)
+			fmt.Println("MERGE END blockNumber", p.block.NumberU64(), "groupList", p.groupList)
 		}
 		p.receiptQueue[rr.txIndex] = nil
 
