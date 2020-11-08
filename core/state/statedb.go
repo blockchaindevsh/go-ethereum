@@ -838,10 +838,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			} else {
 				v.data.Deleted = v.deleted
 			}
-			//if !s.ThisTxRW[addr] {
-			//	fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", addr.String(), v.preStateObject.Nonce(), v.data.Nonce)
-			v.data.Nonce = v.preStateObject.Nonce()
-			//}
+			if !s.ThisTxRW[addr] {
+				fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", addr.String(), v.preStateObject.Nonce(), v.data.Nonce)
+				//v.data.Nonce = v.preStateObject.Nonce()
+			}
 
 		}
 
@@ -860,7 +860,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		//fmt.Println("merge aaa", s.txIndex, addr.String(), v.data.Nonce)
+		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.data.Nonce)
 	}
 	base.MergedIndex = s.txIndex
 }
