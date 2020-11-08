@@ -72,16 +72,16 @@ func NewMerged() *MergedStatus {
 func (m *MergedStatus) GetLastStatus(addr common.Address, txlen int) *stateObject {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	data, ok := m.mergedStateObjects[addr]
 	if !ok {
 		return nil
 	}
-	//fmt.Println("GGGGGGGGGGG", addr.String(), len(data), s.txIndex)
-	var res *stateObject
 
-	for index := 0; index < txlen; index++ {
+	var res *stateObject
+	for index := txlen - 1; index >= 0; index-- {
 		if data[index] != nil {
-			res = data[index]
+			return data[index]
 		}
 	}
 	return res
@@ -113,7 +113,7 @@ type StateDB struct {
 	snapAccounts  map[common.Hash][]byte
 	snapStorage   map[common.Hash]map[common.Hash][]byte
 
-	Scf *MergedStatus
+	MergedSts *MergedStatus
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects        map[common.Address]*stateObject
 	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
@@ -156,8 +156,7 @@ type StateDB struct {
 	SnapshotCommits      time.Duration
 
 	MergedIndex int
-	//mergedRW    map[int]map[common.Address]bool
-	ThisTxRW map[common.Address]bool // true dirty ; false only read
+	ThisTxRW    map[common.Address]bool // true dirty ; false only read
 }
 
 // New creates a new state from a given trie.
@@ -170,7 +169,7 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		db:                  db,
 		trie:                tr,
 		snaps:               snaps,
-		Scf:                 NewMerged(),
+		MergedSts:           NewMerged(),
 		stateObjects:        make(map[common.Address]*stateObject),
 		stateObjectsPending: make(map[common.Address]struct{}),
 		stateObjectsDirty:   make(map[common.Address]struct{}),
@@ -609,7 +608,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			defer func(start time.Time) { s.AccountReads += time.Since(start) }(time.Now())
 		}
 
-		if preStaeObject = s.Scf.GetLastStatus(addr, s.txIndex); preStaeObject != nil {
+		if preStaeObject = s.MergedSts.GetLastStatus(addr, s.txIndex); preStaeObject != nil {
 			data = preStaeObject.data.copy()
 		} else {
 			enc, err := s.trie.TryGet(addr.Bytes())
@@ -663,7 +662,7 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 			s.snapDestructs[prev.addrHash] = struct{}{}
 		}
 	}
-	newobj = newObject(s, addr, Account{}, s.Scf.GetLastStatus(addr, s.txIndex))
+	newobj = newObject(s, addr, Account{}, s.MergedSts.GetLastStatus(addr, s.txIndex))
 	newobj.canuse = true
 	newobj.setNonce(0) // sets the object to dirty
 	if prev == nil {
@@ -803,13 +802,11 @@ func (s *StateDB) Snapshot() int {
 }
 
 func (s *StateDB) CalReadAndWrite() {
-	write := make(map[common.Address]bool)
+	s.ThisTxRW = make(map[common.Address]bool)
 	for k, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[k]
-		write[k] = ok
-
+		s.ThisTxRW[k] = ok
 	}
-	s.ThisTxRW = write
 }
 
 func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Address]bool, miner common.Address) bool {
@@ -848,7 +845,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address) {
-	for k, v := range s.stateObjects {
+	for addr, v := range s.stateObjects {
 		if v.preStateObject != nil {
 			for ks, vs := range v.preStateObject.originStorage {
 				if _, ok := v.originStorage[ks]; !ok {
@@ -861,43 +858,41 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			} else {
 				v.data.Deleted = v.deleted
 			}
-
 		}
 
-		if miner.String() == k.String() {
+		if miner.String() == addr.String() {
+			data := s.MergedSts.GetLastStatus(miner, s.txIndex)
+
 			preBalance := new(big.Int)
-			data := s.Scf.GetLastStatus(miner, s.txIndex)
 			if data != nil {
 				preBalance = new(big.Int).Set(data.data.Balance)
 			}
+			v.data.Balance = new(big.Int).Add(preBalance, v.data.Balance)
+
 			if miner.String() != sender.String() && data != nil {
 				v.data.Nonce = data.Nonce()
 			}
-			v.data.Balance = new(big.Int).Add(preBalance, v.data.Balance)
 
 		}
-		base.Scf.SetStatus(k, s.txIndex, v)
-
-		//fmt.Println("merge ", "addr", k.String(), v.data.Balance, v.data.Deleted, v.data.Incarnation, "code", len(v.code), v.dirtyCode, "dorty", len(v.dirtyStorage), "origin", len(v.originStorage), "pending", len(v.pendingStorage))
-
+		base.MergedSts.SetStatus(addr, s.txIndex, v)
 	}
 	base.MergedIndex = s.txIndex
 }
 
-func (s *StateDB) ENd(mp map[int]map[common.Address]bool, txLen int) {
+func (s *StateDB) FinalMerge(mp map[int]map[common.Address]bool) {
 	s.journal.dirties = make(map[common.Address]int)
+	txLen := s.txIndex + 1
 	for index := 0; index < txLen; index++ {
 		for k, _ := range mp[index] {
 			if _, ok := s.journal.dirties[k]; !ok {
 				s.journal.dirties[k] = 0
 			}
-
 		}
 	}
 
 	for addr, _ := range s.journal.dirties {
 		if _, exist := s.stateObjects[addr]; !exist {
-			s.stateObjects[addr] = s.Scf.GetLastStatus(addr, txLen)
+			s.stateObjects[addr] = s.MergedSts.GetLastStatus(addr, txLen)
 		}
 
 	}

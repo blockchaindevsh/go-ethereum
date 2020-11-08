@@ -28,7 +28,3 @@ var (
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
 )
-
-var (
-	PrintData = bool(false)
-)

@@ -80,9 +80,6 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 		}
 	}
 
-	if !params.NeedCalSender {
-		//panic("bug here")
-	}
 	addr, err := signer.Sender(tx)
 	if err != nil {
 		return common.Address{}, err

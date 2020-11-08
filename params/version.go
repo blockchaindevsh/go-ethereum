@@ -65,7 +65,3 @@ func VersionWithCommit(gitCommit, gitDate string) string {
 	}
 	return vsn
 }
-
-var (
-	NeedCalSender = bool(false)
-)
