@@ -639,7 +639,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 }
 
 func (s *StateDB) setStateObject(object *stateObject) {
-	s.stateObjects[object.Address()] = object
+	s.stateObjects[object.Address()] = object //race
 }
 
 // GetOrNewStateObject retrieves a state object or create a new state object if nil.
@@ -880,7 +880,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		//fmt.Println("8820000-=---merge", addr.String(), v.data.Nonce)
+		fmt.Println("8820000-=---merge", s.txIndex, addr.String(), v.data.Nonce)
 	}
 	base.MergedIndex = s.txIndex
 }

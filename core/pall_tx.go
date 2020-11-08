@@ -39,7 +39,7 @@ type ReceiptWithIndex struct {
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	if block.NumberU64() == 1244060 {
-		panic("sb")
+		//panic("sb")
 	}
 	st.MergedIndex = -1
 	txLen := len(block.Transactions())
@@ -81,7 +81,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < len(p.groupList); index++ {
 		p.AddTxToQueue(p.groupList[index][0])
 	}
-	//fmt.Println("SSSSSSSSSSSSSSSSSSSSS", p.block.NumberU64(), p.baseStateDB.GetNonce(common.HexToAddress("0xe6a7a1d47ff21b6321162aea7c6cb457d5476bca")))
+	fmt.Println("SSSSSSSSSSSSSSSSSSSSS", p.block.NumberU64(), p.baseStateDB.GetNonce(common.HexToAddress("0xF0160428a8552AC9bB7E050D90eEADE4DDD52843")))
 	return p
 }
 
