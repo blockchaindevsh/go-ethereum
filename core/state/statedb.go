@@ -839,10 +839,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			} else {
 				v.data.Deleted = v.deleted
 			}
-			if !s.ThisTxRW[addr] {
-				fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", s.txIndex, addr.String(), preState.Nonce(), v.data.Nonce)
-				v.data.Nonce = preState.Nonce()
-			}
+			//if !s.ThisTxRW[addr] {
+			//	fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", s.txIndex, addr.String(), preState.Nonce(), v.data.Nonce)
+			//v.data.Nonce = preState.Nonce()
+			//}
 
 		}
 
