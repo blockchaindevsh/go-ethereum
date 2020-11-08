@@ -505,7 +505,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	fmt.Println("UUUUUUUUUUUUUU", addr.String(), obj.data.Nonce)
+	//fmt.Println("UUUUUUUUUUUUUU", addr.String(), obj.data.Nonce)
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -819,6 +819,12 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address) {
+	rw := "rwStatus:"
+	for k, v := range s.ThisTxRW {
+		rw += fmt.Sprintf("%v-%v ", k.String(), v)
+	}
+	fmt.Println("s.this.RW", s.txIndex, rw)
+
 	for addr, v := range s.stateObjects {
 		if v.preStateObject != nil {
 			for ks, vs := range v.preStateObject.originStorage {
@@ -833,7 +839,8 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 				v.data.Deleted = v.deleted
 			}
 			if !s.ThisTxRW[addr] {
-				//v.data.Nonce = v.preStateObject.Nonce()
+				fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", addr.String(), v.preStateObject.Nonce(), v.data.Nonce)
+				v.data.Nonce = v.preStateObject.Nonce()
 			}
 
 		}
