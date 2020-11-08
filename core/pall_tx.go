@@ -38,8 +38,8 @@ type ReceiptWithIndex struct {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
-	if block.NumberU64() == 1244060 {
-		//panic("sb")
+	if block.NumberU64() == 1244062 {
+		panic("sb")
 	}
 	st.MergedIndex = -1
 	txLen := len(block.Transactions())
