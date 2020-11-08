@@ -166,7 +166,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		if p.lastHandleInGroup[groupID] < len(p.groupList[groupID]) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
-		if rr.txIndex == p.txLen-1 {
+		if rr.txIndex == 0 {
 			p.baseStateDB.Print(fmt.Sprintf("blockNumber=%v merged end mergedNumbe=%v gasUsed=%v groupList=%v", p.block.NumberU64(), p.baseStateDB.MergedIndex, rr.receipt.GasUsed, p.groupList))
 		}
 
