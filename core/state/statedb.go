@@ -823,7 +823,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 	for k, v := range s.ThisTxRW {
 		rw += fmt.Sprintf("%v-%v ", k.String(), v)
 	}
-	fmt.Println("s.this.RW", s.txIndex, rw)
+	//fmt.Println("s.this.RW", s.txIndex, rw)
 
 	for addr, v := range s.stateObjects {
 		if v.preStateObject != nil {
@@ -838,10 +838,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			} else {
 				v.data.Deleted = v.deleted
 			}
-			if !s.ThisTxRW[addr] {
-				fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", addr.String(), v.preStateObject.Nonce(), v.data.Nonce)
-				//v.data.Nonce = v.preStateObject.Nonce()
-			}
+			//if !s.ThisTxRW[addr] {
+			//	fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", addr.String(), v.preStateObject.Nonce(), v.data.Nonce)
+			v.data.Nonce = v.preStateObject.Nonce()
+			//}
 
 		}
 
