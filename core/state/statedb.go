@@ -826,41 +826,40 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 	//fmt.Println("s.this.RW", s.txIndex, rw)
 
 	for addr, v := range s.stateObjects {
-		if v.preStateObject != nil {
-			for ks, vs := range v.preStateObject.originStorage {
+		preState := s.MergedSts.GetLastStatus(addr, s.txIndex)
+		if preState != nil {
+			for ks, vs := range preState.originStorage {
 				if _, ok := v.originStorage[ks]; !ok {
 					v.originStorage[ks] = vs
 				}
 			}
-			if !v.preStateObject.data.Deleted {
-				v.code = v.preStateObject.code
-				v.dirtyCode = v.preStateObject.dirtyCode
+			if !preState.data.Deleted {
+				v.code = preState.code
+				v.dirtyCode = preState.dirtyCode
 			} else {
 				v.data.Deleted = v.deleted
 			}
 			if !s.ThisTxRW[addr] {
-				fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", addr.String(), v.preStateObject.Nonce(), v.data.Nonce)
-				//v.data.Nonce = v.preStateObject.Nonce()
+				fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", s.txIndex, addr.String(), preState.Nonce(), v.data.Nonce)
+				v.data.Nonce = preState.Nonce()
 			}
 
 		}
 
 		if miner.String() == addr.String() {
-			data := s.MergedSts.GetLastStatus(miner, s.txIndex)
-
 			preBalance := new(big.Int)
-			if data != nil {
-				preBalance = new(big.Int).Set(data.data.Balance)
+			if preState != nil {
+				preBalance = new(big.Int).Set(preState.data.Balance)
 			}
 			v.data.Balance = new(big.Int).Add(preBalance, v.data.Balance)
 
-			if miner.String() != sender.String() && data != nil {
-				v.data.Nonce = data.Nonce()
+			if miner.String() != sender.String() && preState != nil {
+				v.data.Nonce = preState.Nonce()
 			}
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.data.Nonce)
+		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.data.Nonce)
 	}
 	base.MergedIndex = s.txIndex
 }
