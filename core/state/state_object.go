@@ -200,7 +200,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
-		fmt.Println("202222")
+		//fmt.Println("202222")
 		return value
 	}
 	//fmt.Println("ssssssssss", s.canuse, s.preStateObject != nil)
@@ -209,18 +209,18 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	//}
 	if s.canuse && s.preStateObject != nil {
 		if s.preStateObject.deleted {
-			fmt.Println("AAAAAAAAAAAAAAAAAA", s.address.String())
+			//fmt.Println("AAAAAAAAAAAAAAAAAA", s.address.String())
 			return common.Hash{}
 		}
-		fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
+		//fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
 		data, ok := s.preStateObject.originStorage[key]
 		if ok {
-			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!-1", key.String(), data.String())
+			//fmt.Println("!!!!!!!!!!!!!!!!!!!!!!-1", key.String(), data.String())
 			return data
 		}
 		data, ok = s.preStateObject.pendingStorage[key]
 		if ok {
-			fmt.Println("222222222222222222222222--", key.String(), data.String())
+			//fmt.Println("222222222222222222222222--", key.String(), data.String())
 			return data
 		}
 
@@ -241,11 +241,11 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
-		fmt.Println("2211111", key.String(), value.String())
+		//fmt.Println("2211111", key.String(), value.String())
 		return value
 	}
 	if value, cached := s.originStorage[key]; cached {
-		fmt.Println("22555", value)
+		//fmt.Println("22555", value)
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -287,7 +287,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	fmt.Println("26777777", s.address.String(), key.String(), value.String())
+	//fmt.Println("26777777", s.address.String(), key.String(), value.String())
 	return value
 }
 
@@ -301,7 +301,7 @@ func (s *stateObject) SetState(db Database, key, value common.Hash) {
 	// If the new value is the same as old, don't set
 	prev := s.GetState(db, key)
 	if prev == value {
-		fmt.Println("2788888888888888888888888", s.address.String(), key.String(), value.String())
+		//fmt.Println("2788888888888888888888888", s.address.String(), key.String(), value.String())
 		return
 	}
 	// New value is different, update and journal the change
@@ -310,7 +310,7 @@ func (s *stateObject) SetState(db Database, key, value common.Hash) {
 		key:      key,
 		prevalue: prev,
 	})
-	fmt.Println("DDDDDDDDDDDDDDDDDDDDDDDDDDDD", s.address.String(), key.String(), value.String())
+	//fmt.Println("DDDDDDDDDDDDDDDDDDDDDDDDDDDD", s.address.String(), key.String(), value.String())
 	s.setState(key, value)
 }
 
@@ -340,7 +340,7 @@ func (s *stateObject) setState(key, value common.Hash) {
 // committed later. It is invoked at the end of every transaction.
 func (s *stateObject) finalise() {
 	for key, value := range s.dirtyStorage {
-		fmt.Println("dirty to pending", s.address.String(), key.String(), value.String())
+		//fmt.Println("dirty to pending", s.address.String(), key.String(), value.String())
 		s.pendingStorage[key] = value
 	}
 	if len(s.dirtyStorage) > 0 {
@@ -368,11 +368,9 @@ func makeFastDbKey(addr common.Address, index uint64, key common.Hash) []byte {
 // updateTrie writes cached storage modifications into the object's storage trie.
 // It will return nil if the trie has not been loaded and no changes have been made
 func (s *stateObject) updateTrie(db Database, commit bool) Trie {
-	//fmt.Println("uuu-1")
 	if s.data.Deleted {
 		return nil
 	}
-	//fmt.Println("tailuuu-=2", commit, s.address.String())
 	// Make sure all dirty slots are finalized into the pending storage area
 	s.finalise()
 	//if len(s.originStorage) == 0 {
@@ -395,13 +393,12 @@ func (s *stateObject) updateTrie(db Database, commit bool) Trie {
 
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-	//fmt.Println("uuu-3", s.address.String(), len(s.pendingStorage))
+
 	for key, value := range s.pendingStorage {
-		fmt.Println("3677777777777777777", key.String(), value.String())
+
 		// Skip noop changes, persist actual changes
 		if d, ok := s.originStorage[key]; ok {
 			if value == d {
-				fmt.Println("371----------")
 				continue
 			}
 		}
@@ -422,14 +419,14 @@ func (s *stateObject) updateTrie(db Database, commit bool) Trie {
 			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
 		}
 	}
-	//fmt.Println("uuuu-4")
+
 	if commit {
 		if len(s.originStorage) != 0 {
 			stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
 			for k, v := range s.originStorage {
 				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
 			}
-			fmt.Println("ready to commit", stroageToDB)
+			//fmt.Println("ready to commit", stroageToDB)
 		}
 
 		for key, value := range s.originStorage {
@@ -438,7 +435,6 @@ func (s *stateObject) updateTrie(db Database, commit bool) Trie {
 			if (value == common.Hash{}) {
 				s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
 			} else {
-				//fmt.Println("uuuuuuuuuuu--kkkkkkkkkkkkkkkkkk", s.address.String(), key.String(), value.String())
 				// Encoding []byte cannot fail, ok to ignore the error.
 				v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
 				s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
@@ -478,7 +474,6 @@ func (s *stateObject) CommitTrie(db Database, commit bool) error {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
-	//fmt.Println("42222222", s.address.String())
 	_, err := s.trie.Commit(nil)
 	if err == nil {
 		//s.data.Root = root
@@ -556,7 +551,12 @@ func (s *stateObject) Code(db Database) []byte {
 	if s.canuse {
 		pre := s.preStateObject
 		if pre != nil {
-			return pre.code
+			if pre.deleted {
+				return nil
+			} else if pre.code != nil {
+				return pre.code
+			}
+
 		}
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {

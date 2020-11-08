@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -511,9 +510,9 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
-	if common.PrintData {
-		fmt.Println("GetState--", callContext.contract.Address().String(), hash.String(), val.String())
-	}
+	//if common.PrintData {
+	//	fmt.Println("GetState--", callContext.contract.Address().String(), hash.String(), val.String())
+	//}
 
 	loc.SetBytes(val.Bytes())
 	return nil, nil
@@ -524,7 +523,7 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	val := callContext.stack.pop()
 	interpreter.evm.StateDB.SetState(callContext.contract.Address(),
 		common.Hash(loc.Bytes32()), common.Hash(val.Bytes32()))
-	fmt.Println("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", loc.String(), val.String())
+	//fmt.Println("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", loc.String(), val.String())
 	return nil, nil
 }
 
@@ -541,7 +540,7 @@ func opJumpi(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	pos, cond := callContext.stack.pop(), callContext.stack.pop()
 	if !cond.IsZero() {
 		if !callContext.contract.validJumpdest(&pos) {
-			fmt.Println("53888888800")
+			//fmt.Println("53888888800")
 			return nil, ErrInvalidJump
 		}
 		*pc = pos.Uint64()

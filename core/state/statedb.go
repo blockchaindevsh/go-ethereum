@@ -454,7 +454,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	fmt.Println("SetState", addr.String(), key.String(), value.String())
+	//fmt.Println("SetState", addr.String(), key.String(), value.String())
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)
@@ -855,7 +855,13 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 					v.originStorage[ks] = vs
 				}
 			}
-			v.code = v.preStateObject.code
+			if !v.preStateObject.data.Deleted {
+				v.code = v.preStateObject.code
+				v.dirtyCode = v.preStateObject.dirtyCode
+			} else {
+				v.data.Deleted = v.deleted
+			}
+
 		}
 
 		if miner.String() == k.String() {
@@ -872,7 +878,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 		}
 		base.Scf.SetStatus(k, s.txIndex, v)
 
-		fmt.Println("merge ", "addr", k.String(), v.data.Balance, v.data.Deleted, v.data.Incarnation, "dorty", len(v.dirtyStorage), "origin", len(v.originStorage), "pending", len(v.pendingStorage))
+		//fmt.Println("merge ", "addr", k.String(), v.data.Balance, v.data.Deleted, v.data.Incarnation, "code", len(v.code), v.dirtyCode, "dorty", len(v.dirtyStorage), "origin", len(v.originStorage), "pending", len(v.pendingStorage))
 
 	}
 	base.MergedIndex = s.txIndex
@@ -1005,7 +1011,6 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // Commit writes the state to the underlying in-memory trie database.
 func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
-	fmt.Println("CCCCCCCCCCCCCCCCCCCCCC")
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}
@@ -1015,7 +1020,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
-		fmt.Println("cccc--dirty_addr", addr.String())
+		//fmt.Println("cccc--dirty_addr", addr.String())
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {
