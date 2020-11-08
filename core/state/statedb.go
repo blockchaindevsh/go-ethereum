@@ -840,7 +840,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			}
 			if !s.ThisTxRW[addr] {
 				fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", addr.String(), v.preStateObject.Nonce(), v.data.Nonce)
-				v.data.Nonce = v.preStateObject.Nonce()
+				//v.data.Nonce = v.preStateObject.Nonce()
 			}
 
 		}
