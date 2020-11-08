@@ -156,3 +156,7 @@ func TrimRightZeroes(s []byte) []byte {
 	}
 	return s[:idx]
 }
+
+var (
+	PrintData = bool(false)
+)
