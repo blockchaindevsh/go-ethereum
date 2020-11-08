@@ -880,7 +880,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		fmt.Println("8820000-=---merge", s.txIndex, addr.String(), v.data.Nonce)
+		//fmt.Println("8820000-=---merge", s.txIndex, addr.String(), v.data.Nonce)
 	}
 	base.MergedIndex = s.txIndex
 }
