@@ -823,7 +823,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 	for k, v := range s.ThisTxRW {
 		rw += fmt.Sprintf("%v-%v ", k.String(), v)
 	}
-	fmt.Println("s.this.RW", s.txIndex, rw)
+	//fmt.Println("s.this.RW", s.txIndex, rw)
 
 	for addr, v := range s.stateObjects {
 		preState := s.MergedSts.GetLastStatus(addr, s.txIndex)
@@ -859,7 +859,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.data.Nonce)
+		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.data.Nonce)
 	}
 	base.MergedIndex = s.txIndex
 }
