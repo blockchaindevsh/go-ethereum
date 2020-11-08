@@ -80,7 +80,6 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < len(p.groupList); index++ {
 		p.AddTxToQueue(p.groupList[index][0])
 	}
-	//fmt.Println("NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN block---ready to pall", block.NumberU64(), p.groupList)
 	return p
 }
 
@@ -105,7 +104,6 @@ func (p *pallTxManager) calGroup(mp map[common.Address]int, from common.Address,
 
 func (p *pallTxManager) AddTxToQueue(txIndex int) {
 	p.txQueue <- txIndex
-	//fmt.Println("AAAAAAAAAAAAAA end", txIndex)
 }
 
 func (p *pallTxManager) GetTxFromQueue() (int, bool) {
@@ -168,7 +166,9 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		if p.lastHandleInGroup[groupID] < len(p.groupList[groupID]) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
-		p.baseStateDB.Print(fmt.Sprintf("blockNumber=%v merged end mergedNumbe=%v gasUsed=%v gp=%v groupList=%v", p.block.NumberU64(), p.baseStateDB.MergedIndex, rr.receipt.GasUsed, p.gp, p.groupList))
+		if rr.txIndex == p.txLen-1 {
+			p.baseStateDB.Print(fmt.Sprintf("blockNumber=%v merged end mergedNumbe=%v gasUsed=%v groupList=%v", p.block.NumberU64(), p.baseStateDB.MergedIndex, rr.receipt.GasUsed, p.groupList))
+		}
 
 	} else {
 		p.receiptQueue[rr.txIndex] = nil
@@ -205,7 +205,6 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	}
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	//st.Print(fmt.Sprintf("blockNumber=%v apply tx end preBaseMerged=%v txIndex=%v ermsg=%v", p.block.NumberU64(), preBaseMerged, txIndex, err))
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", preBaseMerged, "currTxIndex", txIndex, "groupList", p.groupList)
 		time.Sleep(5 * time.Second)
