@@ -17,6 +17,8 @@
 package vm
 
 import (
+	"encoding/hex"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -544,8 +546,10 @@ func opJumpi(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 			return nil, ErrInvalidJump
 		}
 		*pc = pos.Uint64()
+		//fmt.Println("548----", *pc)
 	} else {
 		*pc++
+		//fmt.Sprintf("55111", *pc)
 	}
 	return nil, nil
 }
@@ -701,14 +705,16 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 		bigVal = value.ToBig()
 	}
 
+	//fmt.Println("ready to call", stack.SCFDATA())
 	ret, returnGas, err := interpreter.evm.Call(callContext.contract, toAddr, args, gas, bigVal)
-
+	//fmt.Println("end to call", hex.EncodeToString(ret), returnGas, err, stack.SCFDATA())
 	if err != nil {
 		temp.Clear()
 	} else {
 		temp.SetOne()
 	}
 	stack.push(&temp)
+	//fmt.Println("7170-----", stack.SCFDATA())
 	if err == nil || err == ErrExecutionReverted {
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
@@ -809,6 +815,7 @@ func opReturn(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	offset, size := callContext.stack.pop(), callContext.stack.pop()
 	ret := callContext.memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
 
+	fmt.Println("RRRRRRReturn", hex.EncodeToString(ret))
 	return ret, nil
 }
 

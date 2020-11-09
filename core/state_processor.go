@@ -91,6 +91,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+	common.CurrentBlockNumber = block.NumberU64()
 	if len(block.Transactions()) != 0 {
 		pm := NewPallTxManage(block, statedb, p.bc)
 		<-pm.ch
@@ -119,7 +120,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if header.Number.Uint64() == 1245162 {
+	if header.Number.Uint64() == 1605463 {
 		vmenv.PrintLog = true
 		//fmt.Println("12222222222222222222222222222222222")
 	}

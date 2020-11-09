@@ -158,5 +158,6 @@ func TrimRightZeroes(s []byte) []byte {
 }
 
 var (
-	PrintData = bool(false)
+	PrintData          = bool(false)
+	CurrentBlockNumber = uint64(0)
 )

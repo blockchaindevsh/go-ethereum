@@ -951,6 +951,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 		pendingAddr += fmt.Sprintf("%v-", k.String())
 	}
 
+	readyToCommit := ""
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
 		if obj.deleted {
@@ -958,7 +959,11 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 		}
 		obj.updateRoot(s.db)
 		s.updateStateObject(obj)
+		readyToCommit += fmt.Sprintf("addr=%v n=%v ", addr.String(), obj.data.Nonce) //用指标去debug????
 
+	}
+	if len(readyToCommit) != 0 {
+		fmt.Println("MMMM--", common.CurrentBlockNumber, readyToCommit)
 	}
 	if len(s.stateObjectsPending) > 0 {
 		s.stateObjectsPending = make(map[common.Address]struct{})

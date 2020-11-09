@@ -50,6 +50,13 @@ func (st *Stack) Data() []uint256.Int {
 	return st.data
 }
 
+func (st *Stack) SCFDATA() string {
+	ss := ""
+	for _, v := range st.data {
+		ss += fmt.Sprintf("%v ", v.String())
+	}
+	return ss
+}
 func (st *Stack) push(d *uint256.Int) {
 	// NOTE push limit (1024) is checked in baseCheck
 	st.data = append(st.data, *d)

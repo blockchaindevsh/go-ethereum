@@ -426,11 +426,10 @@ func (s *stateObject) updateTrie(db Database, commit bool) Trie {
 			for k, v := range s.originStorage {
 				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
 			}
-			//fmt.Println("ready to commit", stroageToDB)
+			fmt.Println("MMMMMM--", common.CurrentBlockNumber, stroageToDB)
 		}
 
 		for key, value := range s.originStorage {
-
 			var v []byte
 			if (value == common.Hash{}) {
 				s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))

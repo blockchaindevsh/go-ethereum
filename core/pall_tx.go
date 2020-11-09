@@ -82,7 +82,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < len(p.groupList); index++ {
 		p.AddTxToQueue(p.groupList[index][0])
 	}
-	fmt.Println("SSSSSSSSSSSSSSSSSSSSS", p.block.NumberU64(), p.baseStateDB.GetNonce(common.HexToAddress("0xF0160428a8552AC9bB7E050D90eEADE4DDD52843")))
+	//fmt.Println("SSSSSSSSSSSSSSSSSSSSS", p.block.NumberU64(), p.baseStateDB.GetNonce(common.HexToAddress("0xF0160428a8552AC9bB7E050D90eEADE4DDD52843")))
 	return p
 }
 
@@ -162,9 +162,9 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		if p.lastHandleInGroup[groupID] < len(p.groupList[groupID]) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
-		if rr.txIndex == 0 {
-			fmt.Println("MERGE END blockNumber", p.block.NumberU64(), "groupList", p.groupList)
-		}
+		//if rr.txIndex == 0 {
+		//fmt.Println("MERGE END blockNumber", p.block.NumberU64(), "groupList", p.groupList)
+		//}
 		p.receiptQueue[rr.txIndex] = nil
 
 	} else {
