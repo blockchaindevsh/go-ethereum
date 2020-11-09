@@ -18,16 +18,11 @@ package core
 
 import (
 	"context"
-	//"flag"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	//"github.com/prometheus/common/log"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
-	"net/http"
 	"os"
 	"sync"
 	"testing"
@@ -3293,7 +3288,7 @@ func TestAsd(t *testing.T) {
 		panic(err)
 	}
 
-	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(1605463))
+	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(1920001))
 	if err != nil {
 		panic(err)
 	}
@@ -3306,76 +3301,4 @@ func TestAsd(t *testing.T) {
 		fmt.Println("index", v.Hash().String(), k, r.CumulativeGasUsed, r.GasUsed)
 
 	}
-}
-
-type ClusterManager struct {
-	Zone         string
-	OOMCountDesc *prometheus.Desc
-}
-
-// Simulate prepare the data
-func (c *ClusterManager) ReallyExpensiveAssessmentOfTheSystemState() (oomCountByHost map[string]int) {
-	// Just example fake data.
-	oomCountByHost = map[string]int{
-		"foo.example.org": 42,
-		"bar.example.org": 2001,
-	}
-	return
-}
-
-// Describe simply sends the two Descs in the struct to the channel.
-func (c *ClusterManager) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.OOMCountDesc
-}
-
-func (c *ClusterManager) Collect(ch chan<- prometheus.Metric) {
-	oomCountByHost := c.ReallyExpensiveAssessmentOfTheSystemState()
-	for host, oomCount := range oomCountByHost {
-		ch <- prometheus.MustNewConstMetric(
-			c.OOMCountDesc,
-			prometheus.CounterValue,
-			float64(oomCount),
-			host,
-		)
-	}
-
-}
-
-func NewClusterManager(zone string) *ClusterManager {
-	return &ClusterManager{
-		Zone: zone,
-		OOMCountDesc: prometheus.NewDesc(
-			"clustermanager_oom_crashes_total",
-			"Number of OOM crashes.",
-			[]string{"host"},
-			prometheus.Labels{"zone": zone},
-		),
-	}
-}
-
-func TestM(t *testing.T) {
-
-	prometheus.new
-	scf := NewClusterManager("db")
-	reg := prometheus.NewGauge()
-	reg.MustRegister(scf)
-
-	go func() {
-		cnt := 1
-		for true {
-			time.Sleep(5 * time.Second)
-			prometheus.MustNewConstMetric(
-				scf.OOMCountDesc,
-				prometheus.CounterValue,
-				float64(1),
-				fmt.Sprintf("haha %v", cnt),
-			)
-			cnt++
-			fmt.Println("dsadsadas", cnt)
-		}
-	}()
-
-	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-	http.ListenAndServe(":8080", nil)
-	time.Sleep(100000 * time.Second)
 }
