@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -84,9 +83,9 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	//return p.ProcessSerial(block, statedb, cfg)
-	if block.NumberU64() == 1920002 {
-		panic("sb")
-	}
+	//if block.NumberU64() == 1920002 {
+	//	panic("sb")
+	//}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -95,16 +94,16 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	)
 	// Mutate the block and state according to any hard-fork specs
 
-	fmt.Println("1022222", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
+	//fmt.Println("1022222", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 	sb := new(big.Int).Add(p.config.DAOForkBlock, common.Big1)
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && sb.Cmp(block.Number()) == 0 {
-		fmt.Println("DDDDDDD", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
+		//fmt.Println("DDDDDDD", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 		misc.ApplyDAOHardFork(statedb)
-		fmt.Println("DDDDDDDD-1", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
+		//fmt.Println("DDDDDDDD-1", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 		statedb.Commit(false)
-		fmt.Println("CCCCCCCCCCCCCCCC", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
+		//fmt.Println("CCCCCCCCCCCCCCCC", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 	}
-	fmt.Println("103--", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
+	//fmt.Println("103--", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 	common.CurrentBlockNumber = block.NumberU64()
 	if len(block.Transactions()) != 0 {
 		pm := NewPallTxManage(block, statedb, p.bc)

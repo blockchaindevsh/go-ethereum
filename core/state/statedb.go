@@ -863,7 +863,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String())
+		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String())
 	}
 
 	base.MergedSts.Handle(s.txIndex) //Need?

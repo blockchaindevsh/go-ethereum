@@ -81,7 +81,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < len(p.groupList); index++ {
 		p.AddTxToQueue(p.groupList[index][0])
 	}
-	fmt.Println("rrrrrrrrrrrrrrrrrrrrrr---", block.NumberU64(), p.groupList, p.baseStateDB.GetBalance(common.HexToAddress("0x304a554a310C7e546dfe434669C62820b7D83490")))
+	//fmt.Println("rrrrrrrrrrrrrrrrrrrrrr---", block.NumberU64(), p.groupList, p.baseStateDB.GetBalance(common.HexToAddress("0x304a554a310C7e546dfe434669C62820b7D83490")))
 	return p
 }
 
