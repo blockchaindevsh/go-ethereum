@@ -82,6 +82,8 @@ func (m *MergedStatus) Print(ss string, txLen int) {
 }
 
 func (m *MergedStatus) Handle(index int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if index == 0 {
 		return
 	}
