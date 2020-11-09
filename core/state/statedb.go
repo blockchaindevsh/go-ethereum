@@ -815,7 +815,8 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
 			rwFromBase[k] = v
-			rwBase += fmt.Sprintf("%v-%v ", k.String(), v)
+			fmt.Println("ddddd", k.String(), v)
+			//rwBase += fmt.Sprintf("%v-%v ", k.String(), v)
 		}
 	}
 	ttRW := ""
@@ -823,6 +824,10 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 		ttRW += fmt.Sprintf("%v-%v ", kk.String(), v)
 	}
 	ttRW += ",,"
+
+	for k, v := range rwFromBase {
+		rwBase += fmt.Sprintf("%v-%v", k.String(), v)
+	}
 	fmt.Println("CCCCCCCCCCCCCCCcc", s.MergedIndex, s.txIndex, "ttRW", ttRW, "rwBase", rwBase)
 
 	for k, _ := range s.ThisTxRW {
