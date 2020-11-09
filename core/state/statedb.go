@@ -819,10 +819,10 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address) {
-	rw := "rwStatus:"
-	for k, v := range s.ThisTxRW {
-		rw += fmt.Sprintf("%v-%v ", k.String(), v)
-	}
+	//rw := "rwStatus:"
+	//for k, v := range s.ThisTxRW {
+	//	rw += fmt.Sprintf("%v-%v ", k.String(), v)
+	//}
 	//fmt.Println("s.this.RW", s.txIndex, rw)
 
 	for addr, v := range s.stateObjects {
@@ -963,7 +963,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 
 	}
 	if len(readyToCommit) != 0 {
-		fmt.Println("MMMM--", common.CurrentBlockNumber, readyToCommit)
+		fmt.Println("Sts--", common.CurrentBlockNumber, readyToCommit)
 	}
 	if len(s.stateObjectsPending) > 0 {
 		s.stateObjectsPending = make(map[common.Address]struct{})

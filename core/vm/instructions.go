@@ -17,8 +17,6 @@
 package vm
 
 import (
-	"encoding/hex"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -815,7 +813,7 @@ func opReturn(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	offset, size := callContext.stack.pop(), callContext.stack.pop()
 	ret := callContext.memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
 
-	fmt.Println("RRRRRRReturn", hex.EncodeToString(ret))
+	//fmt.Println("RRRRRRReturn", hex.EncodeToString(ret))
 	return ret, nil
 }
 

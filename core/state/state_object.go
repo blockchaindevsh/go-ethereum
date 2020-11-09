@@ -426,7 +426,7 @@ func (s *stateObject) updateTrie(db Database, commit bool) Trie {
 			for k, v := range s.originStorage {
 				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
 			}
-			fmt.Println("MMMMMM--", common.CurrentBlockNumber, stroageToDB)
+			fmt.Println("storage--", common.CurrentBlockNumber, stroageToDB)
 		}
 
 		for key, value := range s.originStorage {
