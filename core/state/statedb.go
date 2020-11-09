@@ -86,8 +86,11 @@ func (m *MergedStatus) Handle(index int) {
 		return
 	}
 	for k, _ := range m.mergedStateObjects {
-		if data, ok := m.mergedStateObjects[k][index-1]; ok {
-			m.mergedStateObjects[k][index] = data
+		preObj, ok := m.mergedStateObjects[k][index-1]
+		//_, ok1 := m.mergedStateObjects[k][index]
+
+		if _, ok1 := m.mergedStateObjects[k][index]; !ok1 && ok {
+			m.mergedStateObjects[k][index] = preObj
 		}
 	}
 }
