@@ -810,10 +810,12 @@ func (s *StateDB) CalReadAndWrite() {
 }
 
 func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Address]bool, miner common.Address) bool {
+	rwBase := ""
 	rwFromBase := make(map[common.Address]bool)
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
 			rwFromBase[k] = v
+			rwBase += fmt.Sprintf("%v-%v ", k.String(), v)
 		}
 	}
 	ttRW := ""
@@ -821,7 +823,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 		ttRW += fmt.Sprintf("%v-%v ", kk.String(), v)
 	}
 	ttRW += ",,"
-	fmt.Print("CCCCCCCCCCCCCCCcc", baseStateDB.MergedSts, s.txIndex, ttRW)
+	fmt.Println("CCCCCCCCCCCCCCCcc", baseStateDB.MergedIndex, s.txIndex, ttRW, "rwBase", rwBase)
 
 	for k, _ := range s.ThisTxRW {
 		if rwFromBase[k] {
