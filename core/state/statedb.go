@@ -86,7 +86,7 @@ func (m *MergedStatus) Handle(index int) {
 		return
 	}
 	for k, _ := range m.mergedStateObjects {
-		if data, ok := m.mergedStateObjects[k][index-1]; !ok {
+		if data, ok := m.mergedStateObjects[k][index-1]; ok {
 			m.mergedStateObjects[k][index] = data
 		}
 	}
