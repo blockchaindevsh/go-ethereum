@@ -814,8 +814,11 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	rwFromBase := make(map[common.Address]bool)
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
-			rwFromBase[k] = v
-			fmt.Println("ddddd", index, k.String(), v)
+			if v {
+				rwFromBase[k] = v
+			}
+
+			//fmt.Println("ddddd", index, k.String(), v)
 			//rwBase += fmt.Sprintf("%v-%v ", k.String(), v)
 		}
 	}
@@ -828,10 +831,10 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	for k, v := range rwFromBase {
 		rwBase += fmt.Sprintf("%v-%v", k.String(), v)
 	}
-	fmt.Println("CCCCCCCCCCCCCCCcc", s.MergedIndex, s.txIndex, "ttRW", ttRW, "rwBase", rwBase)
+	//fmt.Println("CCCCCCCCCCCCCCCcc", s.MergedIndex, s.txIndex, "ttRW", ttRW, "rwBase", rwBase)
 
 	for k, _ := range s.ThisTxRW {
-		fmt.Println("829999", k.String(), rwFromBase[k])
+		//fmt.Println("829999", k.String(), rwFromBase[k])
 		if rwFromBase[k] {
 			if k.String() == miner.String() {
 				if baseStateDB.stateObjects[k] != nil && s.stateObjects[k].Nonce() != baseStateDB.stateObjects[k].Nonce() {
@@ -850,7 +853,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 			return false
 		}
 	}
-	fmt.Println("????????????????????????????/", s.MergedIndex, s.txIndex)
+	//fmt.Println("????????????????????????????/", s.MergedIndex, s.txIndex)
 	return true
 }
 
