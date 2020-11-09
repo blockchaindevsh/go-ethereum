@@ -19,6 +19,7 @@ type pallTxManager struct {
 	baseStateDB    *state.StateDB
 	mergedReceipts map[int]*types.Receipt
 	mergedRW       map[int]map[common.Address]bool
+	mergedRWMap    map[common.Address]bool
 	ch             chan struct{}
 	ended          bool
 
@@ -39,7 +40,7 @@ type ReceiptWithIndex struct {
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	//if block.NumberU64() == 1000000*2 {
-	if block.NumberU64() == 1244060 {
+	if block.NumberU64() == 1244061 {
 		panic(fmt.Errorf("baocun %v", block.NumberU64()))
 	}
 	st.MergedIndex = -1
@@ -52,6 +53,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		bc:                bc,
 		mergedReceipts:    make(map[int]*types.Receipt, 0),
 		mergedRW:          make(map[int]map[common.Address]bool),
+		mergedRWMap:       make(map[common.Address]bool),
 		ch:                make(chan struct{}, 1),
 		txQueue:           make(chan int, txLen),
 		txIndexToGroupID:  make(map[int]int, 0),
@@ -132,6 +134,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 
 	if p.baseStateDB.MergedIndex+1 == p.txLen {
 		p.baseStateDB.FinalMerge(p.mergedRW)
+		//p.baseStateDB.MergedSts.Print("", p.txLen)
 		p.ch <- struct{}{}
 		p.ended = true
 	}
@@ -151,7 +154,7 @@ func (p *pallTxManager) txLoop() {
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	if rr.st.CanMerge(p.baseStateDB, p.mergedRW, p.block.Coinbase()) {
-		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), p.senderList[rr.txIndex])
+		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), p.senderList[rr.txIndex], p.mergedRWMap)
 
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt

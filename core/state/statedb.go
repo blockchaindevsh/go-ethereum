@@ -69,6 +69,29 @@ func NewMerged() *MergedStatus {
 	}
 }
 
+func (m *MergedStatus) Print(ss string, txLen int) {
+	pp := ss
+	for k, v := range m.mergedStateObjects {
+		pp += fmt.Sprintf("addr=%v", k.String())
+		for index, _ := range v {
+			pp += fmt.Sprintf(" %v ", index)
+		}
+		pp += "        "
+	}
+	fmt.Println("MergedStatus Print", pp)
+}
+
+func (m *MergedStatus) Handle(index int) {
+	if index == 0 {
+		return
+	}
+	for k, _ := range m.mergedStateObjects {
+		if data, ok := m.mergedStateObjects[k][index-1]; !ok {
+			m.mergedStateObjects[k][index] = data
+		}
+	}
+}
+
 func (m *MergedStatus) GetLastStatus(addr common.Address, txlen int) *stateObject {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -90,6 +113,9 @@ func (m *MergedStatus) GetLastStatus(addr common.Address, txlen int) *stateObjec
 func (m *MergedStatus) SetStatus(addr common.Address, index int, s *stateObject) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if s == nil {
+		panic("bug")
+	}
 
 	if _, ok := m.mergedStateObjects[addr]; !ok {
 		m.mergedStateObjects[addr] = make(map[int]*stateObject)
@@ -818,7 +844,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	return true
 }
 
-func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address) {
+func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address, rwNow map[common.Address]bool) {
 	//rw := "rwStatus:"
 	//for k, v := range s.ThisTxRW {
 	//	rw += fmt.Sprintf("%v-%v ", k.String(), v)
@@ -861,7 +887,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
 		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.data.Nonce)
 	}
+
+	base.MergedSts.Handle(s.txIndex)
 	base.MergedIndex = s.txIndex
+	//base.MergedSts.GetLastStatus()
 }
 
 func (s *StateDB) FinalMerge(mp map[int]map[common.Address]bool) {
@@ -878,6 +907,7 @@ func (s *StateDB) FinalMerge(mp map[int]map[common.Address]bool) {
 	for addr, _ := range s.journal.dirties {
 		s.stateObjects[addr] = s.MergedSts.GetLastStatus(addr, txLen)
 	}
+
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
