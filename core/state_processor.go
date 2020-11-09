@@ -82,6 +82,9 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	//return p.ProcessSerial(block, statedb, cfg)
+	if block.NumberU64() == 1920000 {
+		panic("sb")
+	}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -91,6 +94,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
+		statedb.Commit(false)
 	}
 	common.CurrentBlockNumber = block.NumberU64()
 	if len(block.Transactions()) != 0 {
