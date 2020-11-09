@@ -815,7 +815,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
 			rwFromBase[k] = v
-			fmt.Println("ddddd", k.String(), v)
+			fmt.Println("ddddd", index, k.String(), v)
 			//rwBase += fmt.Sprintf("%v-%v ", k.String(), v)
 		}
 	}
