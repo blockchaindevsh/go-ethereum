@@ -82,7 +82,7 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	//return p.ProcessSerial(block, statedb, cfg)
-	if block.NumberU64() == 1920000 {
+	if block.NumberU64() == 1920002 {
 		panic("sb")
 	}
 	var (
