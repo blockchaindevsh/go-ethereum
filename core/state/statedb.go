@@ -69,18 +69,6 @@ func NewMerged() *MergedStatus {
 	}
 }
 
-func (m *MergedStatus) Print(ss string, txLen int) {
-	pp := ss
-	for k, v := range m.mergedStateObjects {
-		pp += fmt.Sprintf("addr=%v", k.String())
-		for index, _ := range v {
-			pp += fmt.Sprintf(" %v ", index)
-		}
-		pp += "        "
-	}
-	fmt.Println("MergedStatus Print", pp)
-}
-
 func (m *MergedStatus) Handle(index int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -89,7 +77,6 @@ func (m *MergedStatus) Handle(index int) {
 	}
 	for k, _ := range m.mergedStateObjects {
 		preObj, ok := m.mergedStateObjects[k][index-1]
-		//_, ok1 := m.mergedStateObjects[k][index]
 
 		if _, ok1 := m.mergedStateObjects[k][index]; !ok1 && ok {
 			m.mergedStateObjects[k][index] = preObj
@@ -815,31 +802,16 @@ func (s *StateDB) CalReadAndWrite() {
 }
 
 func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Address]bool, miner common.Address) bool {
-	rwBase := ""
 	rwFromBase := make(map[common.Address]bool)
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
 			if v {
 				rwFromBase[k] = v
 			}
-
-			//fmt.Println("ddddd", index, k.String(), v)
-			//rwBase += fmt.Sprintf("%v-%v ", k.String(), v)
 		}
 	}
-	ttRW := ""
-	for kk, v := range s.ThisTxRW {
-		ttRW += fmt.Sprintf("%v-%v ", kk.String(), v)
-	}
-	ttRW += ",,"
-
-	for k, v := range rwFromBase {
-		rwBase += fmt.Sprintf("%v-%v", k.String(), v)
-	}
-	//fmt.Println("CCCCCCCCCCCCCCCcc", s.MergedIndex, s.txIndex, "ttRW", ttRW, "rwBase", rwBase)
 
 	for k, _ := range s.ThisTxRW {
-		//fmt.Println("829999", k.String(), rwFromBase[k])
 		if rwFromBase[k] {
 			if k.String() == miner.String() {
 				if baseStateDB.stateObjects[k] != nil && s.stateObjects[k].Nonce() != baseStateDB.stateObjects[k].Nonce() {
@@ -854,21 +826,14 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 				base += fmt.Sprintf("%v-%v ", kk.String(), vv)
 			}
 			base += ".."
-			fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), "ttrw", ttRW, "base", base)
+			fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), "base", base)
 			return false
 		}
 	}
-	//fmt.Println("????????????????????????????/", s.MergedIndex, s.txIndex)
 	return true
 }
 
-func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address, rwNow map[common.Address]bool) {
-	//rw := "rwStatus:"
-	//for k, v := range s.ThisTxRW {
-	//	rw += fmt.Sprintf("%v-%v ", k.String(), v)
-	//}
-	//fmt.Println("s.this.RW", s.txIndex, rw)
-
+func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Address) {
 	for addr, v := range s.stateObjects {
 		preState := s.MergedSts.GetLastStatus(addr, s.txIndex)
 		if preState != nil {
@@ -883,11 +848,6 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 			} else {
 				v.data.Deleted = v.deleted
 			}
-			//if !s.ThisTxRW[addr] {
-			//fmt.Println("HHHHHHHHHHHHHHHHHHHHHHH", s.txIndex, addr.String(), preState.Nonce(), v.data.Nonce)
-			//v.data.Nonce = preState.Nonce()
-			//}
-
 		}
 
 		if miner.String() == addr.String() {
@@ -903,15 +863,14 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, sender common.Addre
 
 		}
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.data.Nonce)
+		fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String())
 	}
 
-	base.MergedSts.Handle(s.txIndex)
+	base.MergedSts.Handle(s.txIndex) //Need?
 	base.MergedIndex = s.txIndex
-	//base.MergedSts.GetLastStatus()
 }
 
-func (s *StateDB) FinalMerge(mp map[int]map[common.Address]bool) {
+func (s *StateDB) FinalUpdateObjs(mp map[int]map[common.Address]bool) {
 	s.journal.dirties = make(map[common.Address]int)
 	txLen := s.MergedIndex + 1
 	for index := 0; index < txLen; index++ {
