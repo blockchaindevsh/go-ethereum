@@ -96,7 +96,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Mutate the block and state according to any hard-fork specs
 
 	fmt.Println("1022222", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
-	sb := new(big.Int).Add(p.config.DAOForkBlock, common.Big0)
+	sb := new(big.Int).Add(p.config.DAOForkBlock, common.Big1)
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && sb.Cmp(block.Number()) == 0 {
 		fmt.Println("DDDDDDD", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 		misc.ApplyDAOHardFork(statedb)
