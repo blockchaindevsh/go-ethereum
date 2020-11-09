@@ -821,6 +821,7 @@ func (s *StateDB) CanMerge(baseStateDB *StateDB, mergedRW map[int]map[common.Add
 		ttRW += fmt.Sprintf("%v-%v ", kk.String(), v)
 	}
 	ttRW += ",,"
+	fmt.Print("CCCCCCCCCCCCCCCcc", baseStateDB.MergedSts, s.txIndex, ttRW)
 
 	for k, _ := range s.ThisTxRW {
 		if rwFromBase[k] {
