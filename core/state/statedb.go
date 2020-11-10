@@ -312,7 +312,7 @@ func (s *StateDB) Exist(addr common.Address) bool {
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
-	s.RWSet[addr] = true
+	s.RWSet[addr] = false
 	//fmt.Println("EEEEEEEEEEE", addr.String(), so == nil, so.empty())
 	return so == nil || so.empty()
 }
@@ -821,7 +821,7 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner commo
 	for kk, vv := range s.RWSet {
 		thisRw += fmt.Sprintf("%v-%v ", kk.String(), vv)
 	}
-	fmt.Println("CCCCCCCCCCCCCCCCCCCCCC", s.MergedIndex, s.txIndex, base, "thisRw", thisRw)
+	//fmt.Println("CCCCCCCCCCCCCCCCCCCCCC", s.MergedIndex, s.txIndex, base, "thisRw", thisRw)
 
 	for k, _ := range s.RWSet {
 		if rwFromBase[k] {
@@ -922,6 +922,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			// Thus, we can safely ignore it here
 			continue
 		}
+
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
 			obj.data.Deleted = true
