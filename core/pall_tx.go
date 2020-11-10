@@ -213,7 +213,7 @@ func (p *pallTxManager) txLoop() {
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	if rr.st.CanMerge(p.mergedRW, p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
-		fmt.Println("ready to merge", rr.txIndex, rr.receipt.GasUsed)
+		//fmt.Println("ready to merge", rr.txIndex, rr.receipt.GasUsed)
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
 
 		p.baseStateDB.MergedIndex = rr.txIndex
@@ -252,7 +252,6 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	fmt.Println("apply tx", st.MergedIndex, txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
