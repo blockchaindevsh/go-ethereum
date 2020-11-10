@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
 	"sync"
+	"time"
 )
 
 type pallTxManager struct {
@@ -250,9 +251,11 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
+	fmt.Println("apply tx", st.MergedIndex, txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
+		time.Sleep(5 * time.Second)
 		return false
 	}
 
