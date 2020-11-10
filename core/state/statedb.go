@@ -823,7 +823,7 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner commo
 			base := ""
 			for kk, vv := range rwFromBase {
 				if vv {
-					base += fmt.Sprintf("%v-%v ", kk.String()[6:], vv)
+					base += fmt.Sprintf("%v-%v ", kk.String()[:6], vv)
 				}
 
 			}
