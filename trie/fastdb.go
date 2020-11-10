@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -18,14 +17,6 @@ type FastDB struct {
 	cachedHash common.Hash
 }
 
-func (f *FastDB) DDD() string {
-	ss := fmt.Sprintf("len=%v", len(f.cache))
-	for k, v := range f.cache {
-		ss += fmt.Sprintf("k:%v v:%v", k, v)
-	}
-	return ss
-}
-
 func NewFastDB(db *Database) *FastDB {
 	return &FastDB{
 		db:    db,
@@ -40,6 +31,7 @@ func (f *FastDB) Copy() *FastDB {
 func (f *FastDB) GetKey(key []byte) []byte {
 	panic("no need to implement")
 }
+
 func (f *FastDB) TryGet(key []byte) ([]byte, error) {
 	if data, ok := f.cache[string(key)]; ok && !data.deleted {
 		return data.value, nil
@@ -47,14 +39,15 @@ func (f *FastDB) TryGet(key []byte) ([]byte, error) {
 	data, _ := f.db.diskdb.Get(key)
 	return data, nil
 }
+
 func (f *FastDB) TryUpdate(key, value []byte) error {
-	//fmt.Println("600000000000000", hex.EncodeToString(key), hex.EncodeToString(value))
 	f.cache[string(key)] = tValue{
 		value:   value,
 		deleted: false,
 	}
 	return nil
 }
+
 func (f *FastDB) TryDelete(key []byte) error {
 	f.cache[string(key)] = tValue{
 		value:   []byte{},
@@ -62,8 +55,9 @@ func (f *FastDB) TryDelete(key []byte) error {
 	}
 	return nil
 }
+
 func (f *FastDB) Hash() common.Hash {
-	if f.cachedHash.Big().Uint64() != 0 {
+	if f.cachedHash.Big().Cmp(common.Big0) != 0 {
 		return f.cachedHash
 	}
 	keyList := make([]string, 0, len(f.cache))
@@ -84,12 +78,8 @@ func (f *FastDB) Hash() common.Hash {
 }
 
 func (f *FastDB) Commit(onleaf LeafCallback) (common.Hash, error) {
-
-	//debug.PrintStack()
-	//fmt.Println("FFFFFFFFFF-CCCCCCCCCCCCc", len(f.cache))
 	batch := f.db.diskdb.NewBatch()
 	for k, v := range f.cache {
-		//fmt.Println("CCCCCCCCCCCCCCCCCCCc", hex.EncodeToString([]byte(k)), hex.EncodeToString(v.value))
 		if v.deleted {
 			batch.Delete([]byte(k))
 		} else {
@@ -99,9 +89,11 @@ func (f *FastDB) Commit(onleaf LeafCallback) (common.Hash, error) {
 	batch.Write()
 	return f.Hash(), nil
 }
+
 func (f *FastDB) NodeIterator(startKey []byte) NodeIterator {
 	panic("fastdb NodeIterator not implement")
 }
+
 func (f *FastDB) Prove(key []byte, fromLevel uint, proofDb ethdb.KeyValueWriter) error {
 	panic("fastdb Prove not implement")
 }

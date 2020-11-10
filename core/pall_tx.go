@@ -10,16 +10,14 @@ import (
 )
 
 type pallTxManager struct {
-	block      *types.Block
-	txLen      int
-	senderList []common.Address
-	bc         *BlockChain
+	block *types.Block
+	txLen int
+	bc    *BlockChain
 
 	mubase         sync.RWMutex
 	baseStateDB    *state.StateDB
-	mergedReceipts map[int]*types.Receipt
+	mergedReceipts []*types.Receipt
 	mergedRW       map[int]map[common.Address]bool
-	gasList        map[int]*big.Int
 	ch             chan struct{}
 	ended          bool
 
@@ -39,23 +37,19 @@ type ReceiptWithIndex struct {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
-
-	if block.NumberU64() == 1000000*2 {
-		//if block.NumberU64() == 20 {
+	if block.NumberU64() == 1000000*4 {
 		panic(fmt.Errorf("baocun %v", block.NumberU64()))
 	}
 	st.MergedIndex = -1
 	txLen := len(block.Transactions())
 	p := &pallTxManager{
-		block:      block,
-		txLen:      txLen,
-		senderList: make([]common.Address, 0),
-		bc:         bc,
+		block: block,
+		txLen: txLen,
+		bc:    bc,
 
 		baseStateDB:    st,
-		mergedReceipts: make(map[int]*types.Receipt, 0),
+		mergedReceipts: make([]*types.Receipt, txLen, txLen),
 		mergedRW:       make(map[int]map[common.Address]bool),
-		gasList:        make(map[int]*big.Int, 0),
 		ch:             make(chan struct{}, 1),
 
 		lastHandleInGroup: make(map[int]int),
@@ -71,7 +65,6 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	addrToGroupID := make(map[common.Address]int, 0)
 	for index, tx := range block.Transactions() { // TODO 有漏洞，未完全分组？？？
 		sender, _ := types.Sender(signer, tx)
-		p.senderList = append(p.senderList, sender)
 
 		groupID := p.calGroup(addrToGroupID, sender, tx.To())
 		p.groupList[groupID] = append(p.groupList[groupID], index)
@@ -81,6 +74,9 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < 8; index++ {
 		go p.txLoop()
 	}
+	//if common.PrintExtraLog {
+	fmt.Println("PALL TX READY", block.Number(), p.groupList)
+	//}
 
 	for index := 0; index < len(p.groupList); index++ {
 		p.AddTxToQueue(p.groupList[index][0])
@@ -153,14 +149,14 @@ func (p *pallTxManager) txLoop() {
 }
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
-	if rr.st.CanMerge(p.baseStateDB, p.mergedRW, p.block.Coinbase()) {
+	if rr.st.CanMerge(p.mergedRW, p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
-		p.gasList[rr.txIndex] = txFee
-		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), p.senderList[rr.txIndex], txFee, p.gasList)
+		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
 
+		p.baseStateDB.MergedIndex = rr.txIndex
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
-		p.mergedRW[rr.txIndex] = rr.st.ThisTxRW
+		p.mergedRW[rr.txIndex] = rr.st.RWSet
 
 		groupID := p.txIndexToGroupID[rr.txIndex]
 		p.lastHandleInGroup[groupID]++
@@ -176,15 +172,17 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 
 func (p *pallTxManager) handleTx(txIndex int) bool {
 	tx := p.block.Transactions()[txIndex]
-	p.mubase.Lock()
-	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.ended { //delete?
-		panic("mei bi yao")
-	}
 
 	st, err := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
 	if err != nil {
 		panic(err)
 	}
+
+	p.mubase.Lock()
+	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.ended { //delete?
+		panic("mei bi yao")
+	}
+
 	st.MergedSts = p.baseStateDB.MergedSts
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
@@ -207,16 +205,13 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 }
 
 func (p *pallTxManager) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
-	receipts := make(types.Receipts, 0)
 	logs := make([]*types.Log, 0)
-
 	CumulativeGasUsed := uint64(0)
+
 	for index := 0; index < p.txLen; index++ {
 		CumulativeGasUsed = CumulativeGasUsed + p.mergedReceipts[index].GasUsed
 		p.mergedReceipts[index].CumulativeGasUsed = CumulativeGasUsed
-
-		receipts = append(receipts, p.mergedReceipts[index])
 		logs = append(logs, p.mergedReceipts[index].Logs...)
 	}
-	return receipts, logs, CumulativeGasUsed
+	return p.mergedReceipts, logs, CumulativeGasUsed
 }

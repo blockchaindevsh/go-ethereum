@@ -226,15 +226,12 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		}
 		operation := in.cfg.JumpTable[op]
 		if operation == nil {
-			fmt.Println("2299--")
 			return nil, &ErrInvalidOpCode{opcode: op}
 		}
 		// Validate stack
 		if sLen := stack.len(); sLen < operation.minStack {
-			fmt.Println("234---")
 			return nil, &ErrStackUnderflow{stackLen: sLen, required: operation.minStack}
 		} else if sLen > operation.maxStack {
-			fmt.Println("237---")
 			return nil, &ErrStackOverflow{stackLen: sLen, limit: operation.maxStack}
 		}
 		// If the operation is valid, enforce and write restrictions
@@ -251,7 +248,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// Static portion of gas
 		cost = operation.constantGas // For tracing
 		if !contract.UseGas(operation.constantGas) {
-			fmt.Println("254---", ErrOutOfGas)
 			return nil, ErrOutOfGas
 		}
 
@@ -263,13 +259,11 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		if operation.memorySize != nil {
 			memSize, overflow := operation.memorySize(stack)
 			if overflow {
-				fmt.Println("266--")
 				return nil, ErrGasUintOverflow
 			}
 			// memory is expanded in words of 32 bytes. Gas
 			// is also calculated in words.
 			if memorySize, overflow = math.SafeMul(toWordSize(memSize), 32); overflow {
-				fmt.Println("272----")
 				return nil, ErrGasUintOverflow
 			}
 		}
@@ -281,7 +275,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			dynamicCost, err = operation.dynamicGas(in.evm, contract, stack, mem, memorySize)
 			cost += dynamicCost // total cost, for debug tracing
 			if err != nil || !contract.UseGas(dynamicCost) {
-				//fmt.Println("284---")
 				return nil, ErrOutOfGas
 			}
 		}
@@ -304,13 +297,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 
 		switch {
 		case err != nil:
-			fmt.Println("3066", err)
 			return nil, err
 		case operation.reverts:
-			fmt.Println("31000")
 			return res, ErrExecutionReverted
 		case operation.halts:
-			//fmt.Println("313333---", op, reflect.TypeOf(operation))
 			return res, nil
 		case !operation.jumps:
 			pc++

@@ -97,8 +97,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		statedb.Commit(false)
 	}
 
-	common.CurrentBlockNumber = block.NumberU64()
-	common.CurrentCoinbase = block.Coinbase()
 	if len(block.Transactions()) != 0 {
 		pm := NewPallTxManage(block, statedb, p.bc)
 		<-pm.ch

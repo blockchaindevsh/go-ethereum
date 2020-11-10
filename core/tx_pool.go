@@ -1173,7 +1173,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
-	//senderCacher.recover(pool.signer, reinject)
+	senderCacher.recover(pool.signer, reinject)
 	pool.addTxsLocked(reinject, false)
 
 	// Update all fork indicator by next pending block number.

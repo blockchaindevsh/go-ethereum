@@ -136,7 +136,6 @@ func opEq(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte
 
 func opIszero(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	x := callContext.stack.peek()
-	//fmt.Println("140000000", x, x.IsZero())
 	if x.IsZero() {
 		x.SetOne()
 	} else {
@@ -261,7 +260,6 @@ func opBalance(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 	slot := callContext.stack.peek()
 	address := common.Address(slot.Bytes20())
 	slot.SetFromBig(interpreter.evm.StateDB.GetBalance(address))
-	//fmt.Println("????????????", address, interpreter.evm.StateDB.GetBalance(address))
 	return nil, nil
 }
 
@@ -511,10 +509,7 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
-	//if common.PrintData {
 	//fmt.Println("GetState--", callContext.contract.Address().String(), hash.String(), val.String())
-	//}
-
 	loc.SetBytes(val.Bytes())
 	return nil, nil
 }
@@ -541,14 +536,11 @@ func opJumpi(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	pos, cond := callContext.stack.pop(), callContext.stack.pop()
 	if !cond.IsZero() {
 		if !callContext.contract.validJumpdest(&pos) {
-			//fmt.Println("53888888800")
 			return nil, ErrInvalidJump
 		}
 		*pc = pos.Uint64()
-		//fmt.Println("548----", *pc)
 	} else {
 		*pc++
-		//fmt.Sprintf("55111", *pc)
 	}
 	return nil, nil
 }
@@ -624,9 +616,7 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 		bigVal = value.ToBig()
 	}
 
-	//fmt.Println("before --cc", len(input), gas, bigVal.String())
 	res, addr, returnGas, suberr := interpreter.evm.Create(callContext.contract, input, gas, bigVal)
-	//fmt.Println("end -ccc", returnGas, suberr, hex.EncodeToString(res))
 	// Push item on the stack based on the returned error. If the ruleset is
 	// homestead we must check for CodeStoreOutOfGasError (homestead only
 	// rule) and treat as an error, if the ruleset is frontier we must
@@ -704,16 +694,14 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 		bigVal = value.ToBig()
 	}
 
-	//fmt.Println("ready to call", stack.SCFDATA())
 	ret, returnGas, err := interpreter.evm.Call(callContext.contract, toAddr, args, gas, bigVal)
-	//fmt.Println("end to call", hex.EncodeToString(ret), returnGas, err, stack.SCFDATA())
+
 	if err != nil {
 		temp.Clear()
 	} else {
 		temp.SetOne()
 	}
 	stack.push(&temp)
-	//fmt.Println("7170-----", stack.SCFDATA())
 	if err == nil || err == ErrExecutionReverted {
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
@@ -814,7 +802,6 @@ func opReturn(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	offset, size := callContext.stack.pop(), callContext.stack.pop()
 	ret := callContext.memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
 
-	//fmt.Println("RRRRRRReturn", hex.EncodeToString(ret))
 	return ret, nil
 }
 

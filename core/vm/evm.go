@@ -194,7 +194,6 @@ func (evm *EVM) Interpreter() Interpreter {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	//fmt.Println("calll-1")
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -208,7 +207,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 	snapshot := evm.StateDB.Snapshot()
 	p, isPrecompile := evm.precompile(addr)
-	//fmt.Println("calll-2")
+
 	if !evm.StateDB.Exist(addr) {
 		if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
@@ -229,14 +228,13 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.vmConfig.Tracer.CaptureEnd(ret, startGas-gas, time.Since(startTime), err)
 		}(gas, time.Now())
 	}
-	//fmt.Println("calll-3")
+
 	if isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
 	} else {
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		code := evm.StateDB.GetCode(addr)
-		//fmt.Println("calll-4", len(code), addr.String())
 		if len(code) == 0 {
 			ret, err = nil, nil // gas is unchanged
 		} else {
@@ -261,7 +259,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		//} else {
 		//	evm.StateDB.DiscardSnapshot(snapshot)
 	}
-	//fmt.Println("calll-5")
 	return ret, gas, err
 }
 
@@ -419,13 +416,11 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 		return nil, common.Address{}, gas, ErrInsufficientBalance
 	}
 	nonce := evm.StateDB.GetNonce(caller.Address())
-	//fmt.Println("42344444", caller.Address(), nonce)
 	evm.StateDB.SetNonce(caller.Address(), nonce+1)
 
 	// Ensure there's no existing contract already at the designated address
 	contractHash := evm.StateDB.GetCodeHash(address)
 	if evm.StateDB.GetNonce(address) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
-		//fmt.Println("4288888888888", address.String(), evm.StateDB.GetNonce(address), contractHash.String())
 		return nil, common.Address{}, 0, ErrContractAddressCollision
 	}
 	// Create a new account on the state
@@ -490,7 +485,6 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(caller.Address()))
-	//fmt.Println("CCCCCCCCCCCCCCCCCCCCCCC-1", contractAddr.String(), caller.Address().String(), evm.StateDB.GetNonce(caller.Address()))
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 
@@ -501,7 +495,6 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint256.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	codeAndHash := &codeAndHash{code: code}
 	contractAddr = crypto.CreateAddress2(caller.Address(), common.Hash(salt.Bytes32()), codeAndHash.Hash().Bytes())
-	//fmt.Println("CCCCCCCCCCCCCCCCCCCCCCC-2", contractAddr.String())
 	return evm.create(caller, codeAndHash, gas, endowment, contractAddr)
 }
 

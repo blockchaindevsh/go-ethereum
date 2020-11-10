@@ -82,5 +82,5 @@ func (t PrettyAge) String() string {
 }
 
 var (
-	PrintData = bool(true)
+	PrintExtraLog = bool(true)
 )
