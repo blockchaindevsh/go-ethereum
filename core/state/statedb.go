@@ -313,7 +313,7 @@ func (s *StateDB) Exist(addr common.Address) bool {
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
 	s.RWSet[addr] = true
-	fmt.Println("EEEEEEEEEEE", addr.String(), so == nil, so.empty())
+	//fmt.Println("EEEEEEEEEEE", addr.String(), so == nil, so.empty())
 	return so == nil || so.empty()
 }
 
