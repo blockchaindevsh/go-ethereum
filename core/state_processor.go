@@ -129,7 +129,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	if header.Number.Uint64() == 2689138 && tx.Hash().String() == "0x0dbbb45224b5bee37ce11b5a89ea99648533ffffe95aab0741cd41fc4f03dde5" {
 		//vmenv.PrintLog = true
-		vmenv.PrintLog = true
+		vmenv.PrintLog = false
 	}
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)

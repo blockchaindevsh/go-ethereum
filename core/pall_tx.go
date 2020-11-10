@@ -94,7 +94,8 @@ type txWithAddress struct {
 }
 
 var (
-	mmpp = make(map[common.Address]common.Address, 0)
+	mmpp   = make(map[common.Address]common.Address, 0)
+	tryCnt = uint64(0)
 )
 
 func Find(x common.Address) common.Address {
@@ -122,6 +123,7 @@ func Union(x common.Address, y *common.Address) {
 
 func CalGroup(from []common.Address, to []*common.Address) (map[int][]int, map[int]int) {
 	mmpp = make(map[common.Address]common.Address, 0)
+	tryCnt = 0
 	//https://etherscan.io/txs?block=342007
 	for index, sender := range from {
 		Union(sender, to[index])
@@ -256,6 +258,10 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
 		time.Sleep(5 * time.Second)
+		tryCnt++
+		if tryCnt > 1000 {
+			panic("sb")
+		}
 		return false
 	}
 
