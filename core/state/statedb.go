@@ -312,6 +312,7 @@ func (s *StateDB) Exist(addr common.Address) bool {
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
+	fmt.Println("EEEEEEEEEEE", addr.String(), so == nil, so.empty())
 	return so == nil || so.empty()
 }
 
