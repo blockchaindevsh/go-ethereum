@@ -203,24 +203,21 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		//fmt.Println("202222")
 		return value
 	}
-	//fmt.Println("ssssssssss", s.canuse, s.preStateObject != nil)
-	//if s.preStateObject != nil {
-	//fmt.Println("dddddddddddd", s.preStateObject.data.Deleted)
-	//}
+
 	if s.canuse && s.preStateObject != nil {
 		if s.preStateObject.deleted {
 			//fmt.Println("AAAAAAAAAAAAAAAAAA", s.address.String())
 			return common.Hash{}
 		}
-		//fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
-		data, ok := s.preStateObject.originStorage[key]
-		if ok {
-			//fmt.Println("!!!!!!!!!!!!!!!!!!!!!!-1", key.String(), data.String())
-			return data
-		}
-		data, ok = s.preStateObject.pendingStorage[key]
+		data, ok := s.preStateObject.pendingStorage[key]
 		if ok {
 			//fmt.Println("222222222222222222222222--", key.String(), data.String())
+			return data
+		}
+		//fmt.Println("!!!!!!!!!!!!!!!!!!!!!!")
+		data, ok = s.preStateObject.originStorage[key]
+		if ok {
+			//fmt.Println("!!!!!!!!!!!!!!!!!!!!!!-1", key.String(), data.String())
 			return data
 		}
 
@@ -393,43 +390,45 @@ func (s *stateObject) updateTrie(db Database, commit bool) Trie {
 
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-
-	for key, value := range s.pendingStorage {
-
-		// Skip noop changes, persist actual changes
-		if d, ok := s.originStorage[key]; ok {
-			if value == d {
-				continue
-			}
-		}
-		s.originStorage[key] = value
-		if !commit {
-			continue
-		}
-		var v []byte
-		if (value == common.Hash{}) {
-			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
-		} else {
-			// Encoding []byte cannot fail, ok to ignore the error.
-			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-			s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
-		}
-		// If state snapshotting is active, cache the data til commit
-		if storage != nil {
-			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
-		}
-	}
+	//
+	//for key, value := range s.pendingStorage {
+	//
+	//	// Skip noop changes, persist actual changes
+	//	if d, ok := s.originStorage[key]; ok {
+	//		if value == d {
+	//			continue
+	//		}
+	//	}
+	//	s.originStorage[key] = value
+	//	if !commit {
+	//		continue
+	//	}
+	//	var v []byte
+	//	if (value == common.Hash{}) {
+	//		s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
+	//	} else {
+	//		// Encoding []byte cannot fail, ok to ignore the error.
+	//		v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
+	//		s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
+	//	}
+	//	// If state snapshotting is active, cache the data til commit
+	//	if storage != nil {
+	//		storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
+	//	}
+	//}
 
 	if commit {
-		if len(s.originStorage) != 0 {
-			stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
-			for k, v := range s.originStorage {
-				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
+		if common.PrintData {
+			if len(s.pendingStorage) != 0 {
+				stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
+				for k, v := range s.pendingStorage {
+					stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
+				}
+				fmt.Println("storage--", common.CurrentBlockNumber, stroageToDB)
 			}
-			fmt.Println("storage--", common.CurrentBlockNumber, stroageToDB)
 		}
 
-		for key, value := range s.originStorage {
+		for key, value := range s.pendingStorage {
 			var v []byte
 			if (value == common.Hash{}) {
 				s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
@@ -439,9 +438,9 @@ func (s *stateObject) updateTrie(db Database, commit bool) Trie {
 				s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
 			}
 		}
-	}
-	if len(s.pendingStorage) > 0 {
-		s.pendingStorage = make(Storage)
+		if len(s.pendingStorage) > 0 {
+			s.pendingStorage = make(Storage)
+		}
 	}
 	return tr
 }
@@ -491,7 +490,9 @@ func (s *stateObject) AddBalance(amount *big.Int) {
 		}
 		return
 	}
+	//fmt.Println("4933333333333333", s.Balance().String(), amount.String())
 	s.SetBalance(new(big.Int).Add(s.Balance(), amount))
+	//fmt.Println("49555----", s.data.Balance.String())
 }
 
 // SubBalance removes amount from s's balance.
@@ -500,7 +501,13 @@ func (s *stateObject) SubBalance(amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
+	if common.CurrentBlockNumber == 74277 {
+		fmt.Println("Sub", s.address.String(), s.Balance(), amount)
+	}
 	s.SetBalance(new(big.Int).Sub(s.Balance(), amount))
+	if common.CurrentBlockNumber == 74277 {
+		fmt.Println("Sub=emd", s.Balance())
+	}
 }
 
 func (s *stateObject) SetBalance(amount *big.Int) {
@@ -513,6 +520,7 @@ func (s *stateObject) SetBalance(amount *big.Int) {
 
 func (s *stateObject) setBalance(amount *big.Int) {
 	s.data.Balance = amount
+	//fmt.Println("SSSSSSSSSSSSSSSSS", s.address.String(), amount.String(), s.data.Balance.String())
 }
 
 // Return the gas back to the origin. Used by the Virtual machine or Closures

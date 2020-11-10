@@ -3288,6 +3288,14 @@ func TestAsd(t *testing.T) {
 		panic(err)
 	}
 
+	for index := 648213; index <= 653480; index++ {
+		b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(uint64(index)))
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("index", index, b.Coinbase().String())
+	}
+
 	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(1920001))
 	if err != nil {
 		panic(err)

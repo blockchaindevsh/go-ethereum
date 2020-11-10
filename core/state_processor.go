@@ -82,10 +82,7 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	//return p.ProcessSerial(block, statedb, cfg)
-	//if block.NumberU64() == 1920002 {
-	//	panic("sb")
-	//}
+	//fmt.Println("begin to process", "number", block.Number(), "txLen", len(block.Transactions()))
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -94,17 +91,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	)
 	// Mutate the block and state according to any hard-fork specs
 
-	//fmt.Println("1022222", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 	sb := new(big.Int).Add(p.config.DAOForkBlock, common.Big0)
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && sb.Cmp(block.Number()) == 0 {
-		//fmt.Println("DDDDDDD", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 		misc.ApplyDAOHardFork(statedb)
-		//fmt.Println("DDDDDDDD-1", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 		statedb.Commit(false)
-		//fmt.Println("CCCCCCCCCCCCCCCC", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
 	}
-	//fmt.Println("103--", block.NumberU64(), statedb.GetBalance(common.HexToAddress("0x304a554a310c7e546dfe434669c62820b7d83490")))
+
 	common.CurrentBlockNumber = block.NumberU64()
+	common.CurrentCoinbase = block.Coinbase()
 	if len(block.Transactions()) != 0 {
 		pm := NewPallTxManage(block, statedb, p.bc)
 		<-pm.ch
@@ -115,7 +109,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	//for k, v := range receipts {
 	//	fmt.Println("block", block.NumberU64(), k, v.GasUsed)
 	//}
+
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
+
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -133,9 +129,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if header.Number.Uint64() == 1920001 {
-		vmenv.PrintLog = true
-		//fmt.Println("12222222222222222222222222222222222")
+	if header.Number.Uint64() == 51259 {
+		//vmenv.PrintLog = true
+		vmenv.PrintLog = false
 	}
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)

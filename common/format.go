@@ -80,3 +80,7 @@ func (t PrettyAge) String() string {
 	}
 	return result
 }
+
+var (
+	PrintData = bool(true)
+)

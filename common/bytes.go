@@ -159,4 +159,5 @@ func TrimRightZeroes(s []byte) []byte {
 
 var (
 	CurrentBlockNumber = uint64(0)
+	CurrentCoinbase    = Address{}
 )

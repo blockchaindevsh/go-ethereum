@@ -5,8 +5,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"math/big"
 	"sync"
-	"time"
 )
 
 type pallTxManager struct {
@@ -19,6 +19,7 @@ type pallTxManager struct {
 	baseStateDB    *state.StateDB
 	mergedReceipts map[int]*types.Receipt
 	mergedRW       map[int]map[common.Address]bool
+	gasList        map[int]*big.Int
 	ch             chan struct{}
 	ended          bool
 
@@ -38,7 +39,9 @@ type ReceiptWithIndex struct {
 }
 
 func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
+
 	if block.NumberU64() == 1000000*2 {
+		//if block.NumberU64() == 20 {
 		panic(fmt.Errorf("baocun %v", block.NumberU64()))
 	}
 	st.MergedIndex = -1
@@ -52,6 +55,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		baseStateDB:    st,
 		mergedReceipts: make(map[int]*types.Receipt, 0),
 		mergedRW:       make(map[int]map[common.Address]bool),
+		gasList:        make(map[int]*big.Int, 0),
 		ch:             make(chan struct{}, 1),
 
 		lastHandleInGroup: make(map[int]int),
@@ -65,7 +69,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 	signer := types.MakeSigner(bc.chainConfig, block.Number())
 	addrToGroupID := make(map[common.Address]int, 0)
-	for index, tx := range block.Transactions() { // TODO 合并特殊情况？？？
+	for index, tx := range block.Transactions() { // TODO 有漏洞，未完全分组？？？
 		sender, _ := types.Sender(signer, tx)
 		p.senderList = append(p.senderList, sender)
 
@@ -81,7 +85,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < len(p.groupList); index++ {
 		p.AddTxToQueue(p.groupList[index][0])
 	}
-	//fmt.Println("rrrrrrrrrrrrrrrrrrrrrr---", block.NumberU64(), p.groupList, p.baseStateDB.GetBalance(common.HexToAddress("0x304a554a310C7e546dfe434669C62820b7D83490")))
+
 	return p
 }
 
@@ -130,7 +134,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 	}
 
 	if p.baseStateDB.MergedIndex+1 == p.txLen {
-		p.baseStateDB.FinalUpdateObjs(p.mergedRW)
+		p.baseStateDB.FinalUpdateObjs(p.mergedRW, p.block.Coinbase())
 		p.ch <- struct{}{}
 		p.ended = true
 	}
@@ -150,7 +154,9 @@ func (p *pallTxManager) txLoop() {
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	if rr.st.CanMerge(p.baseStateDB, p.mergedRW, p.block.Coinbase()) {
-		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), p.senderList[rr.txIndex])
+		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
+		p.gasList[rr.txIndex] = txFee
+		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), p.senderList[rr.txIndex], txFee, p.gasList)
 
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
@@ -161,6 +167,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		if p.lastHandleInGroup[groupID] < len(p.groupList[groupID]) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
+
 		return
 	}
 
@@ -173,7 +180,6 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	tx := p.block.Transactions()[txIndex]
 	p.mubase.Lock()
 	if txIndex <= p.baseStateDB.MergedIndex || p.receiptQueue[txIndex] != nil || p.ended { //delete?
-		fmt.Println("delete?", txIndex, p.baseStateDB.MergedIndex, p.receiptQueue[txIndex] != nil, p.ended)
 		panic("mei bi yao")
 	}
 
@@ -190,7 +196,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
-		time.Sleep(5 * time.Second)
+		panic("sdasdas")
 		return false
 	}
 
