@@ -62,14 +62,15 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	}
 
 	signer := types.MakeSigner(bc.chainConfig, block.Number())
-	addrToGroupID := make(map[common.Address]int, 0)
-	for index, tx := range block.Transactions() { // TODO 有漏洞，未完全分组？？？
-		sender, _ := types.Sender(signer, tx)
 
-		groupID := p.calGroup(addrToGroupID, sender, tx.To())
-		p.groupList[groupID] = append(p.groupList[groupID], index)
-		p.txIndexToGroupID[index] = groupID
+	fromList := make([]common.Address, 0)
+	toList := make([]*common.Address, 0)
+	for _, tx := range block.Transactions() { // TODO 有漏洞，未完全分组？？？
+		sender, _ := types.Sender(signer, tx)
+		fromList = append(fromList, sender)
+		toList = append(toList, tx.To())
 	}
+	p.groupList, p.txIndexToGroupID = CalGroup(fromList, toList)
 
 	for index := 0; index < 8; index++ {
 		go p.txLoop()
@@ -83,6 +84,65 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	}
 
 	return p
+}
+
+type txWithAddress struct {
+	from common.Address
+	to   *common.Address
+}
+
+var (
+	mmpp = make(map[common.Address]common.Address, 0)
+)
+
+func Find(x common.Address) common.Address {
+	if mmpp[x] != x {
+		mmpp[x] = Find(mmpp[x])
+	}
+	return mmpp[x]
+}
+func Union(x common.Address, y *common.Address) {
+	if _, ok := mmpp[x]; !ok {
+		mmpp[x] = x
+	}
+	if y == nil {
+		return
+	}
+	if _, ok := mmpp[*y]; !ok {
+		mmpp[*y] = *y
+	}
+	fx := Find(x)
+	fy := Find(*y)
+	if fx != fy {
+		mmpp[fy] = fx
+	}
+}
+
+func CalGroup(from []common.Address, to []*common.Address) (map[int][]int, map[int]int) {
+	mmpp = make(map[common.Address]common.Address, 0)
+	//https://etherscan.io/txs?block=342007
+	for index, sender := range from {
+		Union(sender, to[index])
+	}
+
+	res := make(map[int][]int, 0)
+	mpGroup := make(map[common.Address]int, 0) //key 最终的根节点;value 组id
+
+	txIndexToGroupID := make(map[int]int, 0)
+	for index, sender := range from {
+		fa := Find(sender)
+		groupID, ok := mpGroup[fa]
+		if !ok {
+			groupID = len(res)
+			mpGroup[fa] = groupID
+
+		}
+		res[groupID] = append(res[groupID], index)
+		txIndexToGroupID[index] = groupID
+
+	}
+	return res, txIndexToGroupID
+
 }
 
 func (p *pallTxManager) calGroup(mp map[common.Address]int, from common.Address, to *common.Address) int {

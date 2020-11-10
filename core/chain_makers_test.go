@@ -105,61 +105,14 @@ type Tx struct {
 	To   *common.Address
 }
 
-// 输入 交易列表
-// 输出 map，key为组id编号，value为该组的交易的index
-// 要求 组与组之间账户无依赖关系
-
-// 比如3组交易(A,B),(C,D),(B,E)
-// 则输出为map[0]=[]int{0,2}
-//        map[1]=[]int{1}
-
-var (
-	mmpp = make(map[common.Address]common.Address, 0)
-)
-
-func Find(x common.Address) common.Address {
-	if mmpp[x] != x {
-		mmpp[x] = Find(mmpp[x])
-	}
-	return mmpp[x]
-}
-func Union(x common.Address, y *common.Address) {
-	if _, ok := mmpp[x]; !ok {
-		mmpp[x] = x
-	}
-	if y == nil {
-		return
-	}
-	if _, ok := mmpp[*y]; !ok {
-		mmpp[*y] = *y
-	}
-	fx := Find(x)
-	fy := Find(*y)
-	if fx != fy {
-		mmpp[fy] = fx
-	}
-}
-
-func F(txs []Tx) map[int][]int {
+func F(txs []Tx) (map[int][]int, map[int]int) {
+	from := make([]common.Address, 0)
+	to := make([]*common.Address, 0)
 	for _, v := range txs {
-		Union(v.From, v.To)
+		from = append(from, v.From)
+		to = append(to, v.To)
 	}
-
-	res := make(map[int][]int, 0)
-	mpGroup := make(map[common.Address]int, 0) //key 最终的根节点;value 组id
-
-	for index, v := range txs {
-		fa := Find(v.From)
-		groupID, ok := mpGroup[fa]
-		if !ok {
-			groupID = len(res)
-			mpGroup[fa] = groupID
-
-		}
-		res[groupID] = append(res[groupID], index)
-	}
-	return res
-
+	return CalGroup(from, to)
 }
 func TestAsd1(t *testing.T) {
 	one := common.BigToAddress(new(big.Int).SetUint64(1))
@@ -167,14 +120,19 @@ func TestAsd1(t *testing.T) {
 	three := common.BigToAddress(new(big.Int).SetUint64(3))
 	four := common.BigToAddress(new(big.Int).SetUint64(4))
 	five := common.BigToAddress(new(big.Int).SetUint64(5))
-	txs := make([]Tx, 4, 4)
+	siz := common.BigToAddress(new(big.Int).SetUint64(6))
+	seven := common.BigToAddress(new(big.Int).SetUint64(7))
+	eight := common.BigToAddress(new(big.Int).SetUint64(8))
+	txs := make([]Tx, 5, 5)
 	txs[0] = Tx{From: one, To: &two}
 	txs[1] = Tx{From: three, To: &four}
-	txs[2] = Tx{From: two, To: &five}
-	txs[3] = Tx{From: three, To: &five}
+	txs[2] = Tx{From: five, To: &siz}
+	txs[3] = Tx{From: seven, To: &siz}
+	txs[4] = Tx{From: eight, To: &siz}
 
-	ans := F(txs)
+	ans, p := F(txs)
 	for k, v := range ans {
 		fmt.Println("kk", k, "vv", v)
 	}
+	fmt.Println("ppp", p)
 }
