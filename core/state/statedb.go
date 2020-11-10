@@ -822,7 +822,10 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner commo
 		if rwFromBase[k] {
 			base := ""
 			for kk, vv := range rwFromBase {
-				base += fmt.Sprintf("%v-%v ", kk.String(), vv)
+				if vv {
+					base += fmt.Sprintf("%v-%v ", kk.String()[6:], vv)
+				}
+
 			}
 			fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), "base", base)
 			return false
