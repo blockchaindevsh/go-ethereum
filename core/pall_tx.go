@@ -211,6 +211,7 @@ func (p *pallTxManager) txLoop() {
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	if rr.st.CanMerge(p.mergedRW, p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
+		fmt.Println("ready to merge", rr.txIndex, rr.receipt.GasUsed)
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
 
 		p.baseStateDB.MergedIndex = rr.txIndex
