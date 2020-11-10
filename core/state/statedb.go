@@ -312,6 +312,7 @@ func (s *StateDB) Exist(addr common.Address) bool {
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
+	s.RWSet[addr] = true
 	fmt.Println("EEEEEEEEEEE", addr.String(), so == nil, so.empty())
 	return so == nil || so.empty()
 }
@@ -793,7 +794,7 @@ func (s *StateDB) Snapshot() int {
 }
 
 func (s *StateDB) CalReadAndWrite() {
-	s.RWSet = make(map[common.Address]bool)
+	//s.RWSet = make(map[common.Address]bool)
 	for k, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[k]
 		s.RWSet[k] = ok
@@ -802,6 +803,7 @@ func (s *StateDB) CalReadAndWrite() {
 
 func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner common.Address) bool {
 	rwFromBase := make(map[common.Address]bool)
+
 	for index := s.MergedIndex + 1; index < s.txIndex; index++ {
 		for k, v := range mergedRW[index] {
 			if v {
@@ -810,12 +812,19 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner commo
 		}
 	}
 
+	base := ""
+	for kk, vv := range rwFromBase {
+		base += fmt.Sprintf("%v-%v ", kk.String(), vv)
+	}
+
+	thisRw := ""
+	for kk, vv := range s.RWSet {
+		thisRw += fmt.Sprintf("%v-%v ", kk.String(), vv)
+	}
+	fmt.Println("CCCCCCCCCCCCCCCCCCCCCC", s.MergedIndex, s.txIndex, base, "thisRw", thisRw)
+
 	for k, _ := range s.RWSet {
 		if rwFromBase[k] {
-			base := ""
-			for kk, vv := range rwFromBase {
-				base += fmt.Sprintf("%v-%v ", kk.String(), vv)
-			}
 			fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), "base", base)
 			return false
 		}
