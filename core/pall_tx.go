@@ -167,11 +167,9 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 		if p.lastHandleInGroup[groupID] < len(p.groupList[groupID]) {
 			p.AddTxToQueue(p.groupList[groupID][p.lastHandleInGroup[groupID]])
 		}
-
 		return
 	}
 
-	// conflict
 	p.receiptQueue[rr.txIndex] = nil
 	p.AddTxToQueue(rr.txIndex)
 }
@@ -196,7 +194,6 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.groupList)
-		//panic("sdasdas")
 		return false
 	}
 
