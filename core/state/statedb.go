@@ -812,19 +812,18 @@ func (s *StateDB) CanMerge(mergedRW map[int]map[common.Address]bool, miner commo
 		}
 	}
 
-	base := ""
-	for kk, vv := range rwFromBase {
-		base += fmt.Sprintf("%v-%v ", kk.String(), vv)
-	}
-
-	thisRw := ""
-	for kk, vv := range s.RWSet {
-		thisRw += fmt.Sprintf("%v-%v ", kk.String(), vv)
-	}
+	//thisRw := ""
+	//for kk, vv := range s.RWSet {
+	//	thisRw += fmt.Sprintf("%v-%v ", kk.String(), vv)
+	//}
 	//fmt.Println("CCCCCCCCCCCCCCCCCCCCCC", s.MergedIndex, s.txIndex, base, "thisRw", thisRw)
 
 	for k, _ := range s.RWSet {
 		if rwFromBase[k] {
+			base := ""
+			for kk, vv := range rwFromBase {
+				base += fmt.Sprintf("%v-%v ", kk.String(), vv)
+			}
 			fmt.Println("have conflict", s.MergedIndex, s.txIndex, "mm", miner.String(), "kk", k.String(), "base", base)
 			return false
 		}

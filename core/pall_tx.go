@@ -78,7 +78,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		go p.txLoop()
 	}
 	//if common.PrintExtraLog {
-	fmt.Println("PALL TX READY", block.Number(), p.groupList)
+	//fmt.Println("PALL TX READY", block.Number(), p.groupList)
 	//}
 
 	for index := 0; index < len(p.groupList); index++ {
