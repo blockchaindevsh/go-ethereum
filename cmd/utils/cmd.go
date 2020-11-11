@@ -30,12 +30,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rlp"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
 	"os/signal"
 	"runtime"
-	"runtime/pprof"
 	"strings"
 	"syscall"
 )
@@ -162,79 +160,11 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
 		}
-		handleBlockEveryBlock(missing, chain)
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
-		cpuFile.handle(chain.CurrentBlock().NumberU64())
 	}
 	return nil
-}
-
-var (
-	cpuFile     = NewCpuFile()
-	startNumber = uint64(10000000)
-	endNumber   = uint64(10200000)
-	fileName    = "cpu.porf"
-)
-
-type CpuFile struct {
-	isStart bool
-	isEnd   bool
-	file    *os.File
-}
-
-func NewCpuFile() *CpuFile {
-	os.Remove(fileName)
-	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		panic(err)
-	}
-	return &CpuFile{file: file}
-}
-
-func (c *CpuFile) handle(number uint64) {
-	if c.isStart {
-		if !c.isEnd && number >= endNumber {
-			pprof.StopCPUProfile()
-			if err := c.file.Close(); err != nil {
-				panic(err)
-			}
-			c.isEnd = true
-			fmt.Println("StopCpuFile", number)
-		}
-		return
-	}
-
-	if number >= startNumber {
-		c.isStart = true
-		if err := pprof.StartCPUProfile(c.file); err != nil {
-			panic(err)
-		}
-		fmt.Println("StartCpuProfile", number)
-	}
-}
-func handleBlockEveryBlock(blocks types.Blocks, bc *core.BlockChain) {
-	chainConfig := bc.Config()
-	g := errgroup.Group{}
-	lenBlocks := len(blocks)
-	for index := 0; index < lenBlocks; index++ {
-		b := blocks[index]
-		g.Go(func() error {
-			txs := b.Transactions()
-			s := types.MakeSigner(chainConfig, b.Number())
-			for _, tx := range txs {
-				if _, err := types.Sender(s, tx); err != nil {
-					panic(err)
-				}
-			}
-
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		panic(err)
-	}
 }
 
 func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block {
