@@ -286,6 +286,8 @@ func importChain(ctx *cli.Context) error {
 	chain, db := utils.MakeChain(ctx, stack, false)
 	defer db.Close()
 
+	err := db.Delete(common.HexToAddress("0xa7967F29ED4D3dCa71803Ef7d096ED6555bc880b").Bytes())
+	fmt.Println(" delete err", err)
 	// Start periodically gathering memory profiles
 	var peakMemAlloc, peakMemSys uint64
 	go func() {

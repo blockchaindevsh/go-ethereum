@@ -81,6 +81,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		p.AddTxToQueue(p.groupList[index][0])
 	}
 
+	//fmt.Println("RRRRRRRRRRR", p.baseStateDB.Exist(common.HexToAddress("0xa7967F29ED4D3dCa71803Ef7d096ED6555bc880b")))
 	return p
 }
 

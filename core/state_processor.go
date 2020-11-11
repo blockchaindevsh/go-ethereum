@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -82,8 +81,8 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	if block.NumberU64() == 3427780 {
-		panic(fmt.Errorf("baocun %v", block.NumberU64()))
+	if block.NumberU64() == 4000000 {
+		//panic(fmt.Errorf("baocun %v", block.NumberU64()))
 	}
 
 	//fmt.Println("begin to process", "number", block.Number(), "txLen", len(block.Transactions()))

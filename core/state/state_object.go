@@ -131,14 +131,7 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 	//if data.Root == (common.Hash{}) {
 	//	data.Root = emptyRoot
 	//}
-	//code := make([]byte, 0)
-	//preDirtycode := false
-	//if pre != nil {
-	//	code = pre.code
-	//	preDirtycode = pre.dirtyCode
-	//}
-
-	return &stateObject{
+	so := &stateObject{
 		usePreStateObj: pre != nil,
 		preStateObject: pre,
 		db:             db,
@@ -151,6 +144,11 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 		//code:           code,
 		//dirtyCode:      preDirtycode,
 	}
+	if pre != nil {
+		so.dirtyCode = pre.dirtyCode
+		so.code = pre.code
+	}
+	return so
 }
 
 // EncodeRLP implements rlp.Encoder.

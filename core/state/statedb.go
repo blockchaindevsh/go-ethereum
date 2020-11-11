@@ -846,13 +846,13 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 					v.pendingStorage[ks] = vs
 				}
 			}
-			if !preState.data.Deleted {
-				v.code = preState.code
-				v.dirtyCode = preState.dirtyCode
-			} else {
-				fmt.Println("SSSSSSSSSSSSSSSBBBBBBBBBBBBBBB", v.data.Deleted, v.deleted)
-				v.data.Deleted = v.deleted
-			}
+			//if !preState.data.Deleted {
+			//	v.code = preState.code
+			//	v.dirtyCode = preState.dirtyCode
+			//} else {
+			//	fmt.Println("SSSSSSSSSSSSSSSBBBBBBBBBBBBBBB", v.data.Deleted, v.deleted)
+			//	v.data.Deleted = v.deleted
+			//}
 		}
 
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
