@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 
@@ -175,7 +176,7 @@ func (st *StateTransition) to() common.Address {
 func (st *StateTransition) buyGas() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
-		return ErrInsufficientFunds
+		return fmt.Errorf("from=%v,balance=%v,msgval=%v err=%v", st.msg.From().String(), st.state.GetBalance(st.msg.From()), mgval, ErrInsufficientFunds)
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
@@ -192,9 +193,9 @@ func (st *StateTransition) preCheck() error {
 	if st.msg.CheckNonce() {
 		nonce := st.state.GetNonce(st.msg.From())
 		if nonce < st.msg.Nonce() {
-			return ErrNonceTooHigh
+			return fmt.Errorf("from=%v nonce=%v txNonce=%v err=%v ", st.msg.From().String(), nonce, st.msg.Nonce(), ErrNonceTooHigh)
 		} else if nonce > st.msg.Nonce() {
-			return ErrNonceTooLow
+			return fmt.Errorf("from=%v nonce=%v txNonce=%v err=%v ", st.msg.From().String(), nonce, st.msg.Nonce(), ErrNonceTooLow)
 		}
 	}
 	return st.buyGas()
@@ -246,7 +247,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	// Check clause 6
 	if msg.Value().Sign() > 0 && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
-		return nil, ErrInsufficientFundsForTransfer
+		return nil, fmt.Errorf("from=%v balance=%v value=%v err=%v", msg.From().String(), st.state.GetBalance(msg.From()), msg.Value(), ErrInsufficientFundsForTransfer)
 	}
 	var (
 		ret   []byte
@@ -260,7 +261,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	st.refundGas()
-	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	//st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),

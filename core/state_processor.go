@@ -53,7 +53,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -77,6 +77,39 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
+	return receipts, allLogs, *usedGas, nil
+}
+
+func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	if block.NumberU64() == 4000000 {
+		//panic(fmt.Errorf("baocun %v", block.NumberU64()))
+	}
+
+	var (
+		receipts types.Receipts
+		usedGas  = new(uint64)
+		header   = block.Header()
+		allLogs  []*types.Log
+	)
+	// Mutate the block and state according to any hard-fork specs
+
+	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+		misc.ApplyDAOHardFork(statedb)
+		statedb.Commit(false)
+	}
+
+	if len(block.Transactions()) != 0 {
+		pm := NewPallTxManage(block, statedb, p.bc)
+		<-pm.ch
+		close(pm.txQueue)
+		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
+	}
+
+	//for k, v := range receipts {
+	//	fmt.Println("block", block.NumberU64(), k, v.GasUsed)
+	//}
+
+	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	return receipts, allLogs, *usedGas, nil
 }
@@ -95,23 +128,34 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	if header.Number.Uint64() == 3427779 && tx.Hash().String() == "0xbc3a5c4b0dbfb10a3f3d894e0b3b7ca5cada261e5f501d8c5787c6247a736a7c" {
+		//vmenv.PrintLog = true
+		vmenv.PrintLog = true
+	}
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
 		return nil, err
 	}
 	// Update the state with pending changes
+
+	statedb.CalReadAndWrite()
 	var root []byte
 	if config.IsByzantium(header.Number) {
 		statedb.Finalise(true)
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
-	*usedGas += result.UsedGas
+	if usedGas != nil {
+		*usedGas += result.UsedGas
+	}
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing whether the root touch-delete accounts.
-	receipt := types.NewReceipt(root, result.Failed(), *usedGas)
+	receipt := types.NewReceipt(root, result.Failed(), 0)
+	if usedGas != nil {
+		receipt = types.NewReceipt(root, result.Failed(), *usedGas)
+	}
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = result.UsedGas
 	// if the transaction created a contract, store the creation address in the receipt.

@@ -64,10 +64,12 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	address  common.Address
-	addrHash common.Hash // hash of ethereum address of the account
-	data     Account
-	db       *StateDB
+	usePreStateObj bool
+	preStateObject *stateObject
+	address        common.Address
+	addrHash       common.Hash // hash of ethereum address of the account
+	data           Account
+	db             *StateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -108,18 +110,26 @@ type Account struct {
 	Deleted     bool
 }
 
+func (a Account) copy() *Account {
+	return &Account{
+		Nonce:       a.Nonce,
+		Balance:     new(big.Int).Set(a.Balance),
+		CodeHash:    a.CodeHash,
+		Incarnation: a.Incarnation,
+		Deleted:     a.Deleted,
+	}
+}
+
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data Account) *stateObject {
+func newObject(db *StateDB, address common.Address, data Account, pre *stateObject) *stateObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}
-	//if data.Root == (common.Hash{}) {
-	//	data.Root = emptyRoot
-	//}
-	return &stateObject{
+
+	newObj := &stateObject{
 		db:             db,
 		address:        address,
 		addrHash:       crypto.Keccak256Hash(address[:]),
@@ -128,6 +138,13 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 		pendingStorage: make(Storage),
 		dirtyStorage:   make(Storage),
 	}
+	if pre != nil {
+		newObj.dirtyCode = pre.dirtyCode
+		newObj.code = pre.code
+		newObj.usePreStateObj = true
+		newObj.preStateObject = pre
+	}
+	return newObj
 }
 
 // EncodeRLP implements rlp.Encoder.
@@ -179,6 +196,21 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
 		return value
+	}
+
+	if s.usePreStateObj {
+		if s.preStateObject.deleted {
+			return common.Hash{}
+		}
+		data, ok := s.preStateObject.pendingStorage[key]
+		if ok {
+			return data
+		}
+
+		data, ok = s.preStateObject.originStorage[key]
+		if ok {
+			return data
+		}
 	}
 	// Otherwise return the entry's original value
 	return s.GetCommittedState(db, key)
@@ -318,9 +350,9 @@ func (s *stateObject) updateTrie(db Database) Trie {
 	}
 	// Make sure all dirty slots are finalized into the pending storage area
 	s.finalise()
-	if len(s.pendingStorage) == 0 {
-		return s.trie
-	}
+	//if len(s.originStorage) == 0 {
+	//	return s.trie
+	//}
 	// Track the amount of time wasted on updating the storge trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
@@ -335,15 +367,24 @@ func (s *stateObject) updateTrie(db Database) Trie {
 			s.db.snapStorage[s.addrHash] = storage
 		}
 	}
+
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-	for key, value := range s.pendingStorage {
-		// Skip noop changes, persist actual changes
-		if value == s.originStorage[key] {
-			continue
-		}
-		s.originStorage[key] = value
+	if !isCommit {
+		return tr
+	}
 
+	if common.PrintExtraLog {
+		if len(s.pendingStorage) != 0 {
+			stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
+			for k, v := range s.pendingStorage {
+				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
+			}
+			fmt.Println("storage", stroageToDB)
+		}
+	}
+
+	for key, value := range s.pendingStorage {
 		var v []byte
 		if (value == common.Hash{}) {
 			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
@@ -352,14 +393,11 @@ func (s *stateObject) updateTrie(db Database) Trie {
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
 			s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
 		}
-		// If state snapshotting is active, cache the data til commit
-		if storage != nil {
-			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
-		}
 	}
 	if len(s.pendingStorage) > 0 {
 		s.pendingStorage = make(Storage)
 	}
+
 	return tr
 }
 
@@ -436,7 +474,7 @@ func (s *stateObject) setBalance(amount *big.Int) {
 func (s *stateObject) ReturnGas(gas *big.Int) {}
 
 func (s *stateObject) deepCopy(db *StateDB) *stateObject {
-	stateObject := newObject(db, s.address, s.data)
+	stateObject := newObject(db, s.address, s.data, nil)
 	if s.trie != nil {
 		stateObject.trie = db.db.CopyTrie(s.trie)
 	}
@@ -463,6 +501,17 @@ func (s *stateObject) Address() common.Address {
 func (s *stateObject) Code(db Database) []byte {
 	if s.code != nil {
 		return s.code
+	}
+	if s.usePreStateObj {
+		pre := s.preStateObject
+		if pre != nil {
+			if pre.deleted {
+				return nil
+			} else if pre.code != nil {
+				return pre.code
+			}
+
+		}
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return nil
