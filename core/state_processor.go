@@ -128,7 +128,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if header.Number.Uint64() == 3427779 && tx.Hash().String() == "0xbc3a5c4b0dbfb10a3f3d894e0b3b7ca5cada261e5f501d8c5787c6247a736a7c" {
+	if header.Number.Uint64() == 116525 && tx.Hash().String() == "0x7476afface26678a6c236618a7079db7ce567a213dc75652378f3580e1a10f28" {
 		//vmenv.PrintLog = true
 		vmenv.PrintLog = true
 	}

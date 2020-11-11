@@ -139,11 +139,17 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 		dirtyStorage:   make(Storage),
 	}
 	if pre != nil {
-		newObj.dirtyCode = pre.dirtyCode
-		newObj.code = pre.code
+		if !pre.data.Deleted {
+			newObj.dirtyCode = pre.dirtyCode
+			newObj.code = pre.code
+		}
 		newObj.usePreStateObj = true
 		newObj.preStateObject = pre
 	}
+	//fmt.Println("1477777777", db.txIndex, address.String(), newObj.data.Deleted)
+	//if address.String() == "0x4D95FBAF35Fc5A815983F9df94821C1c089DC02f" && newObj.data.Deleted == false {
+	//	debug.PrintStack()
+	//}
 	return newObj
 }
 

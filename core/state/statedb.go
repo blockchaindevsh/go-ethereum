@@ -639,7 +639,11 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 			s.snapDestructs[prev.addrHash] = struct{}{}
 		}
 	}
-	newobj = newObject(s, addr, Account{}, s.MergedSts.GetLastStatus(addr, s.txIndex))
+	var preObj *stateObject
+	if !contraction {
+		preObj = s.MergedSts.GetLastStatus(addr, s.txIndex)
+	}
+	newobj = newObject(s, addr, Account{}, preObj)
 	newobj.setNonce(0) // sets the object to dirty
 	if prev == nil {
 		s.journal.append(createObjectChange{account: &addr})
