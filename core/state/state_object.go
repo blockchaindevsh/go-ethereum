@@ -64,12 +64,12 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	usePreStateObj bool
-	preStateObject *stateObject
-	address        common.Address
-	addrHash       common.Hash // hash of ethereum address of the account
-	data           Account
-	db             *StateDB
+	preRead, preWrite  *stateObject
+	currentMergedIndex int
+	address            common.Address
+	addrHash           common.Hash // hash of ethereum address of the account
+	data               Account
+	db                 *StateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -121,7 +121,7 @@ func (a Account) copy() *Account {
 }
 
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data Account, pre *stateObject) *stateObject {
+func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
@@ -138,18 +138,7 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 		pendingStorage: make(Storage),
 		dirtyStorage:   make(Storage),
 	}
-	if pre != nil {
-		if !pre.data.Deleted {
-			newObj.dirtyCode = pre.dirtyCode
-			newObj.code = pre.code
-		}
-		newObj.usePreStateObj = true
-		newObj.preStateObject = pre
-	}
-	//fmt.Println("1477777777", db.txIndex, address.String(), newObj.data.Deleted)
-	//if address.String() == "0x4D95FBAF35Fc5A815983F9df94821C1c089DC02f" && newObj.data.Deleted == false {
-	//	debug.PrintStack()
-	//}
+
 	return newObj
 }
 
@@ -204,16 +193,21 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 		return value
 	}
 
-	if s.usePreStateObj {
-		if s.preStateObject.deleted {
+	if pre := s.preWrite; pre != nil {
+		if pre.data.Deleted {
 			return common.Hash{}
 		}
-		data, ok := s.preStateObject.pendingStorage[key]
+		data, ok := pre.pendingStorage[key]
 		if ok {
 			return data
 		}
+	}
 
-		data, ok = s.preStateObject.originStorage[key]
+	if pre := s.preRead; pre != nil {
+		if pre.data.Deleted {
+			return common.Hash{}
+		}
+		data, ok := pre.originStorage[key]
 		if ok {
 			return data
 		}
@@ -356,9 +350,9 @@ func (s *stateObject) updateTrie(db Database) Trie {
 	}
 	// Make sure all dirty slots are finalized into the pending storage area
 	s.finalise()
-	//if len(s.originStorage) == 0 {
-	//	return s.trie
-	//}
+	if len(s.pendingStorage) == 0 {
+		return s.trie
+	}
 	// Track the amount of time wasted on updating the storge trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
@@ -399,11 +393,14 @@ func (s *stateObject) updateTrie(db Database) Trie {
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
 			s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
 		}
+		// If state snapshotting is active, cache the data til commit
+		if storage != nil {
+			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
+		}
 	}
 	if len(s.pendingStorage) > 0 {
 		s.pendingStorage = make(Storage)
 	}
-
 	return tr
 }
 
@@ -480,7 +477,7 @@ func (s *stateObject) setBalance(amount *big.Int) {
 func (s *stateObject) ReturnGas(gas *big.Int) {}
 
 func (s *stateObject) deepCopy(db *StateDB) *stateObject {
-	stateObject := newObject(db, s.address, s.data, nil)
+	stateObject := newObject(db, s.address, s.data)
 	if s.trie != nil {
 		stateObject.trie = db.db.CopyTrie(s.trie)
 	}
@@ -508,15 +505,18 @@ func (s *stateObject) Code(db Database) []byte {
 	if s.code != nil {
 		return s.code
 	}
-	if s.usePreStateObj {
-		pre := s.preStateObject
-		if pre != nil {
-			if pre.deleted {
-				return nil
-			} else if pre.code != nil {
-				return pre.code
-			}
-
+	if pre := s.preWrite; pre != nil {
+		if pre.data.Deleted {
+			return nil
+		} else if pre.code != nil {
+			return pre.code
+		}
+	}
+	if pre := s.preRead; pre != nil {
+		if pre.data.Deleted {
+			return nil
+		} else if pre.code != nil {
+			return pre.code
 		}
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
