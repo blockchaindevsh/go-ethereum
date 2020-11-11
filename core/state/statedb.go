@@ -688,7 +688,7 @@ func (s *StateDB) CreateAccount(addr common.Address, contraction bool) {
 		newObj.setBalance(prev.data.Balance)
 		newObj.data.Deleted = prev.data.Deleted
 	}
-	fmt.Println("prevvvv==bil", prev == nil, newObj.data.Deleted)
+	//fmt.Println("prevvvv==bil", prev == nil, newObj.data.Deleted)
 }
 
 func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) error {
