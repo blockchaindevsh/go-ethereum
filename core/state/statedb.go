@@ -850,12 +850,13 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 				v.code = preState.code
 				v.dirtyCode = preState.dirtyCode
 			} else {
+				fmt.Println("SSSSSSSSSSSSSSSBBBBBBBBBBBBBBB", v.data.Deleted, v.deleted)
 				v.data.Deleted = v.deleted
 			}
 		}
 
 		base.MergedSts.SetStatus(addr, s.txIndex, v)
-		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.Balance())
+		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), v.Balance(), v.data.Deleted, v.data.Incarnation)
 	}
 
 	pre := base.MergedSts.GetLastStatus(miner, s.txIndex+1)
@@ -883,6 +884,7 @@ func (s *StateDB) FinalUpdateObjs(mp map[int]map[common.Address]bool, miner comm
 	for addr, _ := range s.journal.dirties {
 		s.stateObjects[addr] = s.MergedSts.GetLastStatus(addr, txLen)
 		s.stateObjectsPending[addr] = struct{}{}
+		//fmt.Println("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn", addr.String(), s.stateObjects[addr].data.Deleted, s.stateObjects[addr].data.Incarnation)
 	}
 	s.stateObjects[miner] = s.MergedSts.GetLastStatus(miner, txLen)
 	s.stateObjectsPending[miner] = struct{}{}
@@ -925,6 +927,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			continue
 		}
 
+		//fmt.Println("FFFFFFFFFFFF", addr.String(), obj.suicided, obj.data.Deleted)
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
 			obj.data.Deleted = true
@@ -964,7 +967,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 		obj.updateRoot(s.db)
 		if isCommit {
 			s.updateStateObject(obj)
-			readyToCommit += fmt.Sprintf("%v-%v-%v ", addr.String(), obj.data.Nonce, obj.data.Balance.String()) //用指标去debug????
+			readyToCommit += fmt.Sprintf("%v-%v-%v-%v-%v ", addr.String(), obj.data.Nonce, obj.data.Balance.String(), obj.data.Deleted, obj.data.Incarnation) //用指标去debug????
 		}
 	}
 	if common.PrintExtraLog && len(readyToCommit) != 0 {

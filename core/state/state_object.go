@@ -131,6 +131,13 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 	//if data.Root == (common.Hash{}) {
 	//	data.Root = emptyRoot
 	//}
+	code := make([]byte, 0)
+	preDirtycode := false
+	if pre != nil {
+		code = pre.code
+		preDirtycode = pre.dirtyCode
+	}
+
 	return &stateObject{
 		usePreStateObj: pre != nil,
 		preStateObject: pre,
@@ -141,6 +148,8 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 		originStorage:  make(Storage),
 		pendingStorage: make(Storage),
 		dirtyStorage:   make(Storage),
+		code:           code,
+		dirtyCode:      preDirtycode,
 	}
 }
 

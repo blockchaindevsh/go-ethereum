@@ -3032,6 +3032,67 @@ func TestInitThenFailCreateContract(t *testing.T) {
 	}
 }
 
+func TestDoubleSide(t *testing.T) {
+	// 同一个区块内连续两次suidie https://etherscan.io/address/0xa7967f29ed4d3dca71803ef7d096ed6555bc880b
+	common.FastDBMode = true
+	var (
+		key1, _ = crypto.HexToECDSA("deb9010341b0aad25898017552177bd3fc88a9114a74316db871234b6f7eaa9f")
+		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
+
+		db = rawdb.NewMemoryDatabase()
+		// this code generates a log
+		code    = common.Hex2Bytes("606060405260405161048e38038061048e833981016040528080518201919060200150505b33600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908302179055508060016000509080519060200190828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f1061009e57805160ff19168380011785556100cf565b828001600101855582156100cf579182015b828111156100ce5782518260005055916020019190600101906100b0565b5b5090506100fa91906100dc565b808211156100f657600081815060009055506001016100dc565b5090565b50505b506103828061010c6000396000f360606040526000357c01000000000000000000000000000000000000000000000000000000009004806341c0e1b51461005d57806342cbb15c14610071578063a413686214610099578063cfae3217146100f457610058565b610002565b346100025761006f6004805050610174565b005b34610002576100836004805050610208565b6040518082815260200191505060405180910390f35b34610002576100f26004808035906020019082018035906020019191908080601f016020809104026020016040519081016040528093929190818152602001838380828437820191505050505050909091905050610215565b005b346100025761010660048050506102c6565b60405180806020018281038252838181518152602001915080519060200190808383829060006004602084601f0104600302600f01f150905090810190601f1680156101665780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141561020557600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b5b565b6000439050610212565b90565b8060016000509080519060200190828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f1061026457805160ff1916838001178555610295565b82800160010185558215610295579182015b82811115610294578251826000505591602001919060010190610276565b5b5090506102c091906102a2565b808211156102bc57600081815060009055506001016102a2565b5090565b50505b50565b602060405190810160405280600081526020015060016000508054600181600116156101000203166002900480601f0160208091040260200160405190810160405280929190818152602001828054600181600116156101000203166002900480156103735780601f1061034857610100808354040283529160200191610373565b820191906000526020600020905b81548152906001019060200180831161035657829003601f168201915b5050505050905061037f565b90560000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000548616c6c6f000000000000000000000000000000000000000000000000000000")
+		gspec   = &Genesis{Config: params.TestChainConfig, Alloc: GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}}}
+		genesis = gspec.MustCommit(db)
+		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
+	)
+
+	defaultCacheConfig1 := defaultCacheConfig
+	defaultCacheConfig1.SnapshotLimit = 0
+	blockchain, _ := NewBlockChain(db, defaultCacheConfig1, gspec.Config, ethash.NewFaker(), vm.Config{}, nil, nil)
+
+	chain, _ := GenerateChain(params.TestChainConfig, genesis, ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {
+		if i == 0 {
+			tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 700000, new(big.Int), code), signer, key1)
+			if err != nil {
+				t.Fatalf("failed to create tx: %v", err)
+			}
+			gen.AddTx(tx)
+		}
+	})
+	if _, err := blockchain.InsertChain(chain); err != nil {
+		t.Fatalf("failed to insert chain: %v", err)
+	}
+
+	fmt.Println("bbbbbb-1", blockchain.GetReceiptsByHash(blockchain.CurrentBlock().Hash())[0].GasUsed)
+	//panic(-1)
+	c808 := blockchain.GetReceiptsByHash(chain[0].Hash())[0].ContractAddress
+
+	chain, _ = GenerateChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {
+		if i == 0 {
+			code := common.Hex2Bytes("41c0e1b5")
+			tx, err := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), c808, new(big.Int), 6721975, new(big.Int), code), signer, key1)
+			if err != nil {
+				t.Fatalf("failed to create tx: %v", err)
+			}
+			gen.AddTx(tx)
+
+			code = common.Hex2Bytes("41c0e1b5")
+			tx, err = types.SignTx(types.NewTransaction(2, c808, new(big.Int), 6721975, new(big.Int), code), signer, key1)
+			if err != nil {
+				t.Fatalf("failed to create tx: %v", err)
+			}
+			gen.AddTx(tx)
+		}
+	})
+
+	if _, err := blockchain.InsertChain(chain); err != nil {
+		t.Fatalf("failed to insert chain: %v", err)
+	}
+	fmt.Println("bbbbbb-1", blockchain.GetReceiptsByHash(blockchain.CurrentBlock().Hash())[0].GasUsed)
+	fmt.Println("bbbbbb-2", blockchain.GetReceiptsByHash(blockchain.CurrentBlock().Hash())[1].GasUsed)
+}
+
 func TestFastDBSuiSide(t *testing.T) {
 	common.FastDBMode = true
 	var (
@@ -3296,7 +3357,7 @@ func TestAsd(t *testing.T) {
 	//	fmt.Println("index", index, b.Coinbase().String())
 	//}
 
-	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(2689138))
+	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(3427779))
 	if err != nil {
 		panic(err)
 	}

@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -25,7 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -82,6 +82,10 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	if block.NumberU64() == 3427780 {
+		panic(fmt.Errorf("baocun %v", block.NumberU64()))
+	}
+
 	//fmt.Println("begin to process", "number", block.Number(), "txLen", len(block.Transactions()))
 	var (
 		receipts types.Receipts
@@ -91,8 +95,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	)
 	// Mutate the block and state according to any hard-fork specs
 
-	sb := new(big.Int).Add(p.config.DAOForkBlock, common.Big0)
-	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && sb.Cmp(block.Number()) == 0 {
+	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 		statedb.Commit(false)
 	}
@@ -127,9 +130,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if header.Number.Uint64() == 2689138 && tx.Hash().String() == "0x0dbbb45224b5bee37ce11b5a89ea99648533ffffe95aab0741cd41fc4f03dde5" {
+	if header.Number.Uint64() == 3427779 && tx.Hash().String() == "0xbc3a5c4b0dbfb10a3f3d894e0b3b7ca5cada261e5f501d8c5787c6247a736a7c" {
 		//vmenv.PrintLog = true
-		vmenv.PrintLog = false
+		vmenv.PrintLog = true
 	}
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)
