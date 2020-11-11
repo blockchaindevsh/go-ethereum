@@ -85,7 +85,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		//panic(fmt.Errorf("baocun %v", block.NumberU64()))
 	}
 
-	//fmt.Println("begin to process", "number", block.Number(), "txLen", len(block.Transactions()))
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -143,7 +142,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	statedb.CalReadAndWrite()
 	var root []byte
 	if config.IsByzantium(header.Number) {
-		//root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 		statedb.Finalise(true)
 	} else {
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()

@@ -128,12 +128,8 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}
-	//if data.Root == (common.Hash{}) {
-	//	data.Root = emptyRoot
-	//}
-	so := &stateObject{
-		usePreStateObj: pre != nil,
-		preStateObject: pre,
+
+	newObj := &stateObject{
 		db:             db,
 		address:        address,
 		addrHash:       crypto.Keccak256Hash(address[:]),
@@ -141,14 +137,14 @@ func newObject(db *StateDB, address common.Address, data Account, pre *stateObje
 		originStorage:  make(Storage),
 		pendingStorage: make(Storage),
 		dirtyStorage:   make(Storage),
-		//code:           code,
-		//dirtyCode:      preDirtycode,
 	}
 	if pre != nil {
-		so.dirtyCode = pre.dirtyCode
-		so.code = pre.code
+		newObj.dirtyCode = pre.dirtyCode
+		newObj.code = pre.code
+		newObj.usePreStateObj = true
+		newObj.preStateObject = pre
 	}
-	return so
+	return newObj
 }
 
 // EncodeRLP implements rlp.Encoder.
@@ -374,31 +370,34 @@ func (s *stateObject) updateTrie(db Database) Trie {
 
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-	if isCommit {
-		if common.PrintExtraLog {
-			if len(s.pendingStorage) != 0 {
-				stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
-				for k, v := range s.pendingStorage {
-					stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
-				}
-				fmt.Println("storage", stroageToDB)
-			}
-		}
+	if !isCommit {
+		return tr
+	}
 
-		for key, value := range s.pendingStorage {
-			var v []byte
-			if (value == common.Hash{}) {
-				s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
-			} else {
-				// Encoding []byte cannot fail, ok to ignore the error.
-				v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-				s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
+	if common.PrintExtraLog {
+		if len(s.pendingStorage) != 0 {
+			stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
+			for k, v := range s.pendingStorage {
+				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
 			}
-		}
-		if len(s.pendingStorage) > 0 {
-			s.pendingStorage = make(Storage)
+			fmt.Println("storage", stroageToDB)
 		}
 	}
+
+	for key, value := range s.pendingStorage {
+		var v []byte
+		if (value == common.Hash{}) {
+			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
+		} else {
+			// Encoding []byte cannot fail, ok to ignore the error.
+			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
+			s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
+		}
+	}
+	if len(s.pendingStorage) > 0 {
+		s.pendingStorage = make(Storage)
+	}
+
 	return tr
 }
 

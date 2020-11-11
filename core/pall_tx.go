@@ -73,53 +73,46 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < 8; index++ {
 		go p.txLoop()
 	}
-	//if common.PrintExtraLog {
-	//fmt.Println("PALL TX READY", block.Number(), p.groupList)
-	//}
+	if common.PrintExtraLog {
+		fmt.Println("PALL TX READY", block.Number(), p.groupList)
+	}
 
 	for index := 0; index < len(p.groupList); index++ {
 		p.AddTxToQueue(p.groupList[index][0])
 	}
-
-	//fmt.Println("RRRRRRRRRRR", p.baseStateDB.Exist(common.HexToAddress("0xa7967F29ED4D3dCa71803Ef7d096ED6555bc880b")))
 	return p
 }
 
-type txWithAddress struct {
-	from common.Address
-	to   *common.Address
-}
-
 var (
-	mmpp   = make(map[common.Address]common.Address, 0)
-	tryCnt = uint64(0)
+	father = make(map[common.Address]common.Address, 0)
+	tryCnt = uint64(0) //TODO delete
 )
 
 func Find(x common.Address) common.Address {
-	if mmpp[x] != x {
-		mmpp[x] = Find(mmpp[x])
+	if father[x] != x {
+		father[x] = Find(father[x])
 	}
-	return mmpp[x]
+	return father[x]
 }
 func Union(x common.Address, y *common.Address) {
-	if _, ok := mmpp[x]; !ok {
-		mmpp[x] = x
+	if _, ok := father[x]; !ok {
+		father[x] = x
 	}
 	if y == nil {
 		return
 	}
-	if _, ok := mmpp[*y]; !ok {
-		mmpp[*y] = *y
+	if _, ok := father[*y]; !ok {
+		father[*y] = *y
 	}
 	fx := Find(x)
 	fy := Find(*y)
 	if fx != fy {
-		mmpp[fy] = fx
+		father[fy] = fx
 	}
 }
 
 func CalGroup(from []common.Address, to []*common.Address) (map[int][]int, map[int]int) {
-	mmpp = make(map[common.Address]common.Address, 0)
+	father = make(map[common.Address]common.Address, 0)
 	tryCnt = 0
 	//https://etherscan.io/txs?block=342007
 	for index, sender := range from {

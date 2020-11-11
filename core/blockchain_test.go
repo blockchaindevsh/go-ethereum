@@ -3371,3 +3371,40 @@ func TestAsd(t *testing.T) {
 
 	}
 }
+
+type Tx struct {
+	From common.Address // 账户，用int表示
+	To   *common.Address
+}
+
+func F(txs []Tx) (map[int][]int, map[int]int) {
+	from := make([]common.Address, 0)
+	to := make([]*common.Address, 0)
+	for _, v := range txs {
+		from = append(from, v.From)
+		to = append(to, v.To)
+	}
+	return CalGroup(from, to)
+}
+func TestAsd1(t *testing.T) {
+	one := common.BigToAddress(new(big.Int).SetUint64(1))
+	two := common.BigToAddress(new(big.Int).SetUint64(2))
+	three := common.BigToAddress(new(big.Int).SetUint64(3))
+	four := common.BigToAddress(new(big.Int).SetUint64(4))
+	five := common.BigToAddress(new(big.Int).SetUint64(5))
+	siz := common.BigToAddress(new(big.Int).SetUint64(6))
+	seven := common.BigToAddress(new(big.Int).SetUint64(7))
+	eight := common.BigToAddress(new(big.Int).SetUint64(8))
+	txs := make([]Tx, 5, 5)
+	txs[0] = Tx{From: one, To: &two}
+	txs[1] = Tx{From: three, To: &four}
+	txs[2] = Tx{From: five, To: &siz}
+	txs[3] = Tx{From: seven, To: &siz}
+	txs[4] = Tx{From: eight, To: &siz}
+
+	ans, p := F(txs)
+	for k, v := range ans {
+		fmt.Println("kk", k, "vv", v)
+	}
+	fmt.Println("ppp", p)
+}
