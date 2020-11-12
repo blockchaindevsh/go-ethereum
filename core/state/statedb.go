@@ -96,6 +96,113 @@ func (m *MergedStatus) SetWriteObj(addr common.Address, obj *stateObject, txInde
 	m.writeCachedStateObjects[addr] = obj
 }
 
+func (m *MergedStatus) MergeReadObj(newObj *stateObject) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	pre, ok := m.readCachedStateObjects[newObj.address]
+	if !ok {
+		m.readCachedStateObjects[newObj.address] = newObj
+		return
+	}
+
+	for key, value := range newObj.originStorage {
+		pre.pendingStorage[key] = value
+	}
+	if newObj.code != nil {
+		pre.code = newObj.code
+	}
+	m.readCachedStateObjects[newObj.address] = pre
+
+}
+
+func (m *MergedStatus) MergeWriteObj(newObj *stateObject, txIndex int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	pre, ok := m.writeCachedStateObjects[newObj.address]
+	if !ok {
+		m.writeCachedStateObjects[newObj.address] = newObj
+		m.writeCachedStateObjects[newObj.address].currentMergedIndex = txIndex
+		return
+	}
+
+	for key, value := range newObj.pendingStorage {
+		pre.pendingStorage[key] = value
+	}
+	if newObj.dirtyCode {
+		pre.dirtyCode = true
+		pre.code = newObj.code
+	}
+	pre.data = newObj.data
+	m.writeCachedStateObjects[newObj.address] = pre
+	m.writeCachedStateObjects[newObj.address].currentMergedIndex = txIndex
+}
+func (m *MergedStatus) GetAccountData(addr common.Address) (*Account, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if r := m.writeCachedStateObjects[addr]; r != nil {
+		return r.data.copy(), true
+	}
+
+	if w := m.readCachedStateObjects[addr]; w != nil {
+		return w.data.copy(), true
+	}
+	return nil, false
+}
+
+func (m *MergedStatus) GetCode(addr common.Address) (Code, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if w := m.writeCachedStateObjects[addr]; w != nil {
+		if !w.data.Deleted && w.code != nil {
+			//return , true
+			//} else {
+			return w.code, true
+		}
+	}
+
+	if r := m.readCachedStateObjects[addr]; r != nil {
+		if !r.data.Deleted && r.code != nil {
+			//return nil, true
+			//} else {
+			return r.code, true
+		}
+	}
+	return nil, false
+
+}
+
+func (m *MergedStatus) GetState(addr common.Address, key common.Hash) (common.Hash, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if r := m.writeCachedStateObjects[addr]; r != nil {
+		if r.data.Deleted {
+			//fmt.Println("11111111---")
+			return common.Hash{}, true
+		}
+		if value, ok := r.pendingStorage[key]; ok {
+			//fmt.Println("22222")
+			return value, ok
+		}
+	}
+
+	if w := m.readCachedStateObjects[addr]; w != nil {
+		if w.data.Deleted {
+			//fmt.Println("3333333")
+			return common.Hash{}, true
+		}
+		if value, ok := w.originStorage[key]; ok {
+			//fmt.Println("444444")
+			return value, ok
+		}
+	}
+	//fmt.Println("555555555555")
+	return common.Hash{}, false
+
+}
+
 // StateDB structs within the ethereum protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
 // nested states. It's the general query interface to retrieve:
@@ -121,8 +228,7 @@ type StateDB struct {
 	// unable to deal with database-level errors. Any error that occurs
 	// during a database read is memoized here and will eventually be returned
 	// by StateDB.Commit.
-	dbErr    error
-	mergeErr error
+	dbErr error
 
 	// The refund counter, also used by state transitioning.
 	refund uint64
@@ -153,7 +259,7 @@ type StateDB struct {
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
 
-	MergedSts   *MergedStatus
+	Sts         *MergedStatus
 	MergedIndex int
 	RWSet       map[common.Address]bool // true dirty ; false only read
 }
@@ -168,7 +274,7 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		db:                  db,
 		trie:                tr,
 		snaps:               snaps,
-		MergedSts:           NewMerged(),
+		Sts:                 NewMerged(),
 		stateObjects:        make(map[common.Address]*stateObject),
 		stateObjectsPending: make(map[common.Address]struct{}),
 		stateObjectsDirty:   make(map[common.Address]struct{}),
@@ -289,10 +395,6 @@ func (s *StateDB) Exist(addr common.Address) bool {
 	return s.getStateObject(addr) != nil
 }
 
-func (s *StateDB) NeedStop() bool {
-	return s.mergeErr != nil
-}
-
 // Empty returns whether the state object is either non-existent
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
@@ -330,9 +432,17 @@ func (s *StateDB) BlockHash() common.Hash {
 }
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
+	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
+		return data.code
+	}
+
+	if data, exist := s.Sts.GetCode(addr); exist {
+		return data
+	}
+
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		return stateObject.Code(s.db)
+		return stateObject.GetCommittedCode(s.db)
 	}
 	return nil
 }
@@ -355,11 +465,13 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 
 // GetState retrieves a value from the given account's storage trie.
 func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
-	stateObject := s.getStateObject(addr)
-	if stateObject != nil {
-		return stateObject.GetState(s.db, hash)
+	if data, exist := s.stateObjects[addr]; exist {
+		if value, dirty := data.dirtyStorage[hash]; dirty {
+			return value
+		}
 	}
-	return common.Hash{}
+
+	return s.GetCommittedState(addr, hash)
 }
 
 // GetProof returns the MerkleProof for a given Account
@@ -382,6 +494,10 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
+	if data, exist := s.Sts.GetState(addr, hash); exist {
+		return data
+	}
+
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		return stateObject.GetCommittedState(s.db, hash)
@@ -451,14 +567,15 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
 func (s *StateDB) SetCode(addr common.Address, code []byte) {
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetCode(crypto.Keccak256Hash(code), code)
+		stateObject.SetCode(crypto.Keccak256Hash(code), code, s.GetCode(addr))
 	}
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetState(s.db, key, value)
+		prevValue := s.GetState(addr, key)
+		stateObject.SetState(s.db, key, value, prevValue)
 	}
 }
 
@@ -582,15 +699,16 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 			//}
 		}
 	}
-	var preStaeObject *stateObject
+
 	// If snapshot unavailable or reading from it failed, load from the database
 	if s.snap == nil || err != nil {
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.AccountReads += time.Since(start) }(time.Now())
 		}
 
-		if preStaeObject = s.MergedSts.GetWriteObj(addr); preStaeObject != nil {
-			data = preStaeObject.data.copy()
+		var exist bool
+		if data, exist = s.Sts.GetAccountData(addr); exist {
+
 		} else {
 			enc, err := s.trie.TryGet(addr.Bytes())
 			if err != nil {
@@ -616,11 +734,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 }
 
 func (s *StateDB) setStateObject(object *stateObject) {
-	object.preRead = s.MergedSts.GetReadObj(object.address)
-	object.preWrite = s.MergedSts.GetWriteObj(object.address)
-	if object.preWrite != nil && object.preWrite.currentMergedIndex > s.MergedIndex {
-		s.mergeErr = errors.New("sb")
-	}
 	s.stateObjects[object.Address()] = object
 }
 
@@ -662,9 +775,9 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 		}
 	}
 	s.setStateObject(newobj)
-	if newobj.preWrite != nil && newobj.preWrite.data.Deleted {
+	if data, exist := s.Sts.GetAccountData(addr); exist {
 		//fmt.Println("666666666666666")
-		newobj.data.Deleted = true
+		newobj.data.Deleted = data.Deleted
 	}
 	if prev != nil && !prev.deleted {
 		return newobj, prev
@@ -793,12 +906,10 @@ func (s *StateDB) CalReadAndWrite() {
 	for addr, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[addr]
 		s.RWSet[addr] = ok
-		//fmt.Println("780000", addr.String(), ok)
 	}
-	//fmt.Println("LLLLLLLLLLLLLLLLL", len(s.RWSet), len(s.journal.dirties))
 }
 
-func (s *StateDB) TryMerge(base *StateDB, miner common.Address, txFee *big.Int) bool {
+func (s *StateDB) CheckConflict(miner common.Address) bool {
 	for k, _ := range s.RWSet {
 		if k == miner {
 			if s.MergedIndex+1 != s.txIndex { //
@@ -807,7 +918,7 @@ func (s *StateDB) TryMerge(base *StateDB, miner common.Address, txFee *big.Int) 
 			continue
 		}
 
-		preWrite := s.MergedSts.GetWriteObj(k)
+		preWrite := s.Sts.GetWriteObj(k)
 
 		if preWrite != nil && preWrite.currentMergedIndex > s.MergedIndex {
 			fmt.Println("conflict", s.MergedIndex, s.txIndex, "addr", k.String())
@@ -815,74 +926,41 @@ func (s *StateDB) TryMerge(base *StateDB, miner common.Address, txFee *big.Int) 
 		}
 
 	}
-
-	s.Merge(base, miner, txFee)
 	return true
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for addr, newObj := range s.stateObjects {
 		dirty := s.RWSet[addr]
-		var pre *stateObject
-		switch dirty {
-		case true:
-			pre = s.MergedSts.GetWriteObj(addr)
-			if pre == nil {
-				pre = newObj
-				base.MergedSts.SetWriteObj(addr, newObj, s.txIndex)
-				break
-			}
-
-			for key, value := range newObj.pendingStorage {
-				pre.pendingStorage[key] = value
-			}
-			if newObj.dirtyCode {
-				pre.dirtyCode = true
-				pre.code = newObj.code
-			}
-			pre.data = newObj.data
-			base.MergedSts.SetWriteObj(addr, pre, s.txIndex)
-
-		default:
-			pre = s.MergedSts.GetReadObj(addr)
-			if pre == nil {
-				pre = newObj //for print
-				base.MergedSts.SetReadObj(addr, newObj)
-				break
-			}
-			for key, value := range newObj.originStorage {
-				pre.pendingStorage[key] = value
-			}
-			if !newObj.dirtyCode {
-				pre.dirtyCode = false
-				pre.code = newObj.code
-			}
-			base.MergedSts.SetReadObj(addr, pre)
+		if dirty {
+			s.Sts.MergeWriteObj(newObj, s.txIndex)
+		} else {
+			s.Sts.MergeReadObj(newObj)
 		}
-		//fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), pre.Balance(), pre.data.Deleted, pre.data.Incarnation, "nonce", pre.Nonce())
+		//data, _ := s.Sts.GetAccountData(addr)
+		//fmt.Println("merge aaa", addr.String(), data.Balance, data.Nonce, data.Deleted)
 	}
 
-	pre := base.MergedSts.GetWriteObj(miner)
+	pre := base.Sts.GetWriteObj(miner)
 	if pre == nil { //only (-1,0)
 		s.AddBalance(miner, txFee)
-		base.MergedSts.SetWriteObj(miner, s.getStateObject(miner), s.txIndex)
+		base.Sts.SetWriteObj(miner, s.getStateObject(miner), s.txIndex)
 	} else {
 		pre.AddBalance(txFee)
 	}
-	//fmt.Println(":::::::::::::::::::::", len(base.MergedSts.writeCachedStateObjects))
 }
 
 func (s *StateDB) FinalUpdateObjs(miner common.Address) {
 	s.journal.dirties = make(map[common.Address]int)
 
-	for addr, obj := range s.MergedSts.writeCachedStateObjects {
+	for addr, obj := range s.Sts.writeCachedStateObjects {
 		s.journal.dirties[addr] = 0
 		s.stateObjects[addr] = obj
 		s.stateObjectsPending[addr] = struct{}{}
 		//fmt.Println("FFFFFFFFFFFF", addr.String(), obj.Nonce())
 	}
 
-	s.stateObjects[miner] = s.MergedSts.writeCachedStateObjects[miner]
+	s.stateObjects[miner] = s.Sts.writeCachedStateObjects[miner]
 	s.stateObjectsPending[miner] = struct{}{}
 }
 

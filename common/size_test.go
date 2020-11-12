@@ -17,7 +17,10 @@
 package common
 
 import (
+	"container/heap"
+	"fmt"
 	"testing"
+	"time"
 )
 
 func TestStorageSizeString(t *testing.T) {
@@ -35,4 +38,98 @@ func TestStorageSizeString(t *testing.T) {
 			t.Errorf("%f: got %q, want %q", float64(test.size), test.size.String(), test.str)
 		}
 	}
+}
+
+type IntHeap []int
+
+func (h IntHeap) Len() int           { return len(h) }
+func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *IntHeap) Push(x interface{}) {
+	*h = append(*h, x.(int))
+}
+
+func (h *IntHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
+
+type SortTxManager struct {
+	heap *IntHeap
+}
+
+func NewSortTxManager(from, to []Address) *SortTxManager {
+	groupList := make(map[int][]int, 0) //并查集
+	groupList[1] = []int{1, 8, 10}
+	groupList[2] = []int{2, 7, 11}
+	groupList[3] = []int{3, 6, 12}
+	groupList[4] = []int{4, 5, 9}
+
+	dependMp := make(map[int]int)
+	for _, list := range groupList {
+		for index := 0; index < len(list)-1; index++ {
+			dependMp[list[index]] = list[index+1]
+		}
+	}
+
+	firstList := make(IntHeap, 0)
+	for _, v := range groupList {
+		firstList = append(firstList, v[0])
+	}
+	heap.Init(&firstList)
+
+	return &SortTxManager{heap: &firstList}
+}
+
+func (s *SortTxManager) AddTx() {
+
+}
+
+func (s *SortTxManager) GetTx() {
+
+}
+
+func TestABC(t *testing.T) {
+	mp := make(map[int][]int, 0)
+	mp[1] = []int{1, 8, 10}
+	mp[2] = []int{2, 7, 11}
+	mp[3] = []int{3, 6, 12}
+	mp[4] = []int{4, 5, 9}
+
+	dependMp := make(map[int]int)
+	for _, list := range mp {
+
+		index := 0
+		for ; index < len(list)-1; index++ {
+			dependMp[list[index]] = list[index+1]
+		}
+	}
+	fmt.Println("depend", dependMp)
+
+	firstList := make(IntHeap, 0)
+	//for _, v := range mp {
+	//	firstList = append(firstList, v[0])
+	//}
+	firstList = []int{1, 3, 2, 4}
+
+	heap.Init(&firstList)
+	for true {
+		len := firstList.Len()
+		if len == 0 {
+			break
+		}
+		data := heap.Pop(&firstList)
+		nextValue := dependMp[data.(int)]
+		if nextValue != 0 {
+			heap.Push(&firstList, nextValue)
+		}
+
+		fmt.Println("len", len, data, firstList)
+		time.Sleep(1 * time.Second)
+	}
+
 }

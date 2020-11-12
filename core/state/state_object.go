@@ -64,7 +64,7 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	preRead, preWrite  *stateObject
+	//preRead, preWrite  *stateObject
 	currentMergedIndex int
 	address            common.Address
 	addrHash           common.Hash // hash of ethereum address of the account
@@ -181,54 +181,19 @@ func (s *stateObject) getTrie(db Database) Trie {
 	return s.trie
 }
 
-// GetState retrieves a value from the account storage trie.
-func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
-	// If the fake storage is set, only lookup the state here(in the debugging mode)
-	if s.fakeStorage != nil {
-		return s.fakeStorage[key]
-	}
-	// If we have a dirty value for this state entry, return it
-	value, dirty := s.dirtyStorage[key]
-	if dirty {
-		return value
-	}
-
-	if pre := s.preWrite; pre != nil {
-		if pre.data.Deleted {
-			return common.Hash{}
-		}
-		data, ok := pre.pendingStorage[key]
-		if ok {
-			return data
-		}
-	}
-
-	if pre := s.preRead; pre != nil {
-		if pre.data.Deleted {
-			return common.Hash{}
-		}
-		data, ok := pre.originStorage[key]
-		if ok {
-			return data
-		}
-	}
-	// Otherwise return the entry's original value
-	return s.GetCommittedState(db, key)
-}
-
 // GetCommittedState retrieves a value from the committed account storage trie.
 func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
 	}
-	// If we have a pending write or clean cached, return that
-	if value, pending := s.pendingStorage[key]; pending {
-		return value
-	}
-	if value, cached := s.originStorage[key]; cached {
-		return value
-	}
+	//// If we have a pending write or clean cached, return that
+	//if value, pending := s.pendingStorage[key]; pending {
+	//	return value
+	//}
+	//if value, cached := s.originStorage[key]; cached {
+	//	return value
+	//}
 	// If no live objects are available, attempt to use snapshots
 	var (
 		enc []byte
@@ -272,14 +237,13 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 }
 
 // SetState updates a value in account storage.
-func (s *stateObject) SetState(db Database, key, value common.Hash) {
+func (s *stateObject) SetState(db Database, key, value, prev common.Hash) {
 	// If the fake storage is set, put the temporary state update here.
 	if s.fakeStorage != nil {
 		s.fakeStorage[key] = value
 		return
 	}
 	// If the new value is the same as old, don't set
-	prev := s.GetState(db, key)
 	if prev == value {
 		return
 	}
@@ -501,24 +465,7 @@ func (s *stateObject) Address() common.Address {
 }
 
 // Code returns the contract code associated with this object, if any.
-func (s *stateObject) Code(db Database) []byte {
-	if s.code != nil {
-		return s.code
-	}
-	if pre := s.preWrite; pre != nil {
-		if pre.data.Deleted {
-			return nil
-		} else if pre.code != nil {
-			return pre.code
-		}
-	}
-	if pre := s.preRead; pre != nil {
-		if pre.data.Deleted {
-			return nil
-		} else if pre.code != nil {
-			return pre.code
-		}
-	}
+func (s *stateObject) GetCommittedCode(db Database) []byte {
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return nil
 	}
@@ -547,8 +494,7 @@ func (s *stateObject) CodeSize(db Database) int {
 	return size
 }
 
-func (s *stateObject) SetCode(codeHash common.Hash, code []byte) {
-	prevcode := s.Code(s.db.db)
+func (s *stateObject) SetCode(codeHash common.Hash, code, prevcode []byte) {
 	s.db.journal.append(codeChange{
 		account:  &s.address,
 		prevhash: s.CodeHash(),

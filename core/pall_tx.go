@@ -181,9 +181,9 @@ func (p *pallTxManager) txLoop() {
 }
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
-	txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
-	if rr.st.TryMerge(p.baseStateDB, p.block.Coinbase(), txFee) {
-
+	if rr.st.CheckConflict(p.block.Coinbase()) {
+		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
+		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
 		p.baseStateDB.MergedIndex = rr.txIndex
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
@@ -207,7 +207,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		panic(err)
 	}
 	p.mubase.Lock()
-	st.MergedSts = p.baseStateDB.MergedSts
+	st.Sts = p.baseStateDB.Sts
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
 	p.mubase.Unlock()

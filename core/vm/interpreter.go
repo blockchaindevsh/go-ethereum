@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"errors"
 	"fmt"
 	"hash"
 	"sync/atomic"
@@ -210,9 +209,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 	// parent context.
 	steps := 0
 	for {
-		if in.evm.StateDB.NeedStop() {
-			return nil, errors.New("need re run")
-		}
 		steps++
 		if steps%1000 == 0 && atomic.LoadInt32(&in.evm.abort) != 0 {
 			break
