@@ -394,7 +394,7 @@ func (s *StateDB) SubRefund(gas uint64) {
 func (s *StateDB) Exist(addr common.Address) bool {
 	d, exist := s.Sts.GetAccountData(addr)
 	fmt.Println("ddddddd", d, exist)
-	if exist {
+	if exist && !d.Deleted {
 		return true
 	}
 	s.RWSet[addr] = false
