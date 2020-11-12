@@ -169,7 +169,7 @@ func (m *MergedStatus) GetCode(addr common.Address) (Code, bool) {
 		fmt.Println("1588888-2", r.data.Deleted, len(r.code))
 		if r.data.Deleted {
 			return nil, true
-		} else {
+		} else if r.code != nil {
 			return r.code, true
 		}
 	}
