@@ -302,9 +302,9 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	//fmt.Println("RRRRRRRRRRRRRReeeeeeee", st.MergedIndex, txIndex, err)
 	if err != nil {
-		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.sortManger.groupList)
-
 		if st.MergedIndex+1 == txIndex {
+			fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.sortManger.groupList)
+
 			panic("should panic")
 		}
 		return false

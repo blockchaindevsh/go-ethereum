@@ -442,18 +442,18 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		fmt.Println("Code 442----", len(data.code))
+		fmt.Println("Code 442----", addr.String(), len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.Sts.GetCode(addr); exist {
-		fmt.Println("Code 450---", len(data))
+		fmt.Println("Code 450---", addr.String(), len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("Code 456--", len(stateObject.GetCommittedCode(s.db)))
+		fmt.Println("Code 456--", addr.String(), len(stateObject.GetCommittedCode(s.db)))
 		return stateObject.GetCommittedCode(s.db)
 	}
 	return nil
