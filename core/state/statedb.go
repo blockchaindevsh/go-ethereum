@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -135,6 +136,7 @@ func (m *MergedStatus) MergeWriteObj(newObj *stateObject, txIndex int) {
 	if bytes.Compare(newObj.CodeHash(), pre.CodeHash()) != 0 {
 		pre.code = newObj.code
 	}
+	//pre.deleted = newObj.deleted
 
 	pre.data = newObj.data
 	m.writeCachedStateObjects[newObj.address] = pre
@@ -1027,6 +1029,10 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
+			if addr.String() == "0x53Fa94a96fd3F2f427E603Ef44C0586aA4A26811" {
+				fmt.Println("hahha")
+				debug.PrintStack()
+			}
 			obj.data.Deleted = true
 
 			// If state snapshotting is active, also mark the destruction there.
@@ -1062,6 +1068,10 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
 		if obj.deleted {
+			if addr.String() == "0x53Fa94a96fd3F2f427E603Ef44C0586aA4A26811" {
+				fmt.Println("hahha-222")
+				debug.PrintStack()
+			}
 			obj.data.Deleted = true
 		}
 		obj.updateRoot(s.db)
