@@ -393,13 +393,13 @@ func (s *StateDB) SubRefund(gas uint64) {
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
 	d, exist := s.Sts.GetAccountData(addr)
-	fmt.Println("ddddddd", d, exist)
+	//fmt.Println("ddddddd", d, exist)
 	if exist {
 		return !d.Deleted
 	}
 	s.RWSet[addr] = false
 	if data := s.getStateObject(addr); data != nil {
-		fmt.Println("DDDDDDDDDDDDdsadsaDDDDDDDDDDDd", data.data)
+		//fmt.Println("DDDDDDDDDDDDdsadsaDDDDDDDDDDDd", data.data)
 	}
 	return s.getStateObject(addr) != nil
 }
@@ -442,17 +442,18 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		fmt.Println("442----", len(data.code))
+		fmt.Println("Code 442----", len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.Sts.GetCode(addr); exist {
-
+		fmt.Println("Code 450---", len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		fmt.Println("Code 456--", len(stateObject.GetCommittedCode(s.db)))
 		return stateObject.GetCommittedCode(s.db)
 	}
 	return nil
