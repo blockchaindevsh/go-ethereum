@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -795,8 +794,8 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 	//fmt.Println("666666666666666")
 	//newobj.data.Deleted = data.Deleted
 	//}
-	//fmt.Println("66666666666666666666", newobj.address.String(), newobj.data.Deleted, len(newobj.code))
-	debug.PrintStack()
+	fmt.Println("66666666666666666666", newobj.address.String(), newobj.data.Deleted, len(newobj.code))
+	//debug.PrintStack()
 	if prev != nil && !prev.deleted {
 		return newobj, prev
 	}
