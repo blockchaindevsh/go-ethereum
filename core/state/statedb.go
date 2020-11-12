@@ -439,10 +439,12 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
+		fmt.Println("442----", len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.Sts.GetCode(addr); exist {
+
 		return data
 	}
 
