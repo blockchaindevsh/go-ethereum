@@ -164,7 +164,7 @@ func (m *MergedStatus) GetCode(addr common.Address) (Code, bool) {
 	}
 
 	if r := m.readCachedStateObjects[addr]; r != nil {
-		fmt.Println("1588888", w.data.Deleted, len(w.code))
+		fmt.Println("1588888", r.data.Deleted, len(r.code))
 		if r.data.Deleted {
 			return nil, true
 		} else {
