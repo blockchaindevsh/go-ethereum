@@ -664,7 +664,7 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 // the object is not found or was deleted in this execution context. If you need
 // to differentiate between non-existent/just-deleted, use getDeletedStateObject.
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
-	if obj := s.getDeletedStateObject(addr); obj != nil {
+	if obj := s.getDeletedStateObject(addr); obj != nil && !obj.data.Deleted {
 		//fmt.Println("DDDDDDDDDDDDDDDDDD", obj.data.Deleted, obj.deleted)
 		return obj
 	}
