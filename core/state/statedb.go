@@ -155,17 +155,17 @@ func (m *MergedStatus) GetCode(addr common.Address) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if w := m.writeCachedStateObjects[addr]; w != nil {
-		if !w.data.Deleted && w.code != nil {
-			//return , true
-			//} else {
+		if w.data.Deleted {
+			return nil, true
+		} else {
 			return w.code, true
 		}
 	}
 
 	if r := m.readCachedStateObjects[addr]; r != nil {
-		if !r.data.Deleted && r.code != nil {
-			//return nil, true
-			//} else {
+		if r.data.Deleted {
+			return nil, true
+		} else {
 			return r.code, true
 		}
 	}
