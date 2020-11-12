@@ -19,6 +19,7 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -462,6 +463,12 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 // Returns the address of the contract/account
 func (s *stateObject) Address() common.Address {
 	return s.address
+}
+
+func (s *stateObject) ScfPP() {
+	fmt.Println("data", s.data)
+	cc := s.GetCommittedCode(s.db.db)
+	fmt.Println("code", len(cc), hex.EncodeToString(cc))
 }
 
 // Code returns the contract code associated with this object, if any.

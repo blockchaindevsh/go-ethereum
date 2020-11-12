@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -82,8 +81,14 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	if block.NumberU64() == 1268817 {
+		obj := statedb.GetOrNewStateObject(common.HexToAddress("0x53Fa94a96fd3F2f427E603Ef44C0586aA4A26811"))
+		obj.ScfPP()
+		panic("scfPP")
+	}
+
 	if block.NumberU64() == 1268816 {
-		panic(fmt.Errorf("baocun %v", block.NumberU64()))
+		//panic(fmt.Errorf("baocun %v", block.NumberU64()))
 	}
 
 	var (
