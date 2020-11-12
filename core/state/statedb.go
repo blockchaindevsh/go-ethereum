@@ -392,8 +392,8 @@ func (s *StateDB) SubRefund(gas uint64) {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
-	d, exist := s.Sts.GetAccountData(addr)
-	fmt.Println("ddddddd", d, exist)
+	_, exist := s.Sts.GetAccountData(addr)
+	//fmt.Println("ddddddd", d, exist)
 	if exist {
 		return true
 	}
@@ -662,8 +662,8 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 // the object is not found or was deleted in this execution context. If you need
 // to differentiate between non-existent/just-deleted, use getDeletedStateObject.
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
-	if obj := s.getDeletedStateObject(addr); obj != nil && !obj.deleted {
-		fmt.Println("DDDDDDDDDDDDDDDDDD", obj.data.Deleted, obj.deleted)
+	if obj := s.getDeletedStateObject(addr); obj != nil {
+		//fmt.Println("DDDDDDDDDDDDDDDDDD", obj.data.Deleted, obj.deleted)
 		return obj
 	}
 	return nil
