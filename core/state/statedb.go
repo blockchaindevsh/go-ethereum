@@ -401,9 +401,9 @@ func (s *StateDB) Exist(addr common.Address) bool {
 	//	return !d.Deleted
 	//}
 	s.RWSet[addr] = false
-	if data := s.getStateObject(addr); data != nil {
-		//fmt.Println("DDDDDDDDDDDDdsadsaDDDDDDDDDDDd", data.data)
-	}
+	//if data := s.getStateObject(addr); data != nil {
+	//fmt.Println("DDDDDDDDDDDDdsadsaDDDDDDDDDDDd", data.data)
+	//}
 	return s.getStateObject(addr) != nil
 }
 
