@@ -137,6 +137,7 @@ func (m *MergedStatus) MergeWriteObj(newObj *stateObject, txIndex int) {
 		pre.code = newObj.code
 	}
 	pre.suicided = newObj.suicided
+	pre.deleted = newObj.deleted
 
 	pre.data = newObj.data
 	m.writeCachedStateObjects[newObj.address] = pre
