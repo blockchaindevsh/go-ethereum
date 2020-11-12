@@ -361,6 +361,7 @@ func gasCall(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize
 	if gas, overflow = math.SafeAdd(gas, evm.callGasTemp); overflow {
 		return 0, ErrGasUintOverflow
 	}
+	fmt.Println("??????????????????????", gas)
 	return gas, nil
 }
 
