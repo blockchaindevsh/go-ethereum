@@ -331,7 +331,7 @@ func gasCall(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize
 		transfersValue = !stack.Back(2).IsZero()
 		address        = common.Address(stack.Back(1).Bytes20())
 	)
-	fmt.Println("1221212121", address.String(), evm.chainRules.IsEIP158, transfersValue, "exist??", evm.StateDB.Exist(address))
+	//fmt.Println("1221212121", address.String(), evm.chainRules.IsEIP158, transfersValue, "exist??", evm.StateDB.Exist(address))
 	if evm.chainRules.IsEIP158 {
 		if transfersValue && evm.StateDB.Empty(address) {
 			gas += params.CallNewAccountGas
@@ -353,7 +353,7 @@ func gasCall(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize
 	if gas, overflow = math.SafeAdd(gas, memoryGas); overflow {
 		return 0, ErrGasUintOverflow
 	}
-	fmt.Println("456666", contract.Gas, gas)
+	//fmt.Println("456666", contract.Gas, gas)
 
 	evm.callGasTemp, err = callGas(evm.chainRules.IsEIP150, contract.Gas, gas, stack.Back(0))
 	if err != nil {
@@ -362,7 +362,7 @@ func gasCall(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize
 	if gas, overflow = math.SafeAdd(gas, evm.callGasTemp); overflow {
 		return 0, ErrGasUintOverflow
 	}
-	fmt.Println("??????????????????????", gas)
+	//fmt.Println("??????????????????????", gas)
 	return gas, nil
 }
 
