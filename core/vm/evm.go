@@ -17,7 +17,9 @@
 package vm
 
 import (
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -238,7 +240,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		code := evm.StateDB.GetCode(addr)
-		//fmt.Println("Code", addr.String(), len(code))
+		fmt.Println("Code", addr.String(), len(code))
 		if len(code) == 0 {
 			ret, err = nil, nil // gas is unchanged
 		} else {
@@ -247,7 +249,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
+			fmt.Println("Code", addr.String(), contract.Gas, len(code))
 			ret, err = run(evm, contract, input, false)
+			fmt.Println("253333", contract.Gas, hex.EncodeToString(ret), err)
 			gas = contract.Gas
 		}
 	}
