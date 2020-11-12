@@ -18,6 +18,7 @@
 package state
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -130,10 +131,11 @@ func (m *MergedStatus) MergeWriteObj(newObj *stateObject, txIndex int) {
 	for key, value := range newObj.pendingStorage {
 		pre.pendingStorage[key] = value
 	}
-	if newObj.dirtyCode {
-		pre.dirtyCode = true
+
+	if bytes.Compare(newObj.CodeHash(), pre.CodeHash()) != 0 {
 		pre.code = newObj.code
 	}
+
 	pre.data = newObj.data
 	m.writeCachedStateObjects[newObj.address] = pre
 	m.writeCachedStateObjects[newObj.address].currentMergedIndex = txIndex
@@ -155,16 +157,16 @@ func (m *MergedStatus) GetCode(addr common.Address) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if w := m.writeCachedStateObjects[addr]; w != nil {
-		fmt.Println("1588888", w.data.Deleted, len(w.code))
+		//fmt.Println("158-18888-1", w.data.Deleted, len(w.code))
 		if w.data.Deleted {
 			return nil, true
-		} else {
+		} else if w.code != nil {
 			return w.code, true
 		}
 	}
 
 	if r := m.readCachedStateObjects[addr]; r != nil {
-		fmt.Println("1588888", r.data.Deleted, len(r.code))
+		//fmt.Println("1588888-2", r.data.Deleted, len(r.code))
 		if r.data.Deleted {
 			return nil, true
 		} else {
@@ -444,18 +446,18 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		fmt.Println("Code 442----", addr.String(), len(data.code))
+		//fmt.Println("Code 442----", addr.String(), len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.Sts.GetCode(addr); exist {
-		fmt.Println("Code 450---", addr.String(), len(data))
+		//fmt.Println("Code 450---", addr.String(), len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("Code 456--", addr.String(), len(stateObject.GetCommittedCode(s.db)))
+		//fmt.Println("Code 456--", addr.String(), len(stateObject.GetCommittedCode(s.db)))
 		return stateObject.GetCommittedCode(s.db)
 	}
 	return nil
@@ -671,7 +673,6 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 // to differentiate between non-existent/just-deleted, use getDeletedStateObject.
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	if obj := s.getDeletedStateObject(addr); obj != nil && !obj.data.Deleted {
-		//fmt.Println("DDDDDDDDDDDDDDDDDD", obj.data.Deleted, obj.deleted)
 		return obj
 	}
 	return nil
@@ -794,7 +795,7 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 	//fmt.Println("666666666666666")
 	//newobj.data.Deleted = data.Deleted
 	//}
-	fmt.Println("66666666666666666666", newobj.address.String(), newobj.data.Deleted, len(newobj.code))
+	//fmt.Println("66666666666666666666", newobj.address.String(), newobj.data.Deleted, len(newobj.code))
 	//debug.PrintStack()
 	if prev != nil && !prev.deleted {
 		return newobj, prev
