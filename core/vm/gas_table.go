@@ -18,6 +18,7 @@ package vm
 
 import (
 	"errors"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/params"
@@ -330,7 +331,7 @@ func gasCall(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize
 		transfersValue = !stack.Back(2).IsZero()
 		address        = common.Address(stack.Back(1).Bytes20())
 	)
-	//fmt.Println("1221212121", address.String(), evm.chainRules.IsEIP158, transfersValue)
+	fmt.Println("1221212121", address.String(), evm.chainRules.IsEIP158, transfersValue, "exist??", evm.StateDB.Exist(address))
 	if evm.chainRules.IsEIP158 {
 		if transfersValue && evm.StateDB.Empty(address) {
 			gas += params.CallNewAccountGas
@@ -338,7 +339,7 @@ func gasCall(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySize
 		}
 	} else if !evm.StateDB.Exist(address) {
 		gas += params.CallNewAccountGas
-		//fmt.Println("343-----")
+		fmt.Println("343-----", address.String())
 	}
 	//fmt.Println("FPPPPPPPPPPPP", gas)
 	if transfersValue {
