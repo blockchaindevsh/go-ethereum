@@ -663,6 +663,7 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 // to differentiate between non-existent/just-deleted, use getDeletedStateObject.
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	if obj := s.getDeletedStateObject(addr); obj != nil && !obj.deleted && !obj.data.Deleted {
+		fmt.Println("DDDDDDDDDDDDDDDDDD", obj.data.Deleted, obj.deleted)
 		return obj
 	}
 	return nil
