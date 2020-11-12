@@ -394,8 +394,8 @@ func (s *StateDB) SubRefund(gas uint64) {
 func (s *StateDB) Exist(addr common.Address) bool {
 	d, exist := s.Sts.GetAccountData(addr)
 	fmt.Println("ddddddd", d, exist)
-	if exist && !d.Deleted {
-		return true
+	if exist {
+		return !d.Deleted
 	}
 	s.RWSet[addr] = false
 	if data := s.getStateObject(addr); data != nil {
@@ -787,10 +787,10 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 		}
 	}
 	s.setStateObject(newobj)
-	if data, exist := s.Sts.GetAccountData(addr); exist {
-		//fmt.Println("666666666666666")
-		newobj.data.Deleted = data.Deleted
-	}
+	//if data, exist := s.Sts.GetAccountData(addr); exist {
+	//fmt.Println("666666666666666")
+	//newobj.data.Deleted = data.Deleted
+	//}
 	if prev != nil && !prev.deleted {
 		return newobj, prev
 	}
