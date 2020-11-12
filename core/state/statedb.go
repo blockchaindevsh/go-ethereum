@@ -392,6 +392,12 @@ func (s *StateDB) SubRefund(gas uint64) {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
+	d, exist := s.Sts.GetAccountData(addr)
+	fmt.Println("ddddddd", d, exist)
+	if exist && !d.Deleted {
+		//return true
+	}
+	s.RWSet[addr] = false
 	return s.getStateObject(addr) != nil
 }
 
