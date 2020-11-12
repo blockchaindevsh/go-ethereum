@@ -1030,7 +1030,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
 			if addr.String() == "0x53Fa94a96fd3F2f427E603Ef44C0586aA4A26811" {
-				fmt.Println("hahha")
+				fmt.Println("hahha", obj.suicided, deleteEmptyObjects, obj.empty())
 				debug.PrintStack()
 			}
 			obj.data.Deleted = true
