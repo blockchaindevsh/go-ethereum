@@ -674,9 +674,9 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	obj := s.getDeletedStateObject(addr)
 	if obj == nil {
-		fmt.Println("676666", obj == nil)
+		//fmt.Println("676666", obj == nil)
 	} else {
-		fmt.Println("6766565", obj.data.Deleted)
+		//fmt.Println("6766565", obj.data.Deleted)
 	}
 
 	if obj != nil && !obj.data.Deleted {
@@ -751,7 +751,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	}
 	// Insert into the live set
 	obj := newObject(s, addr, *data)
-	fmt.Println("61444444444444444444----", addr.String(), obj.data)
+	//fmt.Println("61444444444444444444----", addr.String(), obj.data)
 	s.setStateObject(obj)
 	return obj
 }
