@@ -445,8 +445,10 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 func (s *StateDB) GetCodeSize(addr common.Address) int {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		fmt.Println("4488--")
 		return stateObject.CodeSize(s.db)
 	}
+	fmt.Println("codeSize", "")
 	return 0
 }
 
