@@ -19,7 +19,6 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -482,18 +481,18 @@ func (s *stateObject) Address() common.Address {
 // Code returns the contract code associated with this object, if any.
 func (s *stateObject) Code(db Database) []byte {
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
-		fmt.Println("484---", hex.EncodeToString(emptyCodeHash))
+		//fmt.Println("484---", hex.EncodeToString(emptyCodeHash))
 		return nil
 	}
 	code, err := db.ContractCode(s.addrHash, common.BytesToHash(s.CodeHash()))
 	if err != nil {
-		fmt.Println("setErrr", err)
+		//fmt.Println("setErrr", err)
 		s.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
 	}
-	fmt.Println("SSSSSSSs", len(code), hex.EncodeToString(code), hex.EncodeToString(s.CodeHash()))
+	//fmt.Println("SSSSSSSs", len(code), hex.EncodeToString(code), hex.EncodeToString(s.CodeHash()))
 
-	code, err = db.ContractCode(s.addrHash, common.BytesToHash(emptyCodeHash))
-	fmt.Println("Scffffff", len(code), err)
+	//code, err = db.ContractCode(s.addrHash, common.BytesToHash(emptyCodeHash))
+	//fmt.Println("Scffffff", len(code), err)
 
 	s.code = code
 	return code
