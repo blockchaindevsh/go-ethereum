@@ -140,7 +140,7 @@ func (s *StateDB) DumpToCollector(c DumpCollector, excludeCode, excludeStorage, 
 		addr := common.BytesToAddress(addrBytes)
 		obj := newObject(nil, addr, data)
 		if !excludeCode {
-			account.Code = common.Bytes2Hex(obj.GetCommittedCode(s.db))
+			account.Code = common.Bytes2Hex(obj.Code(s.db))
 		}
 		if !excludeStorage {
 			account.Storage = make(map[common.Hash]string)
