@@ -19,6 +19,7 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -507,7 +508,7 @@ func (s *stateObject) CodeSize(db Database) int {
 	if err != nil {
 		s.setError(fmt.Errorf("can't load code size %x: %v", s.CodeHash(), err))
 	}
-	fmt.Println("51000", size)
+	fmt.Println("51000", size, hex.EncodeToString(s.data.CodeHash))
 	return size
 }
 
