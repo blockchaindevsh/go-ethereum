@@ -489,7 +489,7 @@ func (s *stateObject) Code(db Database) []byte {
 	if err != nil {
 		s.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
 	}
-	fmt.Println("SSSSSSSs", len(code), hex.EncodeToString(code))
+	fmt.Println("SSSSSSSs", len(code), hex.EncodeToString(code), hex.EncodeToString(s.CodeHash()))
 	s.code = code
 	return code
 }
