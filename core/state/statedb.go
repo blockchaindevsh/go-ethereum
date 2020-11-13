@@ -933,7 +933,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 		pre.AddBalance(txFee)
 	}
 
-	s.MergedIndex = s.txIndex
+	base.MergedIndex = s.txIndex
 }
 
 func (s *StateDB) FinalUpdateObjs(miner common.Address) {

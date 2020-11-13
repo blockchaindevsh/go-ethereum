@@ -157,6 +157,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 		baseStateDB:    st,
 		mergedReceipts: make([]*types.Receipt, txLen, txLen),
+		ch:             make(chan struct{}, 1),
 
 		txQueue:      make(chan int, txLen),
 		receiptQueue: make([]*ReceiptWithIndex, txLen, txLen),
