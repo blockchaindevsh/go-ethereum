@@ -800,6 +800,10 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 		}
 	}
 	s.setStateObject(newobj)
+	//fmt.Println("SSSSSSSSSSSSS", addr.String(), contraction, newobj.data)
+	//if prev != nil {
+	//	fmt.Println("8055-display", prev.data.Incarnation)
+	//}
 	//if data, exist := s.Sts.GetAccountData(addr); exist {
 	//fmt.Println("666666666666666")
 	//newobj.data.Deleted = data.Deleted

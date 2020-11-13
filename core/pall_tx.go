@@ -81,6 +81,7 @@ func CalGroup(from []common.Address, to []*common.Address) map[int][]int {
 }
 
 type SortTxManager struct {
+	mu        sync.Mutex
 	heap      *IntHeap
 	groupList map[int][]int
 
@@ -126,6 +127,8 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *SortTxManage
 //}
 
 func (s *SortTxManager) POP() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.heap.Len() == 0 {
 		//debug.PrintStack()
 		//fmt.Println("1313131321")
