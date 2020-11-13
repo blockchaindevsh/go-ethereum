@@ -440,7 +440,7 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("getcode-2", addr.String())
+		fmt.Println("getcode-3", addr.String())
 		return stateObject.Code(s.db)
 	}
 	return nil
