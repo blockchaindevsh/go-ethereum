@@ -3357,7 +3357,7 @@ func TestAsd(t *testing.T) {
 	//	fmt.Println("index", index, b.Coinbase().String())
 	//}
 
-	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(3427779))
+	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(116525))
 	if err != nil {
 		panic(err)
 	}
@@ -3384,7 +3384,7 @@ func F(txs []Tx) (map[int][]int, map[int]int) {
 		from = append(from, v.From)
 		to = append(to, v.To)
 	}
-	return CalGroup(from, to)
+	return CalGroup(from, to), nil
 }
 func TestAsd1(t *testing.T) {
 	one := common.BigToAddress(new(big.Int).SetUint64(1))

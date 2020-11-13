@@ -695,6 +695,8 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	}
 
 	ret, returnGas, err := interpreter.evm.Call(callContext.contract, toAddr, args, gas, bigVal)
+
+	//fmt.Println("eeeeee", callContext.contract.Gas, toAddr.String(), gas, hex.EncodeToString(ret), returnGas, err)
 	if err != nil {
 		temp.Clear()
 	} else {
