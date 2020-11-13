@@ -295,7 +295,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		panic(err)
 	}
 	p.mubase.Lock()
-	st.Sts = p.baseStateDB.Sts
+	st.MergedSts = p.baseStateDB.MergedSts
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
 	p.mubase.Unlock()

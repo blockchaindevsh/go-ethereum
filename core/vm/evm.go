@@ -208,7 +208,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	snapshot := evm.StateDB.Snapshot()
 	p, isPrecompile := evm.precompile(addr)
 
-	//fmt.Println("2122222222", addr.String(), evm.StateDB.Exist(addr))
 	if !evm.StateDB.Exist(addr) {
 		if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
@@ -216,10 +215,8 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 				evm.vmConfig.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
 				evm.vmConfig.Tracer.CaptureEnd(ret, 0, 0, nil)
 			}
-			//fmt.Println("2122-1-2-121")
 			return nil, gas, nil
 		}
-		//fmt.Println("223213213----")
 		evm.StateDB.CreateAccount(addr, true)
 	}
 	evm.Transfer(evm.StateDB, caller.Address(), addr, value)
@@ -238,7 +235,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		code := evm.StateDB.GetCode(addr)
-		//fmt.Println("Code", addr.String(), len(code))
 		if len(code) == 0 {
 			ret, err = nil, nil // gas is unchanged
 		} else {
@@ -247,9 +243,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
-			//fmt.Println("Code", addr.String(), contract.Gas, len(code))
 			ret, err = run(evm, contract, input, false)
-			//fmt.Println("253333", contract.Gas, hex.EncodeToString(ret), err)
 			gas = contract.Gas
 		}
 	}

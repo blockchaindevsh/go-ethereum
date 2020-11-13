@@ -81,17 +81,6 @@ func (p *StateProcessor) ProcessSerial(block *types.Block, statedb *state.StateD
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	if block.NumberU64() == 1268817 {
-		//obj := statedb.GetOrNewStateObject(common.HexToAddress("0x53Fa94a96fd3F2f427E603Ef44C0586aA4A26811"))
-		//obj.ScfPP()
-		//panic("scfPP")
-	}
-
-	//fmt.Println("heihei begin", block.NumberU64(), statedb.Exist(common.HexToAddress("0x53Fa94a96fd3F2f427E603Ef44C0586aA4A26811")))
-	if block.NumberU64() == 1268818 {
-		//panic(fmt.Errorf("baocun %v", block.NumberU64()))
-	}
-
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)

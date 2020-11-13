@@ -17,9 +17,6 @@
 package core
 
 import (
-	"encoding/hex"
-	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"reflect"
 	"testing"
@@ -164,10 +161,4 @@ func TestSetupGenesis(t *testing.T) {
 			}
 		}
 	}
-}
-
-func TestAdasda(t *testing.T) {
-	ans := crypto.Keccak256(nil)
-	fmt.Println("ans", ans)
-	fmt.Println("ans", hex.EncodeToString(ans))
 }

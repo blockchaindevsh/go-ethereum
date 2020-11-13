@@ -65,7 +65,6 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	//preRead, preWrite  *stateObject
 	currentMergedIndex int
 	address            common.Address
 	addrHash           common.Hash // hash of ethereum address of the account
@@ -129,8 +128,10 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}
-
-	newObj := &stateObject{
+	//if data.Root == (common.Hash{}) {
+	//	data.Root = emptyRoot
+	//}
+	return &stateObject{
 		db:             db,
 		address:        address,
 		addrHash:       crypto.Keccak256Hash(address[:]),
@@ -139,8 +140,6 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 		pendingStorage: make(Storage),
 		dirtyStorage:   make(Storage),
 	}
-
-	return newObj
 }
 
 // EncodeRLP implements rlp.Encoder.
@@ -463,12 +462,6 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 // Returns the address of the contract/account
 func (s *stateObject) Address() common.Address {
 	return s.address
-}
-
-func (s *stateObject) ScfPP() {
-	fmt.Println("data", s.data)
-	cc := s.GetCommittedCode(s.db.db)
-	fmt.Println("code", len(cc), hex.EncodeToString(cc))
 }
 
 // Code returns the contract code associated with this object, if any.
