@@ -122,7 +122,10 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int) {
 
 	if bytes.Compare(newObj.CodeHash(), pre.CodeHash()) != 0 {
 		pre.code = newObj.code
+		pre.dirtyCode = newObj.dirtyCode //SB?
+
 	}
+
 	pre.suicided = newObj.suicided
 	pre.deleted = newObj.deleted
 	pre.data = newObj.data
