@@ -174,7 +174,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	}
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
-	fmt.Println("PALL TX READY", block.Number(), p.txSortManger.groupList)
+	//fmt.Println("PALL TX READY", block.Number(), p.txSortManger.groupList)
 
 	thread := len(p.txSortManger.groupList)
 	if thread > 8 {
@@ -270,9 +270,9 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	fmt.Println("RRRRRRRRRRRRRReeeeeeee-start", st.MergedIndex, txIndex)
+	//fmt.Println("RRRRRRRRRRRRRReeeeeeee-start", st.MergedIndex, txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	fmt.Println("RRRRRRRRRRRRRReeeeeeee", st.MergedIndex, txIndex, err)
+	//fmt.Println("RRRRRRRRRRRRRReeeeeeee", st.MergedIndex, txIndex, err)
 	if err != nil {
 		if st.MergedIndex+1 == txIndex {
 			fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.txSortManger.groupList)
