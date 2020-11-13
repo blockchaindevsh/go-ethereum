@@ -19,7 +19,6 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -490,7 +489,7 @@ func (s *stateObject) Code(db Database) []byte {
 		//fmt.Println("setErrr", err)
 		s.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
 	}
-	fmt.Println("SSSSSSSs", len(code), err, hex.EncodeToString(s.CodeHash()))
+	//fmt.Println("SSSSSSSs", len(code), err, hex.EncodeToString(s.CodeHash()))
 
 	//code, err = db.ContractCode(s.addrHash, common.BytesToHash(emptyCodeHash))
 	//fmt.Println("Scffffff", len(code), err)
