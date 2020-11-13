@@ -48,6 +48,9 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 
+	if block.NumberU64() == 4130335 {
+		panic("4130335----")
+	}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
