@@ -352,15 +352,15 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		return tr
 	}
 
-	if common.PrintExtraLog {
-		if len(s.pendingStorage) != 0 {
-			stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
-			for k, v := range s.pendingStorage {
-				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
-			}
-			fmt.Println("storage", stroageToDB)
-		}
-	}
+	//if common.PrintExtraLog {
+	//	if len(s.pendingStorage) != 0 {
+	//		stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
+	//		for k, v := range s.pendingStorage {
+	//			stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
+	//		}
+	//		fmt.Println("storage", stroageToDB)
+	//	}
+	//}
 
 	for key, value := range s.pendingStorage {
 		var v []byte

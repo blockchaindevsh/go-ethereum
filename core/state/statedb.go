@@ -425,18 +425,18 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		//fmt.Println("getcode-1", len(data.code))
+		fmt.Println("getcode-1", addr.String(), len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		//fmt.Println("getcode-2", len(data))
+		fmt.Println("getcode-2", addr.String(), len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		//fmt.Println("getcode-2")
+		fmt.Println("getcode-2", addr.String())
 		return stateObject.Code(s.db)
 	}
 	return nil
@@ -910,7 +910,7 @@ func (s *StateDB) CheckConflict(miner common.Address) bool {
 		preWrite := s.MergedSts.GetWriteObj(k)
 
 		if preWrite != nil && preWrite.currentMergedIndex > s.MergedIndex {
-			fmt.Println("conflict", s.MergedIndex, s.txIndex, "addr", k.String())
+			//fmt.Println("conflict", s.MergedIndex, s.txIndex, "addr", k.String())
 			return false
 		}
 
@@ -1019,7 +1019,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
 
-	readyToCommit := ""
+	//readyToCommit := ""
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
 		if obj.deleted {
@@ -1028,12 +1028,12 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 		obj.updateRoot(s.db)
 		if isCommit {
 			s.updateStateObject(obj)
-			readyToCommit += fmt.Sprintf("%v-%v-%v-%v-%v ", addr.String()[:6], obj.data.Nonce, obj.data.Balance.String(), obj.data.Deleted, obj.data.Incarnation)
+			//readyToCommit += fmt.Sprintf("%v-%v-%v-%v-%v ", addr.String()[:6], obj.data.Nonce, obj.data.Balance.String(), obj.data.Deleted, obj.data.Incarnation)
 		}
 	}
-	if common.PrintExtraLog && len(readyToCommit) != 0 {
-		fmt.Println("Sts:", readyToCommit)
-	}
+	//if common.PrintExtraLog && len(readyToCommit) != 0 {
+	//	fmt.Println("Sts:", readyToCommit)
+	//}
 	if !isCommit {
 		return common.Hash{}
 	}
