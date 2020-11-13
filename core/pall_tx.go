@@ -174,7 +174,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	}
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
-	//fmt.Println("PALL TX READY", block.Number(), p.txSortManger.groupList)
+	fmt.Println("PALL TX READY", block.Number(), p.txSortManger.groupList)
 
 	thread := len(p.txSortManger.groupList)
 	if thread > 8 {
