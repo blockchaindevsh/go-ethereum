@@ -243,7 +243,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	if rr.st.CheckConflict(p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
-		fmt.Println("<<<<<<<<<<<<<", rr.txIndex, rr.receipt.GasUsed)
+		//fmt.Println("<<<<<<<<<<<<<", rr.txIndex, rr.receipt.GasUsed)
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 

@@ -425,18 +425,18 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		fmt.Println("getcode-1", len(data.code))
+		//fmt.Println("getcode-1", len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		fmt.Println("getcode-2", len(data))
+		//fmt.Println("getcode-2", len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("getcode-2")
+		//fmt.Println("getcode-2")
 		return stateObject.Code(s.db)
 	}
 	return nil
