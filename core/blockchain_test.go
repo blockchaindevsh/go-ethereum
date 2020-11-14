@@ -3357,7 +3357,7 @@ func TestAsd(t *testing.T) {
 	//	fmt.Println("index", index, b.Coinbase().String())
 	//}
 
-	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(4130342))
+	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(4549572))
 	if err != nil {
 		panic(err)
 	}
