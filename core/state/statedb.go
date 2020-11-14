@@ -150,20 +150,20 @@ func (m *mergedStatus) GetCode(addr common.Address) (Code, bool) {
 	defer m.mu.RUnlock()
 	if w := m.writeCachedStateObjects[addr]; w != nil {
 		if w.data.Deleted {
-			fmt.Println("111-1")
+			//fmt.Println("111-1")
 			return nil, true
 		} else if w.code != nil {
-			fmt.Println("111-2", len(w.code))
+			//fmt.Println("111-2", len(w.code))
 			return w.code, true
 		}
 	}
 
 	if r := m.readCachedStateObjects[addr]; r != nil {
 		if r.data.Deleted {
-			fmt.Println("111-3")
+			//fmt.Println("111-3")
 			return nil, true
 		} else if r.code != nil {
-			fmt.Println("111-4", len(r.code))
+			//fmt.Println("111-4", len(r.code))
 			return r.code, true
 		}
 	}
@@ -431,18 +431,18 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		fmt.Println("getcode-1", addr.String(), len(data.code))
+		//fmt.Println("getcode-1", addr.String(), len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		fmt.Println("getcode-2", addr.String(), len(data))
+		//fmt.Println("getcode-2", addr.String(), len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("getcode-3", addr.String())
+		//fmt.Println("getcode-3", addr.String())
 		return stateObject.Code(s.db)
 	}
 	return nil

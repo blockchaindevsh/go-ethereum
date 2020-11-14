@@ -243,7 +243,7 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 	if rr.st.CheckConflict(p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
-		fmt.Println("<<<<<<<<<<<<<", rr.txIndex, rr.receipt.GasUsed)
+		//fmt.Println("<<<<<<<<<<<<<", rr.txIndex, rr.receipt.GasUsed)
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
@@ -270,9 +270,9 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	p.mubase.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	fmt.Println("RRRRRRRRRRRRRReeeeeeee-start", st.MergedIndex, txIndex)
+	//fmt.Println("RRRRRRRRRRRRRReeeeeeee-start", st.MergedIndex, txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	fmt.Println("RRRRRRRRRRRRRReeeeeeee", st.MergedIndex, txIndex, err)
+	//fmt.Println("RRRRRRRRRRRRRReeeeeeee", st.MergedIndex, txIndex, err)
 	if err != nil {
 		if st.MergedIndex+1 == txIndex {
 			fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.txSortManger.groupList)
