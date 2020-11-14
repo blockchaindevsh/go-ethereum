@@ -998,6 +998,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
+			obj.data.Deleted = true
 
 			// If state snapshotting is active, also mark the destruction there.
 			// Note, we can't do this only at the end of a block because multiple
