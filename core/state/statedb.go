@@ -177,21 +177,22 @@ func (m *mergedStatus) GetState(addr common.Address, key common.Hash) (common.Ha
 
 	if r := m.writeCachedStateObjects[addr]; r != nil {
 		if r.data.Deleted {
+			fmt.Println("11111111111",r.data.Incarnation)
 			return common.Hash{}, true
 		}
 		if value, ok := r.pendingStorage[key]; ok {
-			//fmt.Println("22222")
+			fmt.Println("22222",value.String(),r.data.Deleted,r.data.Incarnation)
 			return value, ok
 		}
 	}
 
 	if w := m.readCachedStateObjects[addr]; w != nil {
 		if w.data.Deleted {
-			//fmt.Println("3333333")
+			fmt.Println("3333333",w.data.Incarnation)
 			return common.Hash{}, true
 		}
 		if value, ok := w.originStorage[key]; ok {
-			//fmt.Println("444444")
+			fmt.Println("444444",value.String(),w.data.Deleted,w.data.Incarnation)
 			return value, ok
 		}
 	}
@@ -499,11 +500,13 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.MergedSts.GetState(addr, hash); exist {
+		fmt.Println("MergedSts",addr.String(),data.String())
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		fmt.Println("obj.getCCCCCCCCC",stateObject.address.String(),stateObject.data.Deleted,stateObject.data.Incarnation)
 		return stateObject.GetCommittedState(s.db, hash)
 	}
 	return common.Hash{}
