@@ -152,10 +152,10 @@ type handleMap struct {
 
 func NewHandleMap(txLen int)*handleMap  {
 	mp:=make(map[int]map[int]bool,0)
-	for base:=0;base<=txLen;base++{
+	for base:=-1;base<=txLen;base++{
 		mp[base]=make(map[int]bool)
 		
-		for i:=0;i<=txLen;i++{
+		for i:=-1;i<=txLen;i++{
 			mp[base][i]=false
 		}
 	}
@@ -169,12 +169,15 @@ func NewHandleMap(txLen int)*handleMap  {
 func (h *handleMap)SetValue(base ,txindex int)  {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+
 	h.mp[base][txindex]=true
 }
 
 func (h *handleMap)AlreadyHandle(base,txindex int)bool  {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
 	return h.mp[base][txindex]
 }
 
@@ -306,7 +309,8 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	gas := p.gp
 	p.mubase.Unlock()
 	if p.reHandle.AlreadyHandle(st.MergedIndex,txIndex){
-		return true
+		//fmt.Println("??????",st.MergedIndex,txIndex)
+		return false
 	}
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)

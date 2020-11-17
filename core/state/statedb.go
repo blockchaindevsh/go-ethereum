@@ -506,7 +506,7 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("obj.getCCCCCCCCC",stateObject.address.String(),stateObject.data.Deleted,stateObject.data.Incarnation)
+		fmt.Println("obj.getCCCCCCCCC",stateObject.address.String(),hash.String(),stateObject.data.Deleted,stateObject.data.Incarnation)
 		return stateObject.GetCommittedState(s.db, hash)
 	}
 	return common.Hash{}
