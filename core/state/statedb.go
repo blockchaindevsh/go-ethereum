@@ -122,7 +122,9 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int) {
 
 	if bytes.Compare(newObj.CodeHash(), pre.CodeHash()) != 0 {
 		pre.code = newObj.code
+		pre.dirtyCode = newObj.dirtyCode //SB?
 	}
+
 	pre.suicided = newObj.suicided
 	pre.deleted = newObj.deleted
 	pre.data = newObj.data
@@ -148,16 +150,20 @@ func (m *mergedStatus) GetCode(addr common.Address) (Code, bool) {
 	defer m.mu.RUnlock()
 	if w := m.writeCachedStateObjects[addr]; w != nil {
 		if w.data.Deleted {
+			//fmt.Println("111-1")
 			return nil, true
 		} else if w.code != nil {
+			//fmt.Println("111-2", len(w.code))
 			return w.code, true
 		}
 	}
 
 	if r := m.readCachedStateObjects[addr]; r != nil {
 		if r.data.Deleted {
+			//fmt.Println("111-3")
 			return nil, true
 		} else if r.code != nil {
+			//fmt.Println("111-4", len(r.code))
 			return r.code, true
 		}
 	}
@@ -171,21 +177,22 @@ func (m *mergedStatus) GetState(addr common.Address, key common.Hash) (common.Ha
 
 	if r := m.writeCachedStateObjects[addr]; r != nil {
 		if r.data.Deleted {
+			//fmt.Println("11111111111",r.data.Incarnation)
 			return common.Hash{}, true
 		}
 		if value, ok := r.pendingStorage[key]; ok {
-			//fmt.Println("22222")
+			//fmt.Println("22222",value.String(),r.data.Deleted,r.data.Incarnation)
 			return value, ok
 		}
 	}
 
 	if w := m.readCachedStateObjects[addr]; w != nil {
 		if w.data.Deleted {
-			//fmt.Println("3333333")
+			//fmt.Println("3333333",w.data.Incarnation)
 			return common.Hash{}, true
 		}
 		if value, ok := w.originStorage[key]; ok {
-			//fmt.Println("444444")
+			//fmt.Println("444444",value.String(),w.data.Deleted,w.data.Incarnation)
 			return value, ok
 		}
 	}
@@ -372,12 +379,14 @@ func (s *StateDB) AddRefund(gas uint64) {
 
 // SubRefund removes gas from the refund counter.
 // This method will panic if the refund counter goes below zero
-func (s *StateDB) SubRefund(gas uint64) {
+func (s *StateDB) SubRefund(gas uint64)error {
 	s.journal.append(refundChange{prev: s.refund})
 	if gas > s.refund {
-		panic(fmt.Sprintf("Refund counter below zero (gas: %d > refund: %d)", gas, s.refund))
+		fmt.Println("SubRefund err",s.txIndex,s.MergedIndex)
+		return fmt.Errorf("Refund counter below zero (gas: %d > refund: %d)", gas, s.refund)
 	}
 	s.refund -= gas
+	return nil
 }
 
 // Exist reports whether the given account address exists in the state.
@@ -425,15 +434,18 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
+		//fmt.Println("getcode-1", addr.String(), len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.MergedSts.GetCode(addr); exist {
+		//fmt.Println("getcode-2", addr.String(), len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		//fmt.Println("getcode-3", addr.String())
 		return stateObject.Code(s.db)
 	}
 	return nil
@@ -442,8 +454,10 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 func (s *StateDB) GetCodeSize(addr common.Address) int {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		//fmt.Println("4488--")
 		return stateObject.CodeSize(s.db)
 	}
+	//fmt.Println("codeSize", "")
 	return 0
 }
 
@@ -487,11 +501,13 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.MergedSts.GetState(addr, hash); exist {
+		//fmt.Println("MergedSts",addr.String(),data.String())
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		//fmt.Println("obj.getCCCCCCCCC",stateObject.address.String(),hash.String(),stateObject.data.Deleted,stateObject.data.Incarnation)
 		return stateObject.GetCommittedState(s.db, hash)
 	}
 	return common.Hash{}
@@ -905,7 +921,7 @@ func (s *StateDB) CheckConflict(miner common.Address) bool {
 		preWrite := s.MergedSts.GetWriteObj(k)
 
 		if preWrite != nil && preWrite.currentMergedIndex > s.MergedIndex {
-			fmt.Println("conflict", s.MergedIndex, s.txIndex, "addr", k.String())
+			//fmt.Println("conflict", s.MergedIndex, s.txIndex, "addr", k.String())
 			return false
 		}
 
@@ -933,7 +949,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 		pre.AddBalance(txFee)
 	}
 
-	s.MergedIndex = s.txIndex
+	base.MergedIndex = s.txIndex
 }
 
 func (s *StateDB) FinalUpdateObjs(miner common.Address) {
@@ -987,6 +1003,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
+			obj.data.Deleted = true
 
 			// If state snapshotting is active, also mark the destruction there.
 			// Note, we can't do this only at the end of a block because multiple
@@ -1014,7 +1031,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
 
-	readyToCommit := ""
+	//readyToCommit := ""
 	for addr := range s.stateObjectsPending {
 		obj := s.stateObjects[addr]
 		if obj.deleted {
@@ -1023,12 +1040,12 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 		obj.updateRoot(s.db)
 		if isCommit {
 			s.updateStateObject(obj)
-			readyToCommit += fmt.Sprintf("%v-%v-%v-%v-%v ", addr.String()[:6], obj.data.Nonce, obj.data.Balance.String(), obj.data.Deleted, obj.data.Incarnation)
+			//readyToCommit += fmt.Sprintf("%v-%v-%v-%v-%v ", addr.String()[:6], obj.data.Nonce, obj.data.Balance.String(), obj.data.Deleted, obj.data.Incarnation)
 		}
 	}
-	if common.PrintExtraLog && len(readyToCommit) != 0 {
-		fmt.Println("Sts:", readyToCommit)
-	}
+	//if common.PrintExtraLog && len(readyToCommit) != 0 {
+	//	fmt.Println("Sts:", readyToCommit)
+	//}
 	if !isCommit {
 		return common.Hash{}
 	}

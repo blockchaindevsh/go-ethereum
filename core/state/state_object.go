@@ -352,15 +352,15 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		return tr
 	}
 
-	if common.PrintExtraLog {
-		if len(s.pendingStorage) != 0 {
-			stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
-			for k, v := range s.pendingStorage {
-				stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
-			}
-			fmt.Println("storage", stroageToDB)
-		}
-	}
+	//if common.PrintExtraLog {
+	//	if len(s.pendingStorage) != 0 {
+	//		stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
+	//		for k, v := range s.pendingStorage {
+	//			stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
+	//		}
+	//		fmt.Println("storage", stroageToDB)
+	//	}
+	//}
 
 	for key, value := range s.pendingStorage {
 		var v []byte
@@ -496,15 +496,18 @@ func (s *stateObject) Code(db Database) []byte {
 // inside the database to avoid loading codes seen recently.
 func (s *stateObject) CodeSize(db Database) int {
 	if s.code != nil {
+		//fmt.Println("4999", len(s.code))
 		return len(s.code)
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
+		//fmt.Println("dsada")
 		return 0
 	}
 	size, err := db.ContractCodeSize(s.addrHash, common.BytesToHash(s.CodeHash()))
 	if err != nil {
 		s.setError(fmt.Errorf("can't load code size %x: %v", s.CodeHash(), err))
 	}
+	//fmt.Println("51000", size, hex.EncodeToString(s.data.CodeHash))
 	return size
 }
 

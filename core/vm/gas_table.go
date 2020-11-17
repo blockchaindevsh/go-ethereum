@@ -18,7 +18,6 @@ package vm
 
 import (
 	"errors"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/params"
@@ -147,7 +146,9 @@ func gasSStore(evm *EVM, contract *Contract, stack *Stack, mem *Memory, memorySi
 	}
 	if original != (common.Hash{}) {
 		if current == (common.Hash{}) { // recreate slot (2.2.1.1)
-			evm.StateDB.SubRefund(params.NetSstoreClearRefund)
+			if err:=evm.StateDB.SubRefund(params.NetSstoreClearRefund);err!=nil{
+				return 0,err
+			}
 		} else if value == (common.Hash{}) { // delete slot (2.2.1.2)
 			evm.StateDB.AddRefund(params.NetSstoreClearRefund)
 		}
@@ -202,7 +203,10 @@ func gasSStoreEIP2200(evm *EVM, contract *Contract, stack *Stack, mem *Memory, m
 	}
 	if original != (common.Hash{}) {
 		if current == (common.Hash{}) { // recreate slot (2.2.1.1)
-			evm.StateDB.SubRefund(params.SstoreClearRefundEIP2200)
+			if err:=evm.StateDB.SubRefund(params.SstoreClearRefundEIP2200);err!=nil{
+				//fmt.Println("207---------------","key",x.String(),original.String())
+				return 0,err
+			}
 		} else if value == (common.Hash{}) { // delete slot (2.2.1.2)
 			evm.StateDB.AddRefund(params.SstoreClearRefundEIP2200)
 		}

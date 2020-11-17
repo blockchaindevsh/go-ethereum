@@ -47,6 +47,10 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+
+	if block.NumberU64() == 4549573 {
+		//panic("4549573----")
+	}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -90,7 +94,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if header.Number.Uint64() == 2327047 && tx.Hash().String() == "0xe4512bec6ed8ee5d4252f4c02e6444deed3bd13d60727bf096a147ecaa44882f" {
+	if tx.Hash().String() == "0x4b9ca84c63e5648fca3f1224db3952a39a061d9aeb407f60aa8e164c3201fd86" {
 		//vmenv.PrintLog = true
 		vmenv.PrintLog = true
 	}
