@@ -18,10 +18,7 @@ package common
 
 import (
 	"database/sql/driver"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 	"reflect"
 	"strings"
@@ -373,9 +370,4 @@ func TestAddress_Value(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestAaA(t *testing.T) {
-	ans := crypto.Keccak256(nil)
-	fmt.Println("d", hex.EncodeToString(ans), ans)
 }

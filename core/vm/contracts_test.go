@@ -18,10 +18,8 @@ package vm
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -361,10 +359,4 @@ func BenchmarkPrecompiledBLS12381G2MultiExpWorstCase(b *testing.B) {
 		NoBenchmark: false,
 	}
 	benchmarkPrecompiled("0f", testcase, b)
-}
-
-func TestSSS(t *testing.T) {
-	emptyCodeHash := crypto.Keccak256(nil)
-	fmt.Println("dsadsa", hex.EncodeToString(emptyCodeHash))
-	fmt.Println("dsadsa", emptyCodeHash)
 }
