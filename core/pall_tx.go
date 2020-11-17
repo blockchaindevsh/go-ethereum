@@ -198,7 +198,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		txQueue:      make(chan int, txLen),
 		receiptQueue: make([]*ReceiptWithIndex, txLen, txLen),
 		gp:           block.GasLimit(),
-		reHandle:NewHandleMap(len(block.Transactions()))
+		reHandle:NewHandleMap(len(block.Transactions())),
 	}
 
 	signer := types.MakeSigner(bc.chainConfig, block.Number())
