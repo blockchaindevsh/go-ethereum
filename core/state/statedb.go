@@ -379,13 +379,14 @@ func (s *StateDB) AddRefund(gas uint64) {
 
 // SubRefund removes gas from the refund counter.
 // This method will panic if the refund counter goes below zero
-func (s *StateDB) SubRefund(gas uint64) {
+func (s *StateDB) SubRefund(gas uint64)error {
 	s.journal.append(refundChange{prev: s.refund})
 	if gas > s.refund {
 		fmt.Println("SubRefund err",s.txIndex,s.MergedIndex)
-		panic(fmt.Sprintf("Refund counter below zero (gas: %d > refund: %d)", gas, s.refund))
+		return fmt.Errorf("Refund counter below zero (gas: %d > refund: %d)", gas, s.refund)
 	}
 	s.refund -= gas
+	return nil
 }
 
 // Exist reports whether the given account address exists in the state.
