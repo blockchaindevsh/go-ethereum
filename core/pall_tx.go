@@ -140,6 +140,42 @@ type pallTxManager struct {
 	txQueue      chan int
 	receiptQueue []*ReceiptWithIndex
 	gp           uint64
+
+
+	reHandle *handleMap
+}
+
+type handleMap struct {
+	mp map[int]map[int]bool
+	mu sync.Mutex
+}
+
+func NewHandleMap(txLen int)*handleMap  {
+	mp:=make(map[int]map[int]bool,0)
+	for base:=0;base<=txLen;base++{
+		mp[base]=make(map[int]bool)
+		
+		for i:=0;i<=txLen;i++{
+			mp[base][i]=false
+		}
+	}
+	return &handleMap{
+		mp: mp,
+		mu: sync.Mutex{},
+	}
+	
+}
+
+func (h *handleMap)SetValue(base ,txindex int)  {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.mp[base][txindex]=true
+}
+
+func (h *handleMap)AlreadyHandle(base,txindex int)bool  {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.mp[base][txindex]
 }
 
 type ReceiptWithIndex struct {
@@ -162,6 +198,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		txQueue:      make(chan int, txLen),
 		receiptQueue: make([]*ReceiptWithIndex, txLen, txLen),
 		gp:           block.GasLimit(),
+		reHandle:NewHandleMap(len(block.Transactions()))
 	}
 
 	signer := types.MakeSigner(bc.chainConfig, block.Number())
@@ -268,10 +305,14 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
 	p.mubase.Unlock()
+	if p.reHandle.AlreadyHandle(st.MergedIndex,txIndex){
+		return true
+	}
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	fmt.Println("RRRRRRRRRRRRRReeeeeeee-start", st.MergedIndex, txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
+	p.reHandle.SetValue(st.MergedIndex,txIndex)
 	fmt.Println("RRRRRRRRRRRRRReeeeeeee-end", st.MergedIndex, txIndex, err)
 	if err != nil {
 		if st.MergedIndex+1 == txIndex {
@@ -280,6 +321,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		}
 		return false
 	}
+
 
 	p.AddReceiptToQueue(&ReceiptWithIndex{
 		st:      st,
