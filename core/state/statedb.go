@@ -671,9 +671,9 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	obj := s.getDeletedStateObject(addr)
 	if obj != nil {
-		fmt.Println("addr", addr.String(), "obj!=nil", obj.deleted, obj.data.Deleted)
+		//fmt.Println("addr", addr.String(), "obj!=nil", obj.deleted, obj.data.Deleted)
 	} else {
-		fmt.Println("addr", addr.String(), "obj==nil")
+		//fmt.Println("addr", addr.String(), "obj==nil")
 	}
 
 	if obj != nil && !obj.deleted && !obj.data.Deleted {
@@ -949,8 +949,8 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 		} else {
 			s.MergedSts.MergeReadObj(newObj)
 		}
-		data, _ := s.MergedSts.GetAccountData(addr)
-		fmt.Println("merge aaa", dirty, s.MergedIndex, s.txIndex, addr.String(), data.Balance, data.Nonce, data.Deleted)
+		//data, _ := s.MergedSts.GetAccountData(addr)
+		//fmt.Println("merge aaa", dirty, s.MergedIndex, s.txIndex, addr.String(), data.Balance, data.Nonce, data.Deleted)
 	}
 
 	pre := base.MergedSts.GetWriteObj(miner)
