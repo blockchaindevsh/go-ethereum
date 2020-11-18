@@ -448,6 +448,7 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 		fmt.Println("getcode-3", addr.String())
 		return stateObject.Code(s.db)
 	}
+	fmt.Println("451111111111111---", "null")
 	return nil
 }
 
@@ -664,7 +665,14 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 // the object is not found or was deleted in this execution context. If you need
 // to differentiate between non-existent/just-deleted, use getDeletedStateObject.
 func (s *StateDB) getStateObject(addr common.Address) *stateObject {
-	if obj := s.getDeletedStateObject(addr); obj != nil && !obj.deleted && !obj.data.Deleted {
+	obj := s.getDeletedStateObject(addr)
+	if obj != nil {
+		fmt.Println("addr", addr.String(), "obj!=nil", obj.deleted, obj.data.Deleted)
+	} else {
+		fmt.Println("addr", addr.String(), "obj==nil")
+	}
+
+	if obj != nil && !obj.deleted && !obj.data.Deleted {
 		return obj
 	}
 	return nil
