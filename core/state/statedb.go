@@ -945,8 +945,8 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 		} else {
 			s.MergedSts.MergeReadObj(newObj)
 		}
-		//data, _ := s.Sts.GetAccountData(addr)
-		//fmt.Println("merge aaa", addr.String(), data.Balance, data.Nonce, data.Deleted)
+		data, _ := s.MergedSts.GetAccountData(addr)
+		fmt.Println("merge aaa", s.MergedIndex, s.txIndex, addr.String(), data.Balance, data.Nonce, data.Deleted)
 	}
 
 	pre := base.MergedSts.GetWriteObj(miner)
