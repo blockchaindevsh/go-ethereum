@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -342,11 +341,11 @@ func opReturnDataCopy(pc *uint64, interpreter *EVMInterpreter, callContext *call
 
 func opExtCodeSize(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	slot := callContext.stack.peek()
-	fmt.Println("opExtCodeSize", common.Address(slot.Bytes20()).String())
+	//fmt.Println("opExtCodeSize", common.Address(slot.Bytes20()).String())
 	slot.SetUint64(uint64(len(interpreter.evm.StateDB.GetCode(common.Address(slot.Bytes20())))))
 	//slot.SetUint64(uint64(interpreter.evm.StateDB.GetCodeSize(common.Address(slot.Bytes20()))))
 	//interpreter.evm.StateDB.GetCodeSize()
-	fmt.Println("EEEEEEEEEEEEEEEEE", slot.String())
+	//fmt.Println("EEEEEEEEEEEEEEEEE", slot.String())
 	return nil, nil
 }
 

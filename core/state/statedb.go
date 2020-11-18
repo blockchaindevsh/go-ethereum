@@ -148,25 +148,25 @@ func (m *mergedStatus) GetAccountData(addr common.Address) (*Account, bool) {
 func (m *mergedStatus) GetCode(addr common.Address) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	fmt.Println("1511111111--", m.writeCachedStateObjects[addr] == nil, m.readCachedStateObjects[addr] == nil)
+	//fmt.Println("1511111111--", m.writeCachedStateObjects[addr] == nil, m.readCachedStateObjects[addr] == nil)
 	if w := m.writeCachedStateObjects[addr]; w != nil {
-		fmt.Println("13222222", w.data.Deleted, len(w.code))
+		//fmt.Println("13222222", w.data.Deleted, len(w.code))
 		if w.data.Deleted {
-			fmt.Println("111-1")
+			//fmt.Println("111-1")
 			return nil, true
 		} else if w.code != nil {
-			fmt.Println("111-2", len(w.code))
+			//fmt.Println("111-2", len(w.code))
 			return w.code, true
 		}
 	}
 
 	if r := m.readCachedStateObjects[addr]; r != nil {
-		fmt.Println("164-----", r.data.Deleted, len(r.code))
+		//fmt.Println("164-----", r.data.Deleted, len(r.code))
 		if r.data.Deleted {
-			fmt.Println("111-3")
+			//fmt.Println("111-3")
 			return nil, true
 		} else if r.code != nil {
-			fmt.Println("111-4", len(r.code))
+			//fmt.Println("111-4", len(r.code))
 			return r.code, true
 		}
 	}
@@ -438,21 +438,21 @@ func (s *StateDB) BlockHash() common.Hash {
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		fmt.Println("getcode-1", addr.String(), len(data.code))
+		//fmt.Println("getcode-1", addr.String(), len(data.code))
 		return data.code
 	}
 
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		fmt.Println("getcode-2", addr.String(), len(data))
+		//fmt.Println("getcode-2", addr.String(), len(data))
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("getcode-3", addr.String())
+		//fmt.Println("getcode-3", addr.String())
 		return stateObject.Code(s.db)
 	}
-	fmt.Println("451111111111111---", "null")
+	//fmt.Println("451111111111111---", "null")
 	return nil
 }
 
@@ -931,7 +931,7 @@ func (s *StateDB) CheckConflict(miner common.Address) bool {
 		}
 
 		preWrite := s.MergedSts.GetWriteObj(k)
-		fmt.Println("CCCCCCCCC", s.MergedIndex, s.txIndex, k.String(), preWrite != nil)
+		//fmt.Println("CCCCCCCCC", s.MergedIndex, s.txIndex, k.String(), preWrite != nil)
 		if preWrite != nil && preWrite.currentMergedIndex > s.MergedIndex {
 			//fmt.Println("conflict", s.MergedIndex, s.txIndex, "addr", k.String())
 			return false
