@@ -436,6 +436,7 @@ func (s *StateDB) BlockHash() common.Hash {
 }
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
+	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
 		fmt.Println("getcode-1", addr.String(), len(data.code))
 		return data.code
