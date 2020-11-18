@@ -930,7 +930,7 @@ func (s *StateDB) CheckConflict(miner common.Address) bool {
 		}
 
 		preWrite := s.MergedSts.GetWriteObj(k)
-
+		fmt.Println("CCCCCCCCC", s.MergedIndex, s.txIndex, k.String(), preWrite != nil)
 		if preWrite != nil && preWrite.currentMergedIndex > s.MergedIndex {
 			//fmt.Println("conflict", s.MergedIndex, s.txIndex, "addr", k.String())
 			return false
