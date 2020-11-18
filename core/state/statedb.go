@@ -148,7 +148,9 @@ func (m *mergedStatus) GetAccountData(addr common.Address) (*Account, bool) {
 func (m *mergedStatus) GetCode(addr common.Address) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	fmt.Println("1511111111--", m.writeCachedStateObjects[addr] == nil, m.readCachedStateObjects[addr] == nil)
 	if w := m.writeCachedStateObjects[addr]; w != nil {
+		fmt.Println("13222222", w.data.Deleted, len(w.code))
 		if w.data.Deleted {
 			fmt.Println("111-1")
 			return nil, true
@@ -159,6 +161,7 @@ func (m *mergedStatus) GetCode(addr common.Address) (Code, bool) {
 	}
 
 	if r := m.readCachedStateObjects[addr]; r != nil {
+		fmt.Println("164-----", r.data.Deleted, len(r.code))
 		if r.data.Deleted {
 			fmt.Println("111-3")
 			return nil, true
