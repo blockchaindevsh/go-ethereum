@@ -47,10 +47,6 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-
-	if block.NumberU64() == 4549573 {
-		//panic("4549573----")
-	}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -70,10 +66,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		close(pm.txQueue)
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 	}
-
-	//for k, v := range receipts {
-	//	fmt.Println("block", block.NumberU64(), k, v.GasUsed)
-	//}
 
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 

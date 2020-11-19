@@ -3376,7 +3376,7 @@ func F(txs []Tx) (map[int][]int, map[int]int) {
 		from = append(from, v.From)
 		to = append(to, v.To)
 	}
-	return CalGroup(from, to), nil
+	return grouping(from, to), nil
 }
 func TestAsd1(t *testing.T) {
 	one := common.BigToAddress(new(big.Int).SetUint64(1))

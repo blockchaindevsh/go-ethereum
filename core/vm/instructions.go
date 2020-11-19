@@ -341,11 +341,7 @@ func opReturnDataCopy(pc *uint64, interpreter *EVMInterpreter, callContext *call
 
 func opExtCodeSize(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	slot := callContext.stack.peek()
-	//fmt.Println("opExtCodeSize", common.Address(slot.Bytes20()).String())
 	slot.SetUint64(uint64(len(interpreter.evm.StateDB.GetCode(common.Address(slot.Bytes20())))))
-	//slot.SetUint64(uint64(interpreter.evm.StateDB.GetCodeSize(common.Address(slot.Bytes20()))))
-	//interpreter.evm.StateDB.GetCodeSize()
-	//fmt.Println("EEEEEEEEEEEEEEEEE", slot.String())
 	return nil, nil
 }
 
@@ -513,7 +509,6 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
-	//fmt.Println("GetState--", callContext.contract.Address().String(), hash.String(), val.String())
 	loc.SetBytes(val.Bytes())
 	return nil, nil
 }
@@ -523,7 +518,6 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	val := callContext.stack.pop()
 	interpreter.evm.StateDB.SetState(callContext.contract.Address(),
 		common.Hash(loc.Bytes32()), common.Hash(val.Bytes32()))
-	//fmt.Println("SetState", loc.String(), val.String())
 	return nil, nil
 }
 
@@ -699,8 +693,6 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	}
 
 	ret, returnGas, err := interpreter.evm.Call(callContext.contract, toAddr, args, gas, bigVal)
-
-	//fmt.Println("eeeeee", callContext.contract.Gas, toAddr.String(), gas, hex.EncodeToString(ret), returnGas, err)
 	if err != nil {
 		temp.Clear()
 	} else {

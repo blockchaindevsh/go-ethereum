@@ -148,8 +148,6 @@ func (db *cachingDB) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
 	case *trie.SecureTrie:
 		return t.Copy()
-	case *trie.FastDB:
-		return t.Copy()
 	default:
 		panic(fmt.Errorf("unknown trie type %T", t))
 	}

@@ -24,10 +24,6 @@ func NewFastDB(db *Database) *FastDB {
 	}
 }
 
-func (f *FastDB) Copy() *FastDB {
-	return NewFastDB(f.db)
-}
-
 func (f *FastDB) GetKey(key []byte) []byte {
 	panic("no need to implement")
 }
