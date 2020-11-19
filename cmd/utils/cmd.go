@@ -19,18 +19,21 @@ package utils
 
 import (
 	"compress/gzip"
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rlp"
 	"io"
+	"math/big"
 	"os"
 	"os/signal"
 	"runtime"
@@ -124,21 +127,19 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 	}
 	stream := rlp.NewStream(reader, 0)
 
-	//
-	//
-	//client, err := ethclient.Dial("https://mainnet.infura.io/v3/5f85acad140a4286858886f080177bc9")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//
-	//block, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(chain.CurrentBlock().NumberU64()+1))
-	//if err != nil {
-	//	panic(err)
-	//}
-	//_, err = chain.InsertChain(types.Blocks{block})
-	//
-	//fmt.Println("insert end", block.NumberU64(), err)
-	//panic("sb")
+	client, err := ethclient.Dial("https://mainnet.infura.io/v3/5f85acad140a4286858886f080177bc9")
+	if err != nil {
+		panic(err)
+	}
+
+	block, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(chain.CurrentBlock().NumberU64()+1))
+	if err != nil {
+		panic(err)
+	}
+	_, err = chain.InsertChain(types.Blocks{block})
+
+	fmt.Println("insert end", block.NumberU64(), err)
+	panic("sb")
 
 	// Run actual the import.
 	blocks := make(types.Blocks, importBatchSize)
