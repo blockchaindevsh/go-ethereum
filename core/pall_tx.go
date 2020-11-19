@@ -111,6 +111,8 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 }
 
 func (s *txSortManager) PushNext(txIndex int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if nextTxIndex := s.dependMp[txIndex]; nextTxIndex != 0 {
 		heap.Push(s.heap, nextTxIndex)
 	}
