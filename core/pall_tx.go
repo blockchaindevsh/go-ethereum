@@ -80,10 +80,10 @@ func CalGroup(from []common.Address, to []*common.Address) map[int][]int {
 }
 
 type txSortManager struct {
-	mu        sync.Mutex
-	heap      *IntHeap
-	groupList map[int][]int
+	mu   sync.Mutex
+	heap *IntHeap
 
+	groupLen int
 	dependMp map[int]int
 }
 
@@ -104,9 +104,15 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 	heap.Init(&heapList)
 
 	return &txSortManager{
-		heap:      &heapList,
-		groupList: groupList,
-		dependMp:  dependMp,
+		heap:     &heapList,
+		groupLen: len(groupList),
+		dependMp: dependMp,
+	}
+}
+
+func (s *txSortManager) PushNext(txIndex int) {
+	if nextTxIndex := s.dependMp[txIndex]; nextTxIndex != 0 {
+		heap.Push(s.heap, nextTxIndex)
 	}
 }
 
@@ -117,11 +123,7 @@ func (s *txSortManager) POP() int {
 	if s.heap.Len() == 0 {
 		return -1
 	}
-	txIndex := heap.Pop(s.heap).(int)
-	if s.dependMp[txIndex] != 0 {
-		heap.Push(s.heap, s.dependMp[txIndex])
-	}
-	return txIndex
+	return heap.Pop(s.heap).(int)
 }
 
 type pallTxManager struct {
@@ -140,43 +142,6 @@ type pallTxManager struct {
 	txQueue      chan int
 	receiptQueue []*ReceiptWithIndex
 	gp           uint64
-
-	reHandle *handleMap
-}
-
-type handleMap struct {
-	mp map[int]map[int]bool
-	mu sync.Mutex
-}
-
-func NewHandleMap(txLen int) *handleMap {
-	mp := make(map[int]map[int]bool, 0)
-	for base := -1; base <= txLen; base++ {
-		mp[base] = make(map[int]bool)
-
-		for i := -1; i <= txLen; i++ {
-			mp[base][i] = false
-		}
-	}
-	return &handleMap{
-		mp: mp,
-		mu: sync.Mutex{},
-	}
-
-}
-
-func (h *handleMap) SetValue(base, txindex int) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.mp[base][txindex] = true
-}
-
-func (h *handleMap) AlreadyHandle(base, txindex int) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return h.mp[base][txindex]
 }
 
 type ReceiptWithIndex struct {
@@ -199,7 +164,6 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		txQueue:      make(chan int, txLen),
 		receiptQueue: make([]*ReceiptWithIndex, txLen, txLen),
 		gp:           block.GasLimit(),
-		reHandle:     NewHandleMap(len(block.Transactions())),
 	}
 
 	signer := types.MakeSigner(bc.chainConfig, block.Number())
@@ -212,9 +176,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	}
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
-	fmt.Println("PALL TX READY", block.Number(), p.txSortManger.groupList)
-
-	thread := len(p.txSortManger.groupList)
+	thread := p.txSortManger.groupLen
 	if thread > 8 {
 		thread = 8
 	}
@@ -227,6 +189,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < thread; index++ {
 		p.AddTxToQueue(p.txSortManger.POP())
 	}
+	fmt.Println("NNNNNNNNNNNNNN", block.NumberU64())
 	return p
 }
 
@@ -273,22 +236,22 @@ func (p *pallTxManager) txLoop() {
 		}
 		if !p.handleTx(tx) && !p.ended {
 			p.AddTxToQueue(tx)
+		} else {
+			p.AddTxToQueue(p.txSortManger.POP())
 		}
 	}
 }
 
 func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
-	//fmt.Println("MMMMMMMMMM-start", rr.st.MergedIndex, rr.txIndex)
-	if rr.st.CheckConflict(p.block.Coinbase()) {
+	if rr.receipt != nil && !rr.st.Conflict(p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
+		//fmt.Println("RRRRRRRRRRRRRRRRRRRRRR merge", p.block.NumberU64(), rr.txIndex)
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
-		//fmt.Println("MMMMMMMMMMMMMMMMMMMMM", rr.txIndex, rr.receipt.GasUsed)
+		//fmt.Println("RRRRRRRRRRRRRRRRRRRRRRRR end", p.block.NumberU64(), rr.txIndex)
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
-		if p.baseStateDB.MergedIndex+1 < p.txLen {
-			p.AddTxToQueue(p.txSortManger.POP())
-		}
+		p.txSortManger.PushNext(rr.txIndex)
 		return
 	}
 
@@ -298,31 +261,20 @@ func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
 
 func (p *pallTxManager) handleTx(txIndex int) bool {
 	tx := p.block.Transactions()[txIndex]
-	st, err := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
-	if err != nil {
-		panic(err)
-	}
+	st, _ := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
+
 	p.mubase.Lock()
 	st.MergedSts = p.baseStateDB.MergedSts
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
 	p.mubase.Unlock()
-	if p.reHandle.AlreadyHandle(st.MergedIndex, txIndex) {
-		//fmt.Println("??????",st.MergedIndex,txIndex)
-		return false
-	}
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	//fmt.Println("RRRRRRRRRRRRRReeeeeeee-start", st.MergedIndex, txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	p.reHandle.SetValue(st.MergedIndex, txIndex)
-	//fmt.Println("RRRRRRRRRRRRRReeeeeeee-end", st.MergedIndex, txIndex, err)
-	if err != nil {
-		if st.MergedIndex+1 == txIndex {
-			fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.txSortManger.groupList)
-			panic("should panic")
-		}
-		return false
+
+	if err != nil && st.MergedIndex+1 == txIndex {
+		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
+		panic("should panic")
 	}
 
 	p.AddReceiptToQueue(&ReceiptWithIndex{
@@ -336,12 +288,12 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 func (p *pallTxManager) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
 	logs := make([]*types.Log, 0)
-	CumulativeGasUsed := uint64(0)
+	cumulativeGasUsed := uint64(0)
 
 	for index := 0; index < p.txLen; index++ {
-		CumulativeGasUsed = CumulativeGasUsed + p.mergedReceipts[index].GasUsed
-		p.mergedReceipts[index].CumulativeGasUsed = CumulativeGasUsed
+		cumulativeGasUsed = cumulativeGasUsed + p.mergedReceipts[index].GasUsed
+		p.mergedReceipts[index].CumulativeGasUsed = cumulativeGasUsed
 		logs = append(logs, p.mergedReceipts[index].Logs...)
 	}
-	return p.mergedReceipts, logs, CumulativeGasUsed
+	return p.mergedReceipts, logs, cumulativeGasUsed
 }
