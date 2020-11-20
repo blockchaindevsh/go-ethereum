@@ -201,13 +201,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if s.fakeStorage != nil {
 		return s.fakeStorage[key]
 	}
-	//// If we have a pending write or clean cached, return that
-	//if value, pending := s.pendingStorage[key]; pending {
-	//	return value
-	//}
-	//if value, cached := s.originStorage[key]; cached {
-	//	return value
-	//}
+
 	// If no live objects are available, attempt to use snapshots
 	var (
 		enc []byte
@@ -231,7 +225,6 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 
 	dbKey := makeFastDbKey(s.address, s.data.Incarnation, key)
 	if value, exist := s.db.MergedSts.GetStorage(dbKey); exist {
-		s.originStorage[key] = value
 		return value
 	}
 
@@ -254,7 +247,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	s.db.MergedSts.SetStorage(dbKey, value)
+	s.db.MergedSts.setStorage(dbKey, value)
 	return value
 }
 
@@ -360,6 +353,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		return tr
 	}
 	for key, value := range s.pendingStorage {
+
 		var v []byte
 		if (value == common.Hash{}) {
 			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
@@ -474,7 +468,7 @@ func (s *stateObject) Address() common.Address {
 
 // Code returns the contract code associated with this object, if any.
 func (s *stateObject) Code(db Database) []byte {
-	if code, exist := s.db.MergedSts.GetOriginCode(s.addrHash, common.BytesToHash(s.CodeHash())); exist {
+	if code, exist := s.db.MergedSts.getOriginCode(s.addrHash, common.BytesToHash(s.CodeHash())); exist {
 		return code
 	}
 
@@ -486,7 +480,7 @@ func (s *stateObject) Code(db Database) []byte {
 		s.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
 	}
 	s.code = code
-	s.db.MergedSts.SetOriginCode(s.addrHash, common.BytesToHash(s.CodeHash()), code)
+	s.db.MergedSts.setOriginCode(s.addrHash, common.BytesToHash(s.CodeHash()), code)
 	return code
 }
 

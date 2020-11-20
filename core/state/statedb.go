@@ -59,7 +59,6 @@ func (n *proofList) Delete(key []byte) error {
 }
 
 type mergedStatus struct {
-	//readCachedStateObjects  map[common.Address]*stateObject
 	writeCachedStateObjects map[common.Address]*stateObject
 	mu                      sync.RWMutex
 
@@ -70,7 +69,6 @@ type mergedStatus struct {
 
 func NewMerged() *mergedStatus {
 	return &mergedStatus{
-		//readCachedStateObjects:  make(map[common.Address]*stateObject),
 		writeCachedStateObjects: make(map[common.Address]*stateObject),
 		mu:                      sync.RWMutex{},
 		originAccountMap:        make(map[common.Address]Account),
@@ -79,26 +77,26 @@ func NewMerged() *mergedStatus {
 	}
 }
 
-func (m *mergedStatus) GetWriteObj(addr common.Address) *stateObject {
+func (m *mergedStatus) getWriteObj(addr common.Address) *stateObject {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.writeCachedStateObjects[addr]
 }
 
-func (m *mergedStatus) SetWriteObj(addr common.Address, obj *stateObject, txIndex int) {
+func (m *mergedStatus) setWriteObj(addr common.Address, obj *stateObject, txIndex int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	obj.lastWriteIndex = txIndex
 	m.writeCachedStateObjects[addr] = obj
 }
 
-func (m *mergedStatus) SetStorage(key []byte, value common.Hash) {
+func (m *mergedStatus) setStorage(key []byte, value common.Hash) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.originStorageMap[string(key)] = value
 }
 
-func (m *mergedStatus) GetOriginCode(addr common.Hash, codeHash common.Hash) (Code, bool) {
+func (m *mergedStatus) getOriginCode(addr common.Hash, codeHash common.Hash) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if data, ok := m.originCode[addr]; ok {
@@ -109,7 +107,7 @@ func (m *mergedStatus) GetOriginCode(addr common.Hash, codeHash common.Hash) (Co
 	return nil, false
 }
 
-func (m *mergedStatus) SetOriginCode(addr common.Hash, codehash common.Hash, code Code) {
+func (m *mergedStatus) setOriginCode(addr common.Hash, codehash common.Hash, code Code) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.originCode[codehash]; !ok {
@@ -118,7 +116,7 @@ func (m *mergedStatus) SetOriginCode(addr common.Hash, codehash common.Hash, cod
 	m.originCode[addr][codehash] = code
 }
 
-func (m *mergedStatus) SetOriginAccount(addr common.Address, acc Account) {
+func (m *mergedStatus) setOriginAccount(addr common.Address, acc Account) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.originAccountMap[addr] = acc
@@ -128,16 +126,16 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int, dirty boo
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	pre, ok := m.writeCachedStateObjects[newObj.address]
-	if !ok {
+	pre, exist := m.writeCachedStateObjects[newObj.address]
+	if !exist {
 		for k, v := range newObj.dirtyStorage {
 			newObj.pendingStorage[k] = v
 		}
-		m.writeCachedStateObjects[newObj.address] = newObj
 		if dirty {
-			m.writeCachedStateObjects[newObj.address].lastWriteIndex = txIndex
+			newObj.lastWriteIndex = txIndex
 		}
 
+		m.writeCachedStateObjects[newObj.address] = newObj
 		return
 	}
 
@@ -147,17 +145,17 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int, dirty boo
 
 	if bytes.Compare(newObj.CodeHash(), pre.CodeHash()) != 0 {
 		pre.code = newObj.code
-		pre.dirtyCode = newObj.dirtyCode //SB?
+		pre.dirtyCode = newObj.dirtyCode
 	}
 
 	pre.suicided = newObj.suicided
 	pre.deleted = newObj.deleted
 	pre.data = newObj.data
 
-	m.writeCachedStateObjects[newObj.address] = pre
 	if dirty {
-		m.writeCachedStateObjects[newObj.address].lastWriteIndex = txIndex
+		pre.lastWriteIndex = txIndex
 	}
+	m.writeCachedStateObjects[newObj.address] = pre
 
 }
 
@@ -228,9 +226,7 @@ type StateDB struct {
 	snapStorage   map[common.Hash]map[common.Hash][]byte
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
-	stateObjects        map[common.Address]*stateObject
-	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
-	stateObjectsDirty   map[common.Address]struct{} // State objects modified in the current execution
+	stateObjects map[common.Address]*stateObject
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -284,15 +280,13 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		trie:  tr,
 		snaps: snaps,
 
-		stateObjects:        make(map[common.Address]*stateObject),
-		stateObjectsPending: make(map[common.Address]struct{}),
-		stateObjectsDirty:   make(map[common.Address]struct{}),
-		logs:                make(map[common.Hash][]*types.Log),
-		preimages:           make(map[common.Hash][]byte),
-		journal:             newJournal(),
-		MergedSts:           NewMerged(),
-		MergedIndex:         -1,
-		RWSet:               make(map[common.Address]bool, 0),
+		stateObjects: make(map[common.Address]*stateObject),
+		logs:         make(map[common.Hash][]*types.Log),
+		preimages:    make(map[common.Hash][]byte),
+		journal:      newJournal(),
+		MergedSts:    NewMerged(),
+		MergedIndex:  -1,
+		RWSet:        make(map[common.Address]bool, 0),
 	}
 	if sdb.snaps != nil {
 		if sdb.snap = sdb.snaps.Snapshot(root); sdb.snap != nil {
@@ -324,8 +318,6 @@ func (s *StateDB) Reset(root common.Hash) error {
 	}
 	s.trie = tr
 	s.stateObjects = make(map[common.Address]*stateObject)
-	s.stateObjectsPending = make(map[common.Address]struct{})
-	s.stateObjectsDirty = make(map[common.Address]struct{})
 	s.thash = common.Hash{}
 	s.bhash = common.Hash{}
 	s.txIndex = 0
@@ -735,6 +727,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 				log.Error("Failed to decode state object", "addr", addr, "err", err)
 				return nil
 			}
+			s.MergedSts.setOriginAccount(addr, *data)
 		}
 
 	}
@@ -843,16 +836,14 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	state := &StateDB{
-		db:                  s.db,
-		trie:                s.db.CopyTrie(s.trie),
-		stateObjects:        make(map[common.Address]*stateObject, len(s.journal.dirties)),
-		stateObjectsPending: make(map[common.Address]struct{}, len(s.stateObjectsPending)),
-		stateObjectsDirty:   make(map[common.Address]struct{}, len(s.journal.dirties)),
-		refund:              s.refund,
-		logs:                make(map[common.Hash][]*types.Log, len(s.logs)),
-		logSize:             s.logSize,
-		preimages:           make(map[common.Hash][]byte, len(s.preimages)),
-		journal:             newJournal(),
+		db:           s.db,
+		trie:         s.db.CopyTrie(s.trie),
+		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
+		refund:       s.refund,
+		logs:         make(map[common.Hash][]*types.Log, len(s.logs)),
+		logSize:      s.logSize,
+		preimages:    make(map[common.Hash][]byte, len(s.preimages)),
+		journal:      newJournal(),
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
@@ -865,26 +856,17 @@ func (s *StateDB) Copy() *StateDB {
 			// so we need to make sure that anyside effect the journal would have caused
 			// during a commit (or similar op) is already applied to the copy.
 			state.stateObjects[addr] = object.deepCopy(state)
-
-			state.stateObjectsDirty[addr] = struct{}{}   // Mark the copy dirty to force internal (code/state) commits
-			state.stateObjectsPending[addr] = struct{}{} // Mark the copy pending to force external (account) commits
 		}
 	}
 	// Above, we don't copy the actual journal. This means that if the copy is copied, the
 	// loop above will be a no-op, since the copy's journal is empty.
 	// Thus, here we iterate over stateObjects, to enable copies of copies
-	for addr := range s.stateObjectsPending {
+	for addr := range s.stateObjects {
 		if _, exist := state.stateObjects[addr]; !exist {
 			state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
 		}
-		state.stateObjectsPending[addr] = struct{}{}
 	}
-	for addr := range s.stateObjectsDirty {
-		if _, exist := state.stateObjects[addr]; !exist {
-			state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
-		}
-		state.stateObjectsDirty[addr] = struct{}{}
-	}
+
 	for hash, logs := range s.logs {
 		cpy := make([]*types.Log, len(logs))
 		for i, l := range logs {
@@ -923,7 +905,7 @@ func (s *StateDB) Conflict(miner common.Address) bool {
 			continue
 		}
 
-		preWrite := s.MergedSts.GetWriteObj(k)
+		preWrite := s.MergedSts.getWriteObj(k)
 		if preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
 			return true
 		}
@@ -938,10 +920,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 		s.MergedSts.MergeWriteObj(newObj, s.txIndex, dirty)
 	}
 
-	pre := base.MergedSts.GetWriteObj(miner)
+	pre := base.MergedSts.getWriteObj(miner)
 	if pre == nil {
 		s.AddBalance(miner, txFee)
-		base.MergedSts.SetWriteObj(miner, s.getStateObject(miner), s.txIndex)
+		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.txIndex)
 	} else {
 		pre.AddBalance(txFee)
 	}
@@ -950,16 +932,11 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 }
 
 func (s *StateDB) FinalUpdateObjs(miner common.Address) {
-	s.journal.dirties = make(map[common.Address]int)
-
 	for addr, obj := range s.MergedSts.writeCachedStateObjects {
-		s.journal.dirties[addr] = 0
 		s.stateObjects[addr] = obj
-		s.stateObjectsPending[addr] = struct{}{}
 	}
 
 	s.stateObjects[miner] = s.MergedSts.writeCachedStateObjects[miner]
-	s.stateObjectsPending[miner] = struct{}{}
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
@@ -987,17 +964,7 @@ func (s *StateDB) GetRefund() uint64 {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
-	for addr := range s.journal.dirties {
-		obj, exist := s.stateObjects[addr]
-		if !exist {
-			// ripeMD is 'touched' at block 1714175, in tx 0x1237f737031e40bcde4a8b7e717b2d15e3ecadfe49bb1bbc71ee9deb09c6fcf2
-			// That tx goes out of gas, and although the notion of 'touched' does not exist there, the
-			// touch-event will still be recorded in the journal. Since ripeMD is a special snowflake,
-			// it will persist in the journal even though the journal is reverted. In this special circumstance,
-			// it may exist in `s.journal.dirties` but not in `s.stateObjects`.
-			// Thus, we can safely ignore it here
-			continue
-		}
+	for _, obj := range s.stateObjects {
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
 			obj.data.Deleted = true
@@ -1014,8 +981,6 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		} else {
 			//obj.finalise()
 		}
-		s.stateObjectsPending[addr] = struct{}{}
-		s.stateObjectsDirty[addr] = struct{}{}
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
 	//s.clearJournalAndRefund()
@@ -1028,22 +993,19 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
 
-	for addr := range s.stateObjectsPending {
+	for addr := range s.stateObjects {
 		obj := s.stateObjects[addr]
 		if obj.deleted {
 			obj.data.Deleted = true
 		}
-		obj.updateRoot(s.db)
 		if isCommit {
+			obj.updateRoot(s.db)
 			s.updateStateObject(obj)
 		}
 	}
 
 	if !isCommit {
 		return common.Hash{}
-	}
-	if len(s.stateObjectsPending) > 0 {
-		s.stateObjectsPending = make(map[common.Address]struct{})
 	}
 	// Track the amount of time wasted on hashing the account trie
 	if metrics.EnabledExpensive {
@@ -1086,7 +1048,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
-	for addr := range s.stateObjectsDirty {
+	for addr := range s.stateObjects {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {
@@ -1099,9 +1061,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				return common.Hash{}, err
 			}
 		}
-	}
-	if len(s.stateObjectsDirty) > 0 {
-		s.stateObjectsDirty = make(map[common.Address]struct{})
 	}
 	if codeWriter.ValueSize() > 0 {
 		if err := codeWriter.Write(); err != nil {
