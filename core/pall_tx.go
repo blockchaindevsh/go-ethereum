@@ -10,17 +10,17 @@ import (
 	"sync"
 )
 
-type IntHeap []int
+type intHeap []int
 
-func (h IntHeap) Len() int           { return len(h) }
-func (h IntHeap) Less(i, j int) bool { return h[i] < h[j] }
-func (h IntHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h intHeap) Len() int           { return len(h) }
+func (h intHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h intHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
-func (h *IntHeap) Push(x interface{}) {
+func (h *intHeap) Push(x interface{}) {
 	*h = append(*h, x.(int))
 }
 
-func (h *IntHeap) Pop() interface{} {
+func (h *intHeap) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
@@ -81,7 +81,7 @@ func grouping(from []common.Address, to []*common.Address) map[int][]int {
 
 type txSortManager struct {
 	mu   sync.Mutex
-	heap *IntHeap
+	heap *intHeap
 
 	groupLen           int
 	nextTxIndexInGroup map[int]int
@@ -97,7 +97,7 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 		}
 	}
 
-	heapList := make(IntHeap, 0)
+	heapList := make(intHeap, 0)
 	for _, v := range groupList {
 		heapList = append(heapList, v[0])
 	}

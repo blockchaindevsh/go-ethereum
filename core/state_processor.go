@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"time"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -47,6 +48,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	ts := time.Now()
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -67,7 +69,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
-
+	common.ProcessBlockTime += time.Since(ts)
 	return receipts, allLogs, *usedGas, nil
 }
 
