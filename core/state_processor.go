@@ -47,10 +47,6 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-
-	if block.NumberU64() == 4549573 {
-		//panic("4549573----")
-	}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -67,13 +63,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if len(block.Transactions()) != 0 {
 		pm := NewPallTxManage(block, statedb, p.bc)
 		<-pm.ch
-		close(pm.txQueue)
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 	}
-
-	//for k, v := range receipts {
-	//	fmt.Println("block", block.NumberU64(), k, v.GasUsed)
-	//}
 
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
@@ -94,7 +85,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if tx.Hash().String() == "0x4b9ca84c63e5648fca3f1224db3952a39a061d9aeb407f60aa8e164c3201fd86" {
+	if tx.Hash().String() == "0xa6c235831bba9139ca7e168328a2d15978d90dfdd61a6be697abbec1846b59e01" {
 		//vmenv.PrintLog = true
 		vmenv.PrintLog = true
 	}

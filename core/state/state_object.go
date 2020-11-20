@@ -64,11 +64,11 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	currentMergedIndex int
-	address            common.Address
-	addrHash           common.Hash // hash of ethereum address of the account
-	data               Account
-	db                 *StateDB
+	lastWriteIndex int
+	address        common.Address
+	addrHash       common.Hash // hash of ethereum address of the account
+	data           Account
+	db             *StateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -228,12 +228,19 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
 	}
+
+	dbKey := makeFastDbKey(s.address, s.data.Incarnation, key)
+	if value, exist := s.db.MergedSts.GetStorage(dbKey); exist {
+		s.originStorage[key] = value
+		return value
+	}
+
 	// If snapshot unavailable or reading from it failed, load from the database
 	if s.db.snap == nil || err != nil {
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.db.StorageReads += time.Since(start) }(time.Now())
 		}
-		if enc, err = s.getTrie(db).TryGet(makeFastDbKey(s.address, s.data.Incarnation, key)); err != nil {
+		if enc, err = s.getTrie(db).TryGet(dbKey); err != nil {
 			s.setError(err)
 			return common.Hash{}
 		}
@@ -247,6 +254,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
+	s.db.MergedSts.SetStorage(dbKey, value)
 	return value
 }
 
@@ -327,7 +335,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		return nil
 	}
 	// Make sure all dirty slots are finalized into the pending storage area
-	s.finalise()
+	//s.finalise()
 	if len(s.pendingStorage) == 0 {
 		return s.trie
 	}
@@ -351,17 +359,6 @@ func (s *stateObject) updateTrie(db Database) Trie {
 	if !isCommit {
 		return tr
 	}
-
-	//if common.PrintExtraLog {
-	//	if len(s.pendingStorage) != 0 {
-	//		stroageToDB := fmt.Sprintf("storage: addr%v", s.address.String())
-	//		for k, v := range s.pendingStorage {
-	//			stroageToDB += fmt.Sprintf(" %v-%v ", k.String(), v.String())
-	//		}
-	//		fmt.Println("storage", stroageToDB)
-	//	}
-	//}
-
 	for key, value := range s.pendingStorage {
 		var v []byte
 		if (value == common.Hash{}) {
@@ -375,9 +372,6 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		if storage != nil {
 			storage[crypto.Keccak256Hash(key[:])] = v // v will be nil if value is 0x00
 		}
-	}
-	if len(s.pendingStorage) > 0 {
-		s.pendingStorage = make(Storage)
 	}
 	return tr
 }
@@ -480,6 +474,10 @@ func (s *stateObject) Address() common.Address {
 
 // Code returns the contract code associated with this object, if any.
 func (s *stateObject) Code(db Database) []byte {
+	if code, exist := s.db.MergedSts.GetOriginCode(s.addrHash, common.BytesToHash(s.CodeHash())); exist {
+		return code
+	}
+
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
 		return nil
 	}
@@ -488,6 +486,7 @@ func (s *stateObject) Code(db Database) []byte {
 		s.setError(fmt.Errorf("can't load code hash %x: %v", s.CodeHash(), err))
 	}
 	s.code = code
+	s.db.MergedSts.SetOriginCode(s.addrHash, common.BytesToHash(s.CodeHash()), code)
 	return code
 }
 
@@ -496,18 +495,15 @@ func (s *stateObject) Code(db Database) []byte {
 // inside the database to avoid loading codes seen recently.
 func (s *stateObject) CodeSize(db Database) int {
 	if s.code != nil {
-		//fmt.Println("4999", len(s.code))
 		return len(s.code)
 	}
 	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
-		//fmt.Println("dsada")
 		return 0
 	}
 	size, err := db.ContractCodeSize(s.addrHash, common.BytesToHash(s.CodeHash()))
 	if err != nil {
 		s.setError(fmt.Errorf("can't load code size %x: %v", s.CodeHash(), err))
 	}
-	//fmt.Println("51000", size, hex.EncodeToString(s.data.CodeHash))
 	return size
 }
 

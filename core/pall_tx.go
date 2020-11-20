@@ -29,35 +29,35 @@ func (h *IntHeap) Pop() interface{} {
 }
 
 var (
-	fatherMp = make(map[common.Address]common.Address, 0)
+	rootAddr = make(map[common.Address]common.Address, 0)
 )
 
 func Find(x common.Address) common.Address {
-	if fatherMp[x] != x {
-		fatherMp[x] = Find(fatherMp[x])
+	if rootAddr[x] != x {
+		rootAddr[x] = Find(rootAddr[x])
 	}
-	return fatherMp[x]
+	return rootAddr[x]
 }
 
 func Union(x common.Address, y *common.Address) {
-	if _, ok := fatherMp[x]; !ok {
-		fatherMp[x] = x
+	if _, ok := rootAddr[x]; !ok {
+		rootAddr[x] = x
 	}
 	if y == nil {
 		return
 	}
-	if _, ok := fatherMp[*y]; !ok {
-		fatherMp[*y] = *y
+	if _, ok := rootAddr[*y]; !ok {
+		rootAddr[*y] = *y
 	}
 	fx := Find(x)
 	fy := Find(*y)
 	if fx != fy {
-		fatherMp[fy] = fx
+		rootAddr[fy] = fx
 	}
 }
 
-func CalGroup(from []common.Address, to []*common.Address) map[int][]int {
-	fatherMp = make(map[common.Address]common.Address, 0)
+func grouping(from []common.Address, to []*common.Address) map[int][]int {
+	rootAddr = make(map[common.Address]common.Address, 0)
 	for index, sender := range from {
 		Union(sender, to[index])
 	}
@@ -80,20 +80,20 @@ func CalGroup(from []common.Address, to []*common.Address) map[int][]int {
 }
 
 type txSortManager struct {
-	mu        sync.Mutex
-	heap      *IntHeap
-	groupList map[int][]int
+	mu   sync.Mutex
+	heap *IntHeap
 
-	dependMp map[int]int
+	groupLen           int
+	nextTxIndexInGroup map[int]int
 }
 
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
-	groupList := CalGroup(from, to)
+	groupList := grouping(from, to)
 
-	dependMp := make(map[int]int)
+	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
 		for index := 0; index < len(list)-1; index++ {
-			dependMp[list[index]] = list[index+1]
+			nextTxIndexInGroup[list[index]] = list[index+1]
 		}
 	}
 
@@ -104,24 +104,34 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 	heap.Init(&heapList)
 
 	return &txSortManager{
-		heap:      &heapList,
-		groupList: groupList,
-		dependMp:  dependMp,
+		heap:               &heapList,
+		groupLen:           len(groupList),
+		nextTxIndexInGroup: nextTxIndexInGroup,
 	}
 }
 
-func (s *txSortManager) POP() int {
+func (s *txSortManager) pushNext(txIndex int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if nextTxIndex := s.nextTxIndexInGroup[txIndex]; nextTxIndex != 0 {
+		heap.Push(s.heap, nextTxIndex)
+	}
+}
+
+func (s *txSortManager) push(txIndex int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	heap.Push(s.heap, txIndex)
+}
+
+func (s *txSortManager) pop() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.heap.Len() == 0 {
 		return -1
 	}
-	txIndex := heap.Pop(s.heap).(int)
-	if s.dependMp[txIndex] != 0 {
-		heap.Push(s.heap, s.dependMp[txIndex])
-	}
-	return txIndex
+	return heap.Pop(s.heap).(int)
 }
 
 type pallTxManager struct {
@@ -129,59 +139,18 @@ type pallTxManager struct {
 	txLen int
 	bc    *BlockChain
 
-	mubase         sync.RWMutex
+	mu             sync.Mutex
 	baseStateDB    *state.StateDB
 	mergedReceipts []*types.Receipt
 	ch             chan struct{}
 	ended          bool
 
 	txSortManger *txSortManager
-
-	txQueue      chan int
-	receiptQueue []*ReceiptWithIndex
+	txResults    []*txResult
 	gp           uint64
-
-
-	reHandle *handleMap
 }
 
-type handleMap struct {
-	mp map[int]map[int]bool
-	mu sync.Mutex
-}
-
-func NewHandleMap(txLen int)*handleMap  {
-	mp:=make(map[int]map[int]bool,0)
-	for base:=-1;base<=txLen;base++{
-		mp[base]=make(map[int]bool)
-		
-		for i:=-1;i<=txLen;i++{
-			mp[base][i]=false
-		}
-	}
-	return &handleMap{
-		mp: mp,
-		mu: sync.Mutex{},
-	}
-	
-}
-
-func (h *handleMap)SetValue(base ,txindex int)  {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-
-	h.mp[base][txindex]=true
-}
-
-func (h *handleMap)AlreadyHandle(base,txindex int)bool  {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return h.mp[base][txindex]
-}
-
-type ReceiptWithIndex struct {
+type txResult struct {
 	st      *state.StateDB
 	txIndex int
 	receipt *types.Receipt
@@ -198,10 +167,8 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		mergedReceipts: make([]*types.Receipt, txLen, txLen),
 		ch:             make(chan struct{}, 1),
 
-		txQueue:      make(chan int, txLen),
-		receiptQueue: make([]*ReceiptWithIndex, txLen, txLen),
-		gp:           block.GasLimit(),
-		reHandle:NewHandleMap(len(block.Transactions())),
+		txResults: make([]*txResult, txLen, txLen),
+		gp:        block.GasLimit(),
 	}
 
 	signer := types.MakeSigner(bc.chainConfig, block.Number())
@@ -214,49 +181,31 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	}
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
-	fmt.Println("PALL TX READY", block.Number(), p.txSortManger.groupList)
-
-	thread := len(p.txSortManger.groupList)
+	thread := p.txSortManger.groupLen
 	if thread > 8 {
 		thread = 8
 	}
 
-	p.txQueue = make(chan int, thread)
 	for index := 0; index < thread; index++ {
 		go p.txLoop()
 	}
 
-	for index := 0; index < thread; index++ {
-		p.AddTxToQueue(p.txSortManger.POP())
-	}
 	return p
 }
 
-func (p *pallTxManager) AddTxToQueue(txIndex int) {
-	if txIndex == -1 {
-		return
-	}
-	p.txQueue <- txIndex
-}
-
-func (p *pallTxManager) GetTxFromQueue() (int, bool) {
-	data, ok := <-p.txQueue
-	return data, ok == false
-}
-
-func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
-	p.receiptQueue[re.txIndex] = re
+func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
+	p.txResults[re.txIndex] = re
 	startTxIndex := re.txIndex
 
-	p.mubase.Lock()
-	defer p.mubase.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	if p.ended {
 		return
 	}
 
-	for p.baseStateDB.MergedIndex+1 == startTxIndex && startTxIndex < p.txLen && p.receiptQueue[startTxIndex] != nil {
-		p.handleReceipt(p.receiptQueue[startTxIndex])
+	for p.baseStateDB.MergedIndex+1 == startTxIndex && startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
+		p.handleReceipt(p.txResults[startTxIndex])
 		startTxIndex++
 	}
 
@@ -268,82 +217,61 @@ func (p *pallTxManager) AddReceiptToQueue(re *ReceiptWithIndex) {
 }
 
 func (p *pallTxManager) txLoop() {
-	for {
-		tx, isClosed := p.GetTxFromQueue()
-		if isClosed {
-			return
+	for !p.ended {
+		txIndex := p.txSortManger.pop()
+		if txIndex == -1 {
+			continue
 		}
-		if !p.handleTx(tx) && !p.ended {
-			p.AddTxToQueue(tx)
-		}
+		p.handleTx(txIndex)
 	}
 }
 
-func (p *pallTxManager) handleReceipt(rr *ReceiptWithIndex) {
-	if rr.st.CheckConflict(p.block.Coinbase()) {
+func (p *pallTxManager) handleReceipt(rr *txResult) {
+	if rr.receipt != nil && !rr.st.Conflict(p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
-		//fmt.Println("MMMMMMMMMMMMMMMMMMMMM", rr.txIndex, rr.receipt.GasUsed)
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
-		if p.baseStateDB.MergedIndex+1 < p.txLen {
-			p.AddTxToQueue(p.txSortManger.POP())
-		}
+		p.txSortManger.pushNext(rr.txIndex)
 		return
 	}
-
-	p.receiptQueue[rr.txIndex] = nil
-	p.AddTxToQueue(rr.txIndex)
+	p.txResults[rr.txIndex] = nil
+	p.txSortManger.push(rr.txIndex)
 }
 
-func (p *pallTxManager) handleTx(txIndex int) bool {
+func (p *pallTxManager) handleTx(txIndex int) {
 	tx := p.block.Transactions()[txIndex]
-	st, err := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
-	if err != nil {
-		panic(err)
-	}
-	p.mubase.Lock()
+	st, _ := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
+
+	p.mu.Lock()
 	st.MergedSts = p.baseStateDB.MergedSts
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
-	p.mubase.Unlock()
-	if p.reHandle.AlreadyHandle(st.MergedIndex,txIndex){
-		//fmt.Println("??????",st.MergedIndex,txIndex)
-		return false
-	}
+	p.mu.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	//fmt.Println("RRRRRRRRRRRRRReeeeeeee-start", st.MergedIndex, txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	p.reHandle.SetValue(st.MergedIndex,txIndex)
-	//fmt.Println("RRRRRRRRRRRRRReeeeeeee-end", st.MergedIndex, txIndex, err)
-	if err != nil {
-		if st.MergedIndex+1 == txIndex {
-			fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex, "groupList", p.txSortManger.groupList)
-			panic("should panic")
-		}
-		return false
+	if err != nil && st.MergedIndex+1 == txIndex {
+		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
+		panic("should panic")
 	}
 
-
-	p.AddReceiptToQueue(&ReceiptWithIndex{
+	p.AddReceiptToQueue(&txResult{
 		st:      st,
 		txIndex: txIndex,
 		receipt: receipt,
 	})
-	return true
-
 }
 
 func (p *pallTxManager) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
 	logs := make([]*types.Log, 0)
-	CumulativeGasUsed := uint64(0)
+	cumulativeGasUsed := uint64(0)
 
 	for index := 0; index < p.txLen; index++ {
-		CumulativeGasUsed = CumulativeGasUsed + p.mergedReceipts[index].GasUsed
-		p.mergedReceipts[index].CumulativeGasUsed = CumulativeGasUsed
+		cumulativeGasUsed = cumulativeGasUsed + p.mergedReceipts[index].GasUsed
+		p.mergedReceipts[index].CumulativeGasUsed = cumulativeGasUsed
 		logs = append(logs, p.mergedReceipts[index].Logs...)
 	}
-	return p.mergedReceipts, logs, CumulativeGasUsed
+	return p.mergedReceipts, logs, cumulativeGasUsed
 }
