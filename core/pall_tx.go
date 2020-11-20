@@ -190,6 +190,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		go p.txLoop()
 	}
 
+	fmt.Println("ready to pall tx", "blockNumber", block.NumberU64(), "len(txs)", len(block.Transactions()))
 	return p
 }
 
