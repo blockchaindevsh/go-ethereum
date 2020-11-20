@@ -198,22 +198,21 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
 	p.txResults[re.txIndex] = re
 	startTxIndex := re.txIndex
-	if p.ended {
-		return
-	}
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
+	if p.ended {
+		return
+	}
 	for p.baseStateDB.MergedIndex+1 == startTxIndex && startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
 		p.handleReceipt(p.txResults[startTxIndex])
 		startTxIndex++
 	}
 
-	if p.baseStateDB.MergedIndex+1 == p.txLen {
+	if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
+		p.ended = true
 		p.baseStateDB.FinalUpdateObjs(p.block.Coinbase())
 		p.ch <- struct{}{}
-		p.ended = true
 	}
 }
 
