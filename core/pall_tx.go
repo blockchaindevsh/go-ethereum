@@ -147,8 +147,10 @@ type pallTxManager struct {
 
 	txSortManger *txSortManager
 
-	txResults []*txResult
-	gp        uint64
+	txQueue     chan int
+	mergedQueue chan struct{}
+	txResults   []*txResult
+	gp          uint64
 }
 
 type txResult struct {
@@ -168,8 +170,10 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		mergedReceipts: make([]*types.Receipt, txLen, txLen),
 		ch:             make(chan struct{}, 1),
 
-		txResults: make([]*txResult, txLen, txLen),
-		gp:        block.GasLimit(),
+		txQueue:     make(chan int, 0),
+		mergedQueue: make(chan struct{}, len(block.Transactions())),
+		txResults:   make([]*txResult, txLen, txLen),
+		gp:          block.GasLimit(),
 	}
 
 	signer := types.MakeSigner(bc.chainConfig, block.Number())
@@ -191,7 +195,9 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		go p.txLoop()
 	}
 
-	fmt.Println("ready to pall tx", "blockNumber", block.NumberU64(), "len(txs)", len(block.Transactions()))
+	go p.schedule()
+
+	fmt.Println("process", block.NumberU64(), len(block.Transactions()))
 	return p
 }
 
@@ -212,17 +218,33 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
 	if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
 		p.ended = true
 		p.baseStateDB.FinalUpdateObjs(p.block.Coinbase())
+		close(p.mergedQueue)
+		close(p.txQueue)
 		p.ch <- struct{}{}
 	}
 }
 
 func (p *pallTxManager) txLoop() {
-	for !p.ended {
-		txIndex := p.txSortManger.pop()
-		if txIndex == -1 {
-			continue
+	for true {
+		txIndex, ok := <-p.txQueue
+		if !ok {
+			break
 		}
 		p.handleTx(txIndex)
+	}
+}
+
+func (p *pallTxManager) schedule() {
+	p.mergedQueue <- struct{}{}
+	for true {
+		_, ok := <-p.mergedQueue
+		if !ok {
+			break
+		}
+		if data := p.txSortManger.pop(); data != -1 {
+			p.txQueue <- data
+		}
+
 	}
 }
 
@@ -235,6 +257,7 @@ func (p *pallTxManager) handleReceipt(rr *txResult) {
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
 		p.txSortManger.pushNextTxInGroup(rr.txIndex)
+		p.mergedQueue <- struct{}{}
 		return
 	}
 	p.txResults[rr.txIndex] = nil
