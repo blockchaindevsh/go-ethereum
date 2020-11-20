@@ -226,9 +226,7 @@ type StateDB struct {
 	snapStorage   map[common.Hash]map[common.Hash][]byte
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
-	stateObjects        map[common.Address]*stateObject
-	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
-	stateObjectsDirty   map[common.Address]struct{} // State objects modified in the current execution
+	stateObjects map[common.Address]*stateObject
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -282,15 +280,13 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		trie:  tr,
 		snaps: snaps,
 
-		stateObjects:        make(map[common.Address]*stateObject),
-		stateObjectsPending: make(map[common.Address]struct{}),
-		stateObjectsDirty:   make(map[common.Address]struct{}),
-		logs:                make(map[common.Hash][]*types.Log),
-		preimages:           make(map[common.Hash][]byte),
-		journal:             newJournal(),
-		MergedSts:           NewMerged(),
-		MergedIndex:         -1,
-		RWSet:               make(map[common.Address]bool, 0),
+		stateObjects: make(map[common.Address]*stateObject),
+		logs:         make(map[common.Hash][]*types.Log),
+		preimages:    make(map[common.Hash][]byte),
+		journal:      newJournal(),
+		MergedSts:    NewMerged(),
+		MergedIndex:  -1,
+		RWSet:        make(map[common.Address]bool, 0),
 	}
 	if sdb.snaps != nil {
 		if sdb.snap = sdb.snaps.Snapshot(root); sdb.snap != nil {
@@ -322,8 +318,6 @@ func (s *StateDB) Reset(root common.Hash) error {
 	}
 	s.trie = tr
 	s.stateObjects = make(map[common.Address]*stateObject)
-	s.stateObjectsPending = make(map[common.Address]struct{})
-	s.stateObjectsDirty = make(map[common.Address]struct{})
 	s.thash = common.Hash{}
 	s.bhash = common.Hash{}
 	s.txIndex = 0
@@ -842,16 +836,14 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	state := &StateDB{
-		db:                  s.db,
-		trie:                s.db.CopyTrie(s.trie),
-		stateObjects:        make(map[common.Address]*stateObject, len(s.journal.dirties)),
-		stateObjectsPending: make(map[common.Address]struct{}, len(s.stateObjectsPending)),
-		stateObjectsDirty:   make(map[common.Address]struct{}, len(s.journal.dirties)),
-		refund:              s.refund,
-		logs:                make(map[common.Hash][]*types.Log, len(s.logs)),
-		logSize:             s.logSize,
-		preimages:           make(map[common.Hash][]byte, len(s.preimages)),
-		journal:             newJournal(),
+		db:           s.db,
+		trie:         s.db.CopyTrie(s.trie),
+		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
+		refund:       s.refund,
+		logs:         make(map[common.Hash][]*types.Log, len(s.logs)),
+		logSize:      s.logSize,
+		preimages:    make(map[common.Hash][]byte, len(s.preimages)),
+		journal:      newJournal(),
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
@@ -864,26 +856,17 @@ func (s *StateDB) Copy() *StateDB {
 			// so we need to make sure that anyside effect the journal would have caused
 			// during a commit (or similar op) is already applied to the copy.
 			state.stateObjects[addr] = object.deepCopy(state)
-
-			state.stateObjectsDirty[addr] = struct{}{}   // Mark the copy dirty to force internal (code/state) commits
-			state.stateObjectsPending[addr] = struct{}{} // Mark the copy pending to force external (account) commits
 		}
 	}
 	// Above, we don't copy the actual journal. This means that if the copy is copied, the
 	// loop above will be a no-op, since the copy's journal is empty.
 	// Thus, here we iterate over stateObjects, to enable copies of copies
-	for addr := range s.stateObjectsPending {
+	for addr := range s.stateObjects {
 		if _, exist := state.stateObjects[addr]; !exist {
 			state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
 		}
-		state.stateObjectsPending[addr] = struct{}{}
 	}
-	for addr := range s.stateObjectsDirty {
-		if _, exist := state.stateObjects[addr]; !exist {
-			state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
-		}
-		state.stateObjectsDirty[addr] = struct{}{}
-	}
+
 	for hash, logs := range s.logs {
 		cpy := make([]*types.Log, len(logs))
 		for i, l := range logs {
@@ -954,11 +937,9 @@ func (s *StateDB) FinalUpdateObjs(miner common.Address) {
 	for addr, obj := range s.MergedSts.writeCachedStateObjects {
 		s.journal.dirties[addr] = 0
 		s.stateObjects[addr] = obj
-		s.stateObjectsPending[addr] = struct{}{}
 	}
 
 	s.stateObjects[miner] = s.MergedSts.writeCachedStateObjects[miner]
-	s.stateObjectsPending[miner] = struct{}{}
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
@@ -1013,8 +994,6 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		} else {
 			//obj.finalise()
 		}
-		s.stateObjectsPending[addr] = struct{}{}
-		s.stateObjectsDirty[addr] = struct{}{}
 	}
 	// Invalidate journal because reverting across transactions is not allowed.
 	//s.clearJournalAndRefund()
@@ -1027,22 +1006,19 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
 
-	for addr := range s.stateObjectsPending {
+	for addr := range s.stateObjects {
 		obj := s.stateObjects[addr]
 		if obj.deleted {
 			obj.data.Deleted = true
 		}
-		obj.updateRoot(s.db)
 		if isCommit {
+			obj.updateRoot(s.db)
 			s.updateStateObject(obj)
 		}
 	}
 
 	if !isCommit {
 		return common.Hash{}
-	}
-	if len(s.stateObjectsPending) > 0 {
-		s.stateObjectsPending = make(map[common.Address]struct{})
 	}
 	// Track the amount of time wasted on hashing the account trie
 	if metrics.EnabledExpensive {
@@ -1085,7 +1061,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
-	for addr := range s.stateObjectsDirty {
+	for addr := range s.stateObjects {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {
@@ -1098,9 +1074,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				return common.Hash{}, err
 			}
 		}
-	}
-	if len(s.stateObjectsDirty) > 0 {
-		s.stateObjectsDirty = make(map[common.Address]struct{})
 	}
 	if codeWriter.ValueSize() > 0 {
 		if err := codeWriter.Write(); err != nil {
