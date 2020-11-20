@@ -90,6 +90,7 @@ type txSortManager struct {
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
 	groupList := grouping(from, to)
 
+	fmt.Println("froupList", groupList)
 	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
 		for index := 0; index < len(list)-1; index++ {
@@ -251,6 +252,7 @@ func (p *pallTxManager) handleReceipt(rr *txResult) {
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
+		fmt.Println("pushNext", p.block.NumberU64(), rr.txIndex)
 		p.txSortManger.pushNext(rr.txIndex)
 		return
 	}
