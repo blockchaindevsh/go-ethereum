@@ -190,7 +190,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	for index := 0; index < thread; index++ {
 		p.AddTxToQueue(p.txSortManger.pop())
 	}
-	fmt.Println("NNNNNNNNNNNNNN", block.NumberU64())
+	fmt.Println("NNNNNNNNNNNNNN", block.NumberU64(), len(block.Transactions()))
 	return p
 }
 
@@ -271,7 +271,7 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-
+	fmt.Println("handle tx end", st.MergedIndex, txIndex, err)
 	if err != nil && st.MergedIndex+1 == txIndex {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
 		panic("should panic")
