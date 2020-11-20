@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"time"
 )
 
 // Report gives off a warning requesting the user to submit an issue to the github tracker.
@@ -50,3 +51,7 @@ func PrintDepricationWarning(str string) {
 
 `, line, emptyLine, str, emptyLine, line)
 }
+
+var (
+	ProcessBlockTime = time.Duration(0)
+)
