@@ -63,7 +63,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if len(block.Transactions()) != 0 {
 		pm := NewPallTxManage(block, statedb, p.bc)
 		<-pm.ch
-		close(pm.txQueue)
 		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 	}
 

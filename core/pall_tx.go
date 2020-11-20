@@ -90,7 +90,6 @@ type txSortManager struct {
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
 	groupList := grouping(from, to)
 
-	fmt.Println("froupList", groupList)
 	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
 		for index := 0; index < len(list)-1; index++ {
@@ -119,6 +118,12 @@ func (s *txSortManager) pushNext(txIndex int) {
 	}
 }
 
+func (s *txSortManager) push(txIndex int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	heap.Push(s.heap, txIndex)
+}
+
 func (s *txSortManager) pop() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -141,10 +146,8 @@ type pallTxManager struct {
 	ended          bool
 
 	txSortManger *txSortManager
-
-	txQueue   chan int
-	txResults []*txResult
-	gp        uint64
+	txResults    []*txResult
+	gp           uint64
 }
 
 type txResult struct {
@@ -183,28 +186,11 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		thread = 8
 	}
 
-	p.txQueue = make(chan int, thread)
 	for index := 0; index < thread; index++ {
 		go p.txLoop()
 	}
 
-	for index := 0; index < thread; index++ {
-		p.AddTxToQueue(p.txSortManger.pop())
-	}
-	fmt.Println("NNNNNNNNNNNNNN", block.NumberU64(), len(block.Transactions()))
 	return p
-}
-
-func (p *pallTxManager) AddTxToQueue(txIndex int) {
-	if txIndex == -1 {
-		return
-	}
-	p.txQueue <- txIndex
-}
-
-func (p *pallTxManager) GetTxFromQueue() (int, bool) {
-	data, ok := <-p.txQueue
-	return data, ok == false
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
@@ -231,17 +217,12 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
 }
 
 func (p *pallTxManager) txLoop() {
-	for {
-		txIndex, isClosed := p.GetTxFromQueue()
-		if isClosed {
-			return
+	for !p.ended {
+		txIndex := p.txSortManger.pop()
+		if txIndex == -1 {
+			continue
 		}
-
-		if !p.handleTx(txIndex) && !p.ended {
-			p.AddTxToQueue(txIndex)
-		} else {
-			p.AddTxToQueue(p.txSortManger.pop())
-		}
+		p.handleTx(txIndex)
 	}
 }
 
@@ -252,16 +233,14 @@ func (p *pallTxManager) handleReceipt(rr *txResult) {
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
-		fmt.Println("pushNext", p.block.NumberU64(), rr.txIndex)
 		p.txSortManger.pushNext(rr.txIndex)
 		return
 	}
-
 	p.txResults[rr.txIndex] = nil
-	p.AddTxToQueue(rr.txIndex)
+	p.txSortManger.push(rr.txIndex)
 }
 
-func (p *pallTxManager) handleTx(txIndex int) bool {
+func (p *pallTxManager) handleTx(txIndex int) {
 	tx := p.block.Transactions()[txIndex]
 	st, _ := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
 
@@ -273,7 +252,6 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	fmt.Println("handle tx end", st.MergedIndex, txIndex, err)
 	if err != nil && st.MergedIndex+1 == txIndex {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
 		panic("should panic")
@@ -284,8 +262,6 @@ func (p *pallTxManager) handleTx(txIndex int) bool {
 		txIndex: txIndex,
 		receipt: receipt,
 	})
-	return true
-
 }
 
 func (p *pallTxManager) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
