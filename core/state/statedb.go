@@ -59,7 +59,6 @@ func (n *proofList) Delete(key []byte) error {
 }
 
 type mergedStatus struct {
-	//readCachedStateObjects  map[common.Address]*stateObject
 	writeCachedStateObjects map[common.Address]*stateObject
 	mu                      sync.RWMutex
 
@@ -70,7 +69,6 @@ type mergedStatus struct {
 
 func NewMerged() *mergedStatus {
 	return &mergedStatus{
-		//readCachedStateObjects:  make(map[common.Address]*stateObject),
 		writeCachedStateObjects: make(map[common.Address]*stateObject),
 		mu:                      sync.RWMutex{},
 		originAccountMap:        make(map[common.Address]Account),
@@ -79,26 +77,26 @@ func NewMerged() *mergedStatus {
 	}
 }
 
-func (m *mergedStatus) GetWriteObj(addr common.Address) *stateObject {
+func (m *mergedStatus) getWriteObj(addr common.Address) *stateObject {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.writeCachedStateObjects[addr]
 }
 
-func (m *mergedStatus) SetWriteObj(addr common.Address, obj *stateObject, txIndex int) {
+func (m *mergedStatus) setWriteObj(addr common.Address, obj *stateObject, txIndex int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	obj.lastWriteIndex = txIndex
 	m.writeCachedStateObjects[addr] = obj
 }
 
-func (m *mergedStatus) SetStorage(key []byte, value common.Hash) {
+func (m *mergedStatus) setStorage(key []byte, value common.Hash) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.originStorageMap[string(key)] = value
 }
 
-func (m *mergedStatus) GetOriginCode(addr common.Hash, codeHash common.Hash) (Code, bool) {
+func (m *mergedStatus) getOriginCode(addr common.Hash, codeHash common.Hash) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if data, ok := m.originCode[addr]; ok {
@@ -109,7 +107,7 @@ func (m *mergedStatus) GetOriginCode(addr common.Hash, codeHash common.Hash) (Co
 	return nil, false
 }
 
-func (m *mergedStatus) SetOriginCode(addr common.Hash, codehash common.Hash, code Code) {
+func (m *mergedStatus) setOriginCode(addr common.Hash, codehash common.Hash, code Code) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.originCode[codehash]; !ok {
@@ -118,7 +116,7 @@ func (m *mergedStatus) SetOriginCode(addr common.Hash, codehash common.Hash, cod
 	m.originCode[addr][codehash] = code
 }
 
-func (m *mergedStatus) SetOriginAccount(addr common.Address, acc Account) {
+func (m *mergedStatus) setOriginAccount(addr common.Address, acc Account) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.originAccountMap[addr] = acc
@@ -128,16 +126,16 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int, dirty boo
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	pre, ok := m.writeCachedStateObjects[newObj.address]
-	if !ok {
+	pre, exist := m.writeCachedStateObjects[newObj.address]
+	if !exist {
 		for k, v := range newObj.dirtyStorage {
 			newObj.pendingStorage[k] = v
 		}
-		m.writeCachedStateObjects[newObj.address] = newObj
 		if dirty {
-			m.writeCachedStateObjects[newObj.address].lastWriteIndex = txIndex
+			newObj.lastWriteIndex = txIndex
 		}
 
+		m.writeCachedStateObjects[newObj.address] = newObj
 		return
 	}
 
@@ -147,17 +145,17 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int, dirty boo
 
 	if bytes.Compare(newObj.CodeHash(), pre.CodeHash()) != 0 {
 		pre.code = newObj.code
-		pre.dirtyCode = newObj.dirtyCode //SB?
+		pre.dirtyCode = newObj.dirtyCode
 	}
 
 	pre.suicided = newObj.suicided
 	pre.deleted = newObj.deleted
 	pre.data = newObj.data
 
-	m.writeCachedStateObjects[newObj.address] = pre
 	if dirty {
-		m.writeCachedStateObjects[newObj.address].lastWriteIndex = txIndex
+		pre.lastWriteIndex = txIndex
 	}
+	m.writeCachedStateObjects[newObj.address] = pre
 
 }
 
@@ -735,6 +733,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 				log.Error("Failed to decode state object", "addr", addr, "err", err)
 				return nil
 			}
+			s.MergedSts.setOriginAccount(addr, *data)
 		}
 
 	}
@@ -923,7 +922,7 @@ func (s *StateDB) Conflict(miner common.Address) bool {
 			continue
 		}
 
-		preWrite := s.MergedSts.GetWriteObj(k)
+		preWrite := s.MergedSts.getWriteObj(k)
 		if preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
 			return true
 		}
@@ -938,10 +937,10 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 		s.MergedSts.MergeWriteObj(newObj, s.txIndex, dirty)
 	}
 
-	pre := base.MergedSts.GetWriteObj(miner)
+	pre := base.MergedSts.getWriteObj(miner)
 	if pre == nil {
 		s.AddBalance(miner, txFee)
-		base.MergedSts.SetWriteObj(miner, s.getStateObject(miner), s.txIndex)
+		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.txIndex)
 	} else {
 		pre.AddBalance(txFee)
 	}

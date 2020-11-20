@@ -63,17 +63,17 @@ func grouping(from []common.Address, to []*common.Address) map[int][]int {
 	}
 
 	groupList := make(map[int][]int, 0)
-	mpGroup := make(map[common.Address]int, 0) // key:rootNode; value groupID
+	groupID := make(map[common.Address]int, 0)
 
 	for index, sender := range from {
-		fa := Find(sender)
-		groupID, ok := mpGroup[fa]
-		if !ok {
-			groupID = len(groupList)
-			mpGroup[fa] = groupID
+		rootAddr := Find(sender)
+		id, exist := groupID[rootAddr]
+		if !exist {
+			id = len(groupList)
+			groupID[rootAddr] = id
 
 		}
-		groupList[groupID] = append(groupList[groupID], index)
+		groupList[id] = append(groupList[id], index)
 	}
 	return groupList
 
@@ -110,7 +110,7 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 	}
 }
 
-func (s *txSortManager) pushNext(txIndex int) {
+func (s *txSortManager) pushNextTxInGroup(txIndex int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if nextTxIndex := s.nextTxIndexInGroup[txIndex]; nextTxIndex != 0 {
@@ -146,8 +146,9 @@ type pallTxManager struct {
 	ended          bool
 
 	txSortManger *txSortManager
-	txResults    []*txResult
-	gp           uint64
+
+	txResults []*txResult
+	gp        uint64
 }
 
 type txResult struct {
@@ -182,8 +183,8 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
 	thread := p.txSortManger.groupLen
-	if thread > 8 {
-		thread = 8
+	if thread > 16 {
+		thread = 16
 	}
 
 	for index := 0; index < thread; index++ {
@@ -197,13 +198,12 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
 	p.txResults[re.txIndex] = re
 	startTxIndex := re.txIndex
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if p.ended {
 		return
 	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	for p.baseStateDB.MergedIndex+1 == startTxIndex && startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
 		p.handleReceipt(p.txResults[startTxIndex])
@@ -231,10 +231,11 @@ func (p *pallTxManager) handleReceipt(rr *txResult) {
 	if rr.receipt != nil && !rr.st.Conflict(p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
+
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
-		p.txSortManger.pushNext(rr.txIndex)
+		p.txSortManger.pushNextTxInGroup(rr.txIndex)
 		return
 	}
 	p.txResults[rr.txIndex] = nil
