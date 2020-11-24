@@ -84,6 +84,7 @@ type txSortManager struct {
 	heap *intHeap
 
 	groupLen           int
+	groupList          map[int][]int //for fmt
 	nextTxIndexInGroup map[int]int
 }
 
@@ -107,6 +108,7 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 		heap:               &heapList,
 		groupLen:           len(groupList),
 		nextTxIndexInGroup: nextTxIndexInGroup,
+		groupList:          groupList,
 	}
 }
 
@@ -197,7 +199,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 	go p.schedule()
 
-	fmt.Println("process", block.NumberU64(), len(block.Transactions()))
+	fmt.Println("process-", block.NumberU64(), len(block.Transactions()), len(p.txSortManger.groupList), p.txSortManger.groupList)
 	return p
 }
 
@@ -235,20 +237,23 @@ func (p *pallTxManager) txLoop() {
 }
 
 func (p *pallTxManager) schedule() {
-	p.mergedQueue <- struct{}{}
 	for true {
-		_, ok := <-p.mergedQueue
-		if !ok {
-			break
-		}
 		if data := p.txSortManger.pop(); data != -1 {
 			p.txQueue <- data
+		} else {
+			_, ok := <-p.mergedQueue
+			if !ok {
+				break
+			}
 		}
 
 	}
 }
 
 func (p *pallTxManager) handleReceipt(rr *txResult) {
+	defer func() {
+		p.mergedQueue <- struct{}{}
+	}()
 	if rr.receipt != nil && !rr.st.Conflict(p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
@@ -257,7 +262,6 @@ func (p *pallTxManager) handleReceipt(rr *txResult) {
 		p.mergedReceipts[rr.txIndex] = rr.receipt
 
 		p.txSortManger.pushNextTxInGroup(rr.txIndex)
-		p.mergedQueue <- struct{}{}
 		return
 	}
 	p.txResults[rr.txIndex] = nil
@@ -281,7 +285,7 @@ func (p *pallTxManager) handleTx(txIndex int) {
 		panic("should panic")
 	}
 
-	p.AddReceiptToQueue(&txResult{
+	go p.AddReceiptToQueue(&txResult{
 		st:      st,
 		txIndex: txIndex,
 		receipt: receipt,
