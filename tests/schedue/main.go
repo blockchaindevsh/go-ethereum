@@ -1,6 +1,7 @@
 package main
 
 import (
+	"awesomeProject7/common"
 	"container/heap"
 	"fmt"
 	"math/rand"
@@ -26,7 +27,39 @@ func (h *intHeap) Pop() interface{} {
 	return x
 }
 
-type txSortManager struct {
+type sortTxInterface interface {
+	pushNextTxInGroup(txIndex int)
+	pop() int
+}
+
+type txNoGroup struct {
+	txLen     int
+	hasResult []bool
+
+	backend *schedule
+}
+
+func NewSortNoGroup(groupList map[int][]int, txLen int) *txNoGroup {
+	return &txNoGroup{txLen: txLen, hasResult: make([]bool, txLen, txLen)}
+}
+
+func (t *txNoGroup) pushNextTxInGroup(txIndex int) {
+	t.backend.results[txIndex] = nil
+	t.hasResult[txIndex] = false
+}
+
+func (t *txNoGroup) pop() int {
+	start := t.backend.mergedIndex
+	for index := start + 1; index < t.backend.txLen; index++ {
+		if t.backend.results[index] == nil && !t.hasResult[index] {
+			t.hasResult[index] = true
+			return index
+		}
+	}
+	return -1
+}
+
+type txGroup struct {
 	mu   sync.Mutex
 	heap *intHeap
 
@@ -34,7 +67,7 @@ type txSortManager struct {
 	nextTxIndexInGroup map[int]int
 }
 
-func NewSortTxManager(groupList map[int][]int) *txSortManager {
+func NewSortTxManager(groupList map[int][]int, txLen int) *txGroup {
 	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
 		for index := 0; index < len(list)-1; index++ {
@@ -48,14 +81,14 @@ func NewSortTxManager(groupList map[int][]int) *txSortManager {
 	}
 	heap.Init(&heapList)
 
-	return &txSortManager{
+	return &txGroup{
 		heap:               &heapList,
 		groupLen:           len(groupList),
 		nextTxIndexInGroup: nextTxIndexInGroup,
 	}
 }
 
-func (s *txSortManager) pushNextTxInGroup(txIndex int) {
+func (s *txGroup) pushNextTxInGroup(txIndex int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if nextTxIndex := s.nextTxIndexInGroup[txIndex]; nextTxIndex != 0 {
@@ -63,13 +96,7 @@ func (s *txSortManager) pushNextTxInGroup(txIndex int) {
 	}
 }
 
-func (s *txSortManager) push(txIndex int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	heap.Push(s.heap, txIndex)
-}
-
-func (s *txSortManager) pop() int {
+func (s *txGroup) pop() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -83,9 +110,11 @@ type schedule struct {
 	mp map[int][]int
 	mu sync.Mutex
 
-	sortManager   *txSortManager
+	sortManager   sortTxInterface
 	txChannel     chan int
 	mergedChannel chan struct{}
+
+	resultChannel chan struct{}
 
 	txLen       int
 	results     []*result
@@ -95,46 +124,53 @@ type schedule struct {
 }
 
 type result struct {
+	err     error
+	base    int
 	txIndex int
 }
 
-func newManager(mp map[int][]int) *schedule {
+func newManager(mp map[int][]int, group bool) *schedule {
 	txLen := 0
 	for _, txs := range mp {
 		txLen += len(txs)
 	}
 	s := &schedule{
-		mp:            mp,
-		txChannel:     make(chan int, 0),
-		sortManager:   NewSortTxManager(mp),
+		mp:        mp,
+		txChannel: make(chan int, 0),
+
 		mergedChannel: make(chan struct{}, txLen),
+		resultChannel: make(chan struct{}, txLen),
 
 		txLen:       txLen,
 		results:     make([]*result, txLen, txLen),
 		mergedIndex: -1,
 		endSignel:   make(chan struct{}, 0),
 	}
+	if group {
+		s.sortManager = NewSortTxManager(mp, txLen)
+	} else {
+		s.sortManager = NewSortNoGroup(mp, txLen)
+		s.sortManager.(*txNoGroup).backend = s
+	}
 	thread := 2
 	for index := 0; index < thread; index++ {
 		i := index
 		go s.txLoop(i)
 	}
+	go s.mergeLoop()
 	go s.scheduleLoop()
 	return s
 }
 
 func (s *schedule) txLoop(loopIndex int) {
-	defer fmt.Printf("txLoop=%v end\n", loopIndex)
 	for true {
 		txIndex, ok := <-s.txChannel
 		if !ok {
 			break
 		}
 
-		s.mu.Lock()
 		mergedIndex := s.mergedIndex
-		s.mu.Unlock()
-		fmt.Printf("timeStamp=%v txLoopID=%v 基于%v执行%v 开始\n", time.Now().Nanosecond(), loopIndex, mergedIndex, txIndex)
+		//fmt.Printf("timeStamp=%v txLoopID=%v 基于%v执行%v 开始\n", time.Now().Nanosecond(), loopIndex, mergedIndex, txIndex)
 		s.handleTx(txIndex)
 		fmt.Printf("timeStamp=%v txLoopID=%v 基于%v执行%v 完成\n", time.Now().Nanosecond(), loopIndex, mergedIndex, txIndex)
 	}
@@ -142,73 +178,92 @@ func (s *schedule) txLoop(loopIndex int) {
 
 func (s *schedule) scheduleLoop() {
 	defer fmt.Printf("schedule end\n")
-	for true {
-		for true {
-			data := s.sortManager.pop()
-			if data == -1 {
+	for !s.end {
+		data := s.sortManager.pop()
+		fmt.Printf("timeStamp=%v 准备丢去执行=%v\n", time.Now().Nanosecond(), data)
+		if data != -1 {
+			s.txChannel <- data
+		} else {
+			_, ok := <-s.mergedChannel
+			if !ok {
 				break
 			}
-			s.txChannel <- data
 		}
-		_, ok := <-s.mergedChannel
-		if !ok {
-			break
-		}
+
 	}
 }
 
-func (s *schedule) handleResult(result2 *result) {
-	s.results[result2.txIndex] = result2
-	start := result2.txIndex
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.end {
-		return
-	}
+func (s *schedule) mergeLoop() {
+	for !s.end {
+		_, ok := <-s.resultChannel
+		if !ok {
+			break
+		}
 
-	for s.mergedIndex+1 == start && start < s.txLen && s.results[start] != nil {
-		s.mergedIndex++
-		fmt.Printf("timeStamp=%v 合并完毕 当前mergedIndex=%v\n", time.Now().Nanosecond(), s.mergedIndex)
-		s.sortManager.pushNextTxInGroup(start)
+		needReHandle := false
 
-		start++
-		s.mergedChannel <- struct{}{}
-	}
-	if s.mergedIndex+1 == s.txLen && !s.end {
-		s.end = true
-		close(s.mergedChannel)
-		close(s.txChannel)
-		s.endSignel <- struct{}{}
+		start := s.mergedIndex + 1
+		for start < s.txLen && s.results[start] != nil {
+			needReHandle = true
+			if s.results[start].err != nil {
+				fmt.Printf("timeStamp=%v 合并失败： 当前%v err=%v\n", time.Now().Nanosecond(), s.mergedIndex, s.results[start].err)
+				s.sortManager.pushNextTxInGroup(start)
+				break
+			}
+			s.mergedIndex++
+			fmt.Printf("timeStamp=%v 合并成功---------------------- 当前mergedIndex=%v\n", time.Now().Nanosecond(), s.mergedIndex)
+			s.sortManager.pushNextTxInGroup(start)
+			start++
+
+		}
+		if s.mergedIndex+1 == s.txLen && !s.end {
+			s.end = true
+			close(s.mergedChannel)
+			close(s.txChannel)
+			s.endSignel <- struct{}{}
+			return
+		}
+		if needReHandle {
+			s.mergedChannel <- struct{}{}
+		}
+
 	}
 }
 
 func (s *schedule) handleTx(txIndex int) {
-	time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
-	go s.handleResult(&result{txIndex: txIndex})
+	var err error
+	if s.mergedIndex < preTxInGroup[txIndex] {
+		err = fmt.Errorf("tx=%v 基于%v执行 同组上一个为%v", txIndex, s.mergedIndex, preTxInGroup[txIndex])
+		fmt.Printf("timeStamp=%v 执行出错=%v\n", time.Now().Nanosecond(), err)
+	}
+
+	r := &result{
+		err:     err,
+		base:    s.mergedIndex,
+		txIndex: txIndex,
+	}
+	time.Sleep(time.Duration(rand.Intn(5000)) * time.Microsecond)
+	s.results[txIndex] = r
+	s.resultChannel <- struct{}{}
 }
 
+var (
+	groupMp, preTxInGroup = common.MakeTestCase(5, 2)
+)
+
 func main() {
-	/*
-		调度：
-			case1:
-				组id   组内交易序号
-		 		  0       0,1,3
-		          1       2,5
-		          2       4,6
+	fmt.Println("真是依赖情况", groupMp)
 
-			heap
-				0   1,3
-				2   2,5
-				4    6
-
-	*/
-
-	s := newManager(map[int][]int{
-		0: []int{0, 1, 3},
-		1: []int{2, 5},
-		2: []int{4, 6},
-	})
-	<-s.endSignel
+	s0 := newManager(groupMp, true)
+	<-s0.endSignel
 	fmt.Println("执行结束")
 	time.Sleep(2 * time.Second)
+
+	fmt.Println("\n\n\n\n")
+
+	s1 := newManager(groupMp, false)
+	<-s1.endSignel
+	fmt.Println("执行结束")
+	time.Sleep(2 * time.Second)
+
 }
