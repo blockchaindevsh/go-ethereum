@@ -67,6 +67,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if block.NumberU64() == 9000001 {
 		panic(fmt.Errorf("current blockNumber=%v,panic by scf", block.NumberU64()))
 	}
+	fmt.Println("block", block.NumberU64(), len(block.Transactions()))
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
