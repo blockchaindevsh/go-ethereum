@@ -64,7 +64,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs  []*types.Log
 		gp       = new(GasPool).AddGas(block.GasLimit())
 	)
-	if block.NumberU64() == 6000001 {
+	if block.NumberU64() == 9000001 {
 		panic(fmt.Errorf("current blockNumber=%v,panic by scf", block.NumberU64()))
 	}
 	// Mutate the block and state according to any hard-fork specs
