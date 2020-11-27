@@ -141,7 +141,7 @@ type pallTxManager struct {
 	txLen int
 	bc    *BlockChain
 
-	mu             sync.Mutex
+	//mu             sync.Mutex
 	baseStateDB    *state.StateDB
 	mergedReceipts []*types.Receipt
 	ch             chan struct{}
@@ -151,6 +151,7 @@ type pallTxManager struct {
 
 	txQueue     chan int
 	mergedQueue chan struct{}
+	resultQueue chan struct{}
 	txResults   []*txResult
 	gp          uint64
 }
@@ -174,6 +175,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 		txQueue:     make(chan int, 0),
 		mergedQueue: make(chan struct{}, len(block.Transactions())),
+		resultQueue: make(chan struct{}, len(block.Transactions())),
 		txResults:   make([]*txResult, txLen, txLen),
 		gp:          block.GasLimit(),
 	}
@@ -199,35 +201,19 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 
 	go p.schedule()
 
+	go p.mergeLoop()
 	fmt.Println("process-", block.NumberU64(), len(block.Transactions()), len(p.txSortManger.groupList), p.txSortManger.groupList)
 	return p
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
 	p.txResults[re.txIndex] = re
-	startTxIndex := re.txIndex
+	p.resultQueue <- struct{}{}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.ended {
-		return
-	}
-	for p.baseStateDB.MergedIndex+1 == startTxIndex && startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
-		p.handleReceipt(p.txResults[startTxIndex])
-		startTxIndex++
-	}
-
-	if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
-		p.ended = true
-		p.baseStateDB.FinalUpdateObjs(p.block.Coinbase())
-		close(p.mergedQueue)
-		close(p.txQueue)
-		p.ch <- struct{}{}
-	}
 }
 
 func (p *pallTxManager) txLoop() {
-	for true {
+	for !p.ended {
 		txIndex, ok := <-p.txQueue
 		if !ok {
 			break
@@ -237,7 +223,7 @@ func (p *pallTxManager) txLoop() {
 }
 
 func (p *pallTxManager) schedule() {
-	for true {
+	for !p.ended {
 		if data := p.txSortManger.pop(); data != -1 {
 			p.txQueue <- data
 		} else {
@@ -246,25 +232,52 @@ func (p *pallTxManager) schedule() {
 				break
 			}
 		}
+	}
+}
+
+func (p *pallTxManager) mergeLoop() {
+	for !p.ended {
+		_, ok := <-p.resultQueue
+		if !ok {
+			break
+		}
+
+		startTxIndex := p.baseStateDB.MergedIndex + 1
+		handle := false
+		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
+			handle = true
+			p.handleReceipt(p.txResults[startTxIndex])
+			startTxIndex = p.baseStateDB.MergedIndex + 1
+		}
+
+		if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
+			p.ended = true
+			p.baseStateDB.FinalUpdateObjs(p.block.Coinbase())
+			close(p.mergedQueue)
+			close(p.txQueue)
+			p.ch <- struct{}{}
+			return
+		}
+		if handle && !p.ended {
+			p.mergedQueue <- struct{}{}
+		}
 
 	}
 }
 
 func (p *pallTxManager) handleReceipt(rr *txResult) {
-	defer func() {
-		p.mergedQueue <- struct{}{}
-	}()
 	if rr.receipt != nil && !rr.st.Conflict(p.block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
 		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
 
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.txIndex] = rr.receipt
-
+		//fmt.Println("<<<<<<<<<<<<<<<<<<<<<", rr.txIndex)
 		p.txSortManger.pushNextTxInGroup(rr.txIndex)
 		return
 	}
 	p.txResults[rr.txIndex] = nil
+	//fmt.Println("??????????", rr.txIndex)
 	p.txSortManger.push(rr.txIndex)
 }
 
@@ -272,17 +285,14 @@ func (p *pallTxManager) handleTx(txIndex int) {
 	tx := p.block.Transactions()[txIndex]
 	st, _ := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
 
-	p.mu.Lock()
 	st.MergedSts = p.baseStateDB.MergedSts
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
-	p.mu.Unlock()
 
 	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil && st.MergedIndex+1 == txIndex {
 		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
-		panic("should panic")
 	}
 
 	go p.AddReceiptToQueue(&txResult{
@@ -295,8 +305,10 @@ func (p *pallTxManager) handleTx(txIndex int) {
 func (p *pallTxManager) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
 	logs := make([]*types.Log, 0)
 	cumulativeGasUsed := uint64(0)
+	//fmt.Println("30777", p.mergedReceipts)
 
 	for index := 0; index < p.txLen; index++ {
+		//fmt.Println("index", index, p.mergedReceipts[index] == nil)
 		cumulativeGasUsed = cumulativeGasUsed + p.mergedReceipts[index].GasUsed
 		p.mergedReceipts[index].CumulativeGasUsed = cumulativeGasUsed
 		logs = append(logs, p.mergedReceipts[index].Logs...)
