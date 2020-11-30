@@ -82,6 +82,19 @@ var (
 	errInsertionInterrupted = errors.New("insertion is interrupted")
 )
 
+func PrintStateDBDetailTimer() {
+	fmt.Println("accountReadTimer", accountReadTimer.Sum())
+	fmt.Println("accountHashTimer", accountHashTimer.Sum())
+	fmt.Println("accountUpdateTimer", accountUpdateTimer.Sum())
+	fmt.Println("accountCommitTimer", accountCommitTimer.Sum())
+
+	fmt.Println("storageReadTimer", storageReadTimer.Sum())
+	fmt.Println("storageHashTimer", storageHashTimer.Sum())
+	fmt.Println("storageUpdateTimer", storageUpdateTimer.Sum())
+	fmt.Println("storageCommitTimer", storageCommitTimer.Sum())
+
+}
+
 const (
 	bodyCacheLimit      = 256
 	blockCacheLimit     = 256

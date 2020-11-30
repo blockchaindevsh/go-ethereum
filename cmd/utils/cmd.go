@@ -184,6 +184,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 	f.Close()
 	fmt.Println("stop cpu profile", f.Name())
 	common.DebugInfo.Print()
+	core.PrintStateDBDetailTimer()
 
 	return nil
 }
