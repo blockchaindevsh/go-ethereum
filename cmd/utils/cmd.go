@@ -176,6 +176,9 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
+		if chain.CurrentBlock().NumberU64() >= 8020000 {
+			break
+		}
 	}
 	pprof.StopCPUProfile()
 	f.Close()
