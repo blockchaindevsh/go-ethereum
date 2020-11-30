@@ -52,15 +52,15 @@ var (
 	headHeaderGauge    = metrics.NewRegisteredGauge("chain/head/header", nil)
 	headFastBlockGauge = metrics.NewRegisteredGauge("chain/head/receipt", nil)
 
-	accountReadTimer   = metrics.NewRegisteredTimer("chain/account/reads", nil)
-	accountHashTimer   = metrics.NewRegisteredTimer("chain/account/hashes", nil)
-	accountUpdateTimer = metrics.NewRegisteredTimer("chain/account/updates", nil)
-	accountCommitTimer = metrics.NewRegisteredTimer("chain/account/commits", nil)
+	accountReadTimer   = time.Duration(0)
+	accountHashTimer   = time.Duration(0)
+	accountUpdateTimer = time.Duration(0)
+	accountCommitTimer = time.Duration(0)
 
-	storageReadTimer   = metrics.NewRegisteredTimer("chain/storage/reads", nil)
-	storageHashTimer   = metrics.NewRegisteredTimer("chain/storage/hashes", nil)
-	storageUpdateTimer = metrics.NewRegisteredTimer("chain/storage/updates", nil)
-	storageCommitTimer = metrics.NewRegisteredTimer("chain/storage/commits", nil)
+	storageReadTimer   = time.Duration(0)
+	storageHashTimer   = time.Duration(0)
+	storageUpdateTimer = time.Duration(0)
+	storageCommitTimer = time.Duration(0)
 
 	snapshotAccountReadTimer = metrics.NewRegisteredTimer("chain/snapshot/account/reads", nil)
 	snapshotStorageReadTimer = metrics.NewRegisteredTimer("chain/snapshot/storage/reads", nil)
@@ -83,15 +83,15 @@ var (
 )
 
 func PrintStateDBDetailTimer() {
-	fmt.Println("accountReadTimer", accountReadTimer.Sum())
-	fmt.Println("accountHashTimer", accountHashTimer.Sum())
-	fmt.Println("accountUpdateTimer", accountUpdateTimer.Sum())
-	fmt.Println("accountCommitTimer", accountCommitTimer.Sum())
+	fmt.Println("accountReadTimer", accountReadTimer)
+	fmt.Println("accountHashTimer", accountHashTimer)
+	fmt.Println("accountUpdateTimer", accountUpdateTimer)
+	fmt.Println("accountCommitTimer", accountCommitTimer)
 
-	fmt.Println("storageReadTimer", storageReadTimer.Sum())
-	fmt.Println("storageHashTimer", storageHashTimer.Sum())
-	fmt.Println("storageUpdateTimer", storageUpdateTimer.Sum())
-	fmt.Println("storageCommitTimer", storageCommitTimer.Sum())
+	fmt.Println("storageReadTimer", storageReadTimer)
+	fmt.Println("storageHashTimer", storageHashTimer)
+	fmt.Println("storageUpdateTimer", storageUpdateTimer)
+	fmt.Println("storageCommitTimer", storageCommitTimer)
 
 }
 
@@ -1842,10 +1842,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		common.DebugInfo.ExecuteTx += time.Since(substart)
 		common.DebugInfo.Txs += len(block.Transactions())
 		// Update the metrics touched during block processing
-		accountReadTimer.Update(statedb.AccountReads)                 // Account reads are complete, we can mark them
-		storageReadTimer.Update(statedb.StorageReads)                 // Storage reads are complete, we can mark them
-		accountUpdateTimer.Update(statedb.AccountUpdates)             // Account updates are complete, we can mark them
-		storageUpdateTimer.Update(statedb.StorageUpdates)             // Storage updates are complete, we can mark them
+		accountReadTimer += statedb.AccountReads                      // Account reads are complete, we can mark them
+		storageReadTimer += statedb.StorageReads                      // Storage reads are complete, we can mark them
+		accountUpdateTimer += statedb.AccountUpdates                  // Account updates are complete, we can mark them
+		storageUpdateTimer += statedb.StorageUpdates                  // Storage updates are complete, we can mark them
 		snapshotAccountReadTimer.Update(statedb.SnapshotAccountReads) // Account reads are complete, we can mark them
 		snapshotStorageReadTimer.Update(statedb.SnapshotStorageReads) // Storage reads are complete, we can mark them
 
@@ -1866,8 +1866,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		proctime := time.Since(start)
 
 		// Update the metrics touched during block validation
-		accountHashTimer.Update(statedb.AccountHashes) // Account hashes are complete, we can mark them
-		storageHashTimer.Update(statedb.StorageHashes) // Storage hashes are complete, we can mark them
+		accountHashTimer += statedb.AccountHashes // Account hashes are complete, we can mark them
+		storageHashTimer += statedb.StorageHashes // Storage hashes are complete, we can mark them
 
 		blockValidationTimer.Update(time.Since(substart) - (statedb.AccountHashes + statedb.StorageHashes - triehash))
 
@@ -1880,8 +1880,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		}
 
 		// Update the metrics touched during block commit
-		accountCommitTimer.Update(statedb.AccountCommits)   // Account commits are complete, we can mark them
-		storageCommitTimer.Update(statedb.StorageCommits)   // Storage commits are complete, we can mark them
+		accountCommitTimer += statedb.AccountCommits        // Account commits are complete, we can mark them
+		storageCommitTimer += statedb.StorageCommits        // Storage commits are complete, we can mark them
 		snapshotCommitTimer.Update(statedb.SnapshotCommits) // Snapshot commits are complete, we can mark them
 
 		blockWriteTimer.Update(time.Since(substart) - statedb.AccountCommits - statedb.StorageCommits - statedb.SnapshotCommits)
