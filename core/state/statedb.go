@@ -238,10 +238,11 @@ type StateDB struct {
 	// The refund counter, also used by state transitioning.
 	refund uint64
 
-	thash, bhash common.Hash
-	txIndex      int
-	logs         map[common.Hash][]*types.Log
-	logSize      uint
+	thash, bhash    common.Hash
+	indexInBlock    int
+	indexInAllBlock int
+	logs            map[common.Hash][]*types.Log
+	logSize         uint
 
 	preimages map[common.Hash][]byte
 
@@ -320,7 +321,8 @@ func (s *StateDB) Reset(root common.Hash) error {
 	s.stateObjects = make(map[common.Address]*stateObject)
 	s.thash = common.Hash{}
 	s.bhash = common.Hash{}
-	s.txIndex = 0
+	s.indexInAllBlock = 0
+	s.indexInBlock = 0
 	s.logs = make(map[common.Hash][]*types.Log)
 	s.logSize = 0
 	s.preimages = make(map[common.Hash][]byte)
@@ -342,7 +344,7 @@ func (s *StateDB) AddLog(log *types.Log) {
 
 	log.TxHash = s.thash
 	log.BlockHash = s.bhash
-	log.TxIndex = uint(s.txIndex)
+	log.TxIndex = uint(s.indexInBlock)
 	log.Index = s.logSize
 	s.logs[s.thash] = append(s.logs[s.thash], log)
 	s.logSize++
@@ -428,7 +430,7 @@ func (s *StateDB) GetNonce(addr common.Address) uint64 {
 
 // TxIndex returns the current transaction index set by Prepare.
 func (s *StateDB) TxIndex() int {
-	return s.txIndex
+	return s.indexInBlock
 }
 
 // BlockHash returns the current block hash set by Prepare.
@@ -578,6 +580,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
+	fmt.Println("setstate", addr.String(), key.String(), value.String())
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		prevValue := s.GetState(addr, key)
@@ -632,6 +635,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
+	fmt.Println("update addr", addr.String(), obj.data.Balance.String(), obj.Nonce())
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -900,7 +904,7 @@ func (s *StateDB) CalReadAndWrite() {
 func (s *StateDB) Conflict(miner common.Address) bool {
 	for k, _ := range s.RWSet {
 		if k == miner {
-			if s.MergedIndex+1 != s.txIndex {
+			if s.MergedIndex+1 != s.indexInAllBlock {
 				return true
 			}
 			continue
@@ -918,26 +922,38 @@ func (s *StateDB) Conflict(miner common.Address) bool {
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for addr, newObj := range s.stateObjects {
 		dirty := s.RWSet[addr]
-		s.MergedSts.MergeWriteObj(newObj, s.txIndex, dirty)
+		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, dirty)
 	}
 
 	pre := base.MergedSts.getWriteObj(miner)
 	if pre == nil {
 		s.AddBalance(miner, txFee)
-		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.txIndex)
+		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
 	} else {
 		pre.AddBalance(txFee)
 	}
-
-	base.MergedIndex = s.txIndex
+	fmt.Println("??????????-- miner", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance.String())
 }
 
-func (s *StateDB) FinalUpdateObjs(miner common.Address) {
-	for addr, obj := range s.MergedSts.writeCachedStateObjects {
-		s.stateObjects[addr] = obj
+func (s *StateDB) MergeReward(txIndex int) {
+	for _, v := range s.stateObjects {
+		s.MergedSts.setWriteObj(v.address, v, txIndex)
+		//fmt.Println("rewwwwwww", v.address.String(), v.Balance().String(), txIndex)
 	}
 
-	s.stateObjects[miner] = s.MergedSts.writeCachedStateObjects[miner]
+	s.stateObjects = make(map[common.Address]*stateObject)
+	//fmt.Println("MMMM--rr", miner.String(), s.getStateObject(miner).Balance(), txIndex)
+}
+
+func (s *StateDB) FinalUpdateObjs(miner []common.Address) {
+	for addr, obj := range s.MergedSts.writeCachedStateObjects {
+		s.stateObjects[addr] = obj
+		//fmt.Println("final--", obj == nil)
+	}
+	for _, miner := range miner {
+		s.stateObjects[miner] = s.MergedSts.writeCachedStateObjects[miner]
+		//fmt.Println("final--miner", s.stateObjects[miner] == nil)
+	}
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
@@ -966,6 +982,7 @@ func (s *StateDB) GetRefund() uint64 {
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	for _, obj := range s.stateObjects {
+		//fmt.Println("????????????????", obj == nil)
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
 			obj.data.Deleted = true
@@ -1017,10 +1034,11 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 
 // Prepare sets the current transaction hash and index and block hash which is
 // used when the EVM emits new state logs.
-func (s *StateDB) Prepare(thash, bhash common.Hash, ti int) {
+func (s *StateDB) Prepare(thash, bhash common.Hash, ti, index int) {
 	s.thash = thash
 	s.bhash = bhash
-	s.txIndex = ti
+	s.indexInBlock = ti
+	s.indexInAllBlock = index
 }
 
 //func (s *StateDB) clearJournalAndRefund() {

@@ -46,31 +46,30 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
-func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
-	if block.NumberU64() == 8010001 {
-		//panic(fmt.Errorf("need panic:by scf block number=%v", block.NumberU64()))
-	}
+func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB, cfg vm.Config) ([]types.Receipts, [][]*types.Log, []uint64, error) {
 	var (
-		receipts types.Receipts
-		usedGas  = new(uint64)
-		header   = block.Header()
-		allLogs  []*types.Log
+		receipts []types.Receipts
+		usedGas  []uint64
+		//header   = block.Header()
+		allLogs [][]*types.Log
 	)
 	// Mutate the block and state according to any hard-fork specs
 
-	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
-		misc.ApplyDAOHardFork(statedb)
-		statedb.Commit(false)
+	for _, block := range blockList {
+		if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+			misc.ApplyDAOHardFork(statedb)
+			statedb.Commit(false)
+		}
 	}
 
-	if len(block.Transactions()) != 0 {
-		pm := NewPallTxManage(block, statedb, p.bc)
+	pm := NewPallTxManage(blockList, statedb, p.bc)
+	if pm.txLen != 0 {
 		<-pm.ch
-		receipts, allLogs, *usedGas = pm.GetReceiptsAndLogs()
 	}
 
-	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
-	return receipts, allLogs, *usedGas, nil
+	receipts, allLogs, usedGas = pm.GetReceiptsAndLogs()
+
+	return receipts, allLogs, usedGas, nil
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database
@@ -87,7 +86,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if tx.Hash().String() == "0xa6c235831bba9139ca7e168328a2d15978d90dfdd61a6be697abbec1846b59e01" {
+	if tx.Hash().String() == "0x251b962f6f782498e33614f0dc89a61848620fbf12b58d1e4735c7cc2d8e164a" || tx.Hash().String() == "0xaef621a42f608ede902febfcd0ea795f5fcdac50aea20e0ebccb7806043ac912" {
 		//vmenv.PrintLog = true
 		vmenv.PrintLog = true
 	}

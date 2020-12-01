@@ -106,7 +106,7 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 		}
 	}
 	common.DebugInfo.SumMaxDepth += maxx
-	fmt.Println("最大深度", maxx)
+	//fmt.Println("最大深度", maxx)
 
 	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
@@ -154,7 +154,13 @@ func (s *txSortManager) pop() int {
 }
 
 type pallTxManager struct {
-	block *types.Block
+	blocks types.Blocks
+
+	rewardPoint     []int
+	nextRewardPoint int
+	coinbaseList    []common.Address
+	mpToRealIndex   []*txIndex
+
 	txLen int
 	bc    *BlockChain
 
@@ -175,14 +181,47 @@ type pallTxManager struct {
 
 type txResult struct {
 	st      *state.StateDB
-	txIndex int
+	index   int
 	receipt *types.Receipt
 }
 
-func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pallTxManager {
-	txLen := len(block.Transactions())
+type txIndex struct {
+	blockIndex int
+	tx         int
+}
+
+func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
+	txLen := 0
+	gp := uint64(0)
+	rewardPoint := make([]int, 0)
+	coinbaseList := make([]common.Address, 0)
+	mpToRealIndex := make([]*txIndex, 0)
+
+	fromList := make([]common.Address, 0)
+	toList := make([]*common.Address, 0)
+	for blockIndex, block := range blockList {
+		signer := types.MakeSigner(bc.chainConfig, block.Number())
+		for tIndex, tx := range block.Transactions() {
+			sender, _ := types.Sender(signer, tx)
+			fromList = append(fromList, sender)
+			toList = append(toList, tx.To())
+			mpToRealIndex = append(mpToRealIndex, &txIndex{
+				blockIndex: blockIndex,
+				tx:         tIndex,
+			})
+		}
+		txLen += len(block.Transactions())
+		gp += block.GasLimit()
+		rewardPoint = append(rewardPoint, txLen)
+		coinbaseList = append(coinbaseList, block.Coinbase())
+	}
+
 	p := &pallTxManager{
-		block: block,
+		blocks:        blockList,
+		rewardPoint:   rewardPoint,
+		coinbaseList:  coinbaseList,
+		mpToRealIndex: mpToRealIndex,
+
 		txLen: txLen,
 		bc:    bc,
 
@@ -191,22 +230,30 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		ch:             make(chan struct{}, 1),
 
 		txQueue:     make(chan int, 0),
-		mergedQueue: make(chan struct{}, len(block.Transactions())),
-		resultQueue: make(chan struct{}, len(block.Transactions())),
+		mergedQueue: make(chan struct{}, txLen),
+		resultQueue: make(chan struct{}, txLen),
 		txResults:   make([]*txResult, txLen, txLen),
-		gp:          block.GasLimit(),
+		gp:          gp,
 	}
 
-	signer := types.MakeSigner(bc.chainConfig, block.Number())
-	fromList := make([]common.Address, 0)
-	toList := make([]*common.Address, 0)
-	for _, tx := range block.Transactions() {
-		sender, _ := types.Sender(signer, tx)
-		fromList = append(fromList, sender)
-		toList = append(toList, tx.To())
-	}
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
+	index := 0
+	for index < len(p.blocks) {
+		block := p.blocks[index]
+		if len(block.Transactions()) == 0 {
+			p.Fi(index)
+		} else {
+			break
+		}
+		index++
+	}
+	fmt.Println("?-=----", index, rewardPoint)
+	if index == len(p.blocks) {
+		p.baseStateDB.FinalUpdateObjs(p.coinbaseList)
+		return p
+	}
+	p.nextRewardPoint = rewardPoint[index]
 	thread := p.txSortManger.groupLen
 	if thread > 16 {
 		thread = 16
@@ -219,12 +266,17 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	go p.schedule()
 
 	go p.mergeLoop()
-	fmt.Println("process-", block.NumberU64(), len(block.Transactions()), len(p.txSortManger.groupList), p.txSortManger.groupList)
+	fmt.Println("process-", blockList[0].Number(), blockList[4].Number(), len(p.txSortManger.groupList), p.txSortManger.groupList)
 	return p
+}
+func (p *pallTxManager) Fi(blockIndex int) {
+	block := p.blocks[blockIndex]
+	p.bc.engine.Finalize(p.bc, block.Header(), p.baseStateDB, block.Transactions(), block.Uncles())
+	p.baseStateDB.MergeReward(p.rewardPoint[blockIndex] - 1)
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
-	p.txResults[re.txIndex] = re
+	p.txResults[re.index] = re
 	p.resultQueue <- struct{}{}
 
 }
@@ -263,13 +315,43 @@ func (p *pallTxManager) mergeLoop() {
 		handle := false
 		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
 			handle = true
-			p.handleReceipt(p.txResults[startTxIndex])
+			if succ := p.handleReceipt(p.txResults[startTxIndex]); !succ {
+				break
+			}
+			fmt.Println("合并完毕", p.baseStateDB.MergedIndex, p.txLen, p.nextRewardPoint)
+
+			for p.nextRewardPoint == p.baseStateDB.MergedIndex+1 {
+				sbBlockIndex := p.mpToRealIndex[p.baseStateDB.MergedIndex].blockIndex
+
+				block := p.blocks[sbBlockIndex]
+				fmt.Println("开搞", block.NumberU64(), len(block.Transactions()))
+				p.Fi(sbBlockIndex)
+
+				sbBlockIndex++
+
+				//fmt.Println("?????", sbBlockIndex, p.txLen, len(p.blocks[sbBlockIndex].Transactions()))
+				for sbBlockIndex < len(p.blocks) && len(p.blocks[sbBlockIndex].Transactions()) == 0 {
+					block := p.blocks[sbBlockIndex]
+					fmt.Println("开搞", block.NumberU64(), len(block.Transactions()))
+					p.Fi(sbBlockIndex)
+					sbBlockIndex++
+				}
+				if sbBlockIndex < len(p.blocks) {
+					fmt.Println("340000", sbBlockIndex, p.rewardPoint[sbBlockIndex])
+					p.nextRewardPoint = p.rewardPoint[sbBlockIndex]
+				} else {
+					break
+				}
+
+			}
+
 			startTxIndex = p.baseStateDB.MergedIndex + 1
 		}
 
 		if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
 			p.ended = true
-			p.baseStateDB.FinalUpdateObjs(p.block.Coinbase())
+			fmt.Println("FFFFFFFFFFFFFFFFFFFFFF", p.blocks[0])
+			p.baseStateDB.FinalUpdateObjs(p.coinbaseList)
 			close(p.mergedQueue)
 			close(p.txQueue)
 			p.ch <- struct{}{}
@@ -282,54 +364,86 @@ func (p *pallTxManager) mergeLoop() {
 	}
 }
 
-func (p *pallTxManager) handleReceipt(rr *txResult) {
-	if rr.receipt != nil && !rr.st.Conflict(p.block.Coinbase()) {
-		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), p.block.Transactions()[rr.txIndex].GasPrice())
-		rr.st.Merge(p.baseStateDB, p.block.Coinbase(), txFee)
+func (p *pallTxManager) handleReceipt(rr *txResult) bool {
+	block := p.blocks[p.mpToRealIndex[rr.index].blockIndex]
+	if rr.receipt != nil && !rr.st.Conflict(block.Coinbase()) {
+		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), block.Transactions()[p.mpToRealIndex[rr.index].tx].GasPrice())
+		rr.st.Merge(p.baseStateDB, block.Coinbase(), txFee)
 
+		p.baseStateDB.MergedIndex = rr.index
 		p.gp -= rr.receipt.GasUsed
-		p.mergedReceipts[rr.txIndex] = rr.receipt
-		//fmt.Println("<<<<<<<<<<<<<<<<<<<<<", rr.txIndex)
-		p.txSortManger.pushNextTxInGroup(rr.txIndex)
-		return
+		p.mergedReceipts[rr.index] = rr.receipt
+
+		p.txSortManger.pushNextTxInGroup(rr.index)
+		return true
 	}
-	p.txResults[rr.txIndex] = nil
+	p.txResults[rr.index] = nil
 	common.DebugInfo.Conflicts++
 	//fmt.Println("??????????", rr.txIndex)
-	p.txSortManger.push(rr.txIndex)
+	p.txSortManger.push(rr.index)
+	return false
 }
 
-func (p *pallTxManager) handleTx(txIndex int) {
-	tx := p.block.Transactions()[txIndex]
+func (p *pallTxManager) handleTx(index int) {
+	block := p.blocks[p.mpToRealIndex[index].blockIndex]
+	txRealIndex := p.mpToRealIndex[index].tx
+
+	tx := block.Transactions()[txRealIndex]
 	st, _ := state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
 
 	st.MergedSts = p.baseStateDB.MergedSts
 	st.MergedIndex = p.baseStateDB.MergedIndex
 	gas := p.gp
 
-	st.Prepare(tx.Hash(), p.block.Hash(), txIndex)
-	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, p.block.Header(), tx, nil, p.bc.vmConfig)
-	if err != nil && st.MergedIndex+1 == txIndex {
-		fmt.Println("---apply tx err---", err, "blockNumber", p.block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", txIndex)
+	st.Prepare(tx.Hash(), block.Hash(), txRealIndex, index)
+	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
+	if err != nil {
+		fmt.Println("---apply tx err---", err, "blockNumber", block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", index, "realIndex", txRealIndex, "rewardList", p.rewardPoint)
+		for _, v := range p.rewardPoint {
+			if st.MergedIndex+1 == v {
+				//panic(err)
+			}
+		}
+
 	}
 
-	go p.AddReceiptToQueue(&txResult{
+	p.AddReceiptToQueue(&txResult{
 		st:      st,
-		txIndex: txIndex,
+		index:   index,
 		receipt: receipt,
 	})
 }
 
-func (p *pallTxManager) GetReceiptsAndLogs() (types.Receipts, []*types.Log, uint64) {
-	logs := make([]*types.Log, 0)
-	cumulativeGasUsed := uint64(0)
-	//fmt.Println("30777", p.mergedReceipts)
+func (p *pallTxManager) GetReceiptsAndLogs() ([]types.Receipts, [][]*types.Log, []uint64) {
+	logList := make([][]*types.Log, 0)
+	rsList := make([]types.Receipts, 0)
+	usdList := make([]uint64, 0)
 
-	for index := 0; index < p.txLen; index++ {
-		//fmt.Println("index", index, p.mergedReceipts[index] == nil)
-		cumulativeGasUsed = cumulativeGasUsed + p.mergedReceipts[index].GasUsed
-		p.mergedReceipts[index].CumulativeGasUsed = cumulativeGasUsed
-		logs = append(logs, p.mergedReceipts[index].Logs...)
+	start := 0
+	for _, block := range p.blocks {
+		if len(block.Transactions()) == 0 {
+			logList = append(logList, make([]*types.Log, 0))
+			rsList = append(rsList, make(types.Receipts, 0))
+			usdList = append(usdList, 0)
+			continue
+		}
+		cumulativeGasUsed := uint64(0)
+		log := make([]*types.Log, 0)
+		rs := make(types.Receipts, 0)
+		ll := len(block.Transactions())
+
+		for i := start; i < start+ll; i++ {
+			cumulativeGasUsed = cumulativeGasUsed + p.mergedReceipts[i].GasUsed
+			p.mergedReceipts[i].CumulativeGasUsed = cumulativeGasUsed
+			log = append(log, p.mergedReceipts[i].Logs...)
+			rs = append(rs, p.mergedReceipts[i])
+		}
+		start += ll
+		logList = append(logList, log)
+		rsList = append(rsList, rs)
+		usdList = append(usdList, cumulativeGasUsed)
+
 	}
-	return p.mergedReceipts, logs, cumulativeGasUsed
+
+	return rsList, logList, usdList
 }

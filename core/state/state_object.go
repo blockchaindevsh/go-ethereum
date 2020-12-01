@@ -353,7 +353,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		return tr
 	}
 	for key, value := range s.pendingStorage {
-
+		fmt.Println("storage--", s.address.String(), key.String(), value.String())
 		var v []byte
 		if (value == common.Hash{}) {
 			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))

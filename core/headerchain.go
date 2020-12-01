@@ -147,6 +147,7 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 	// Calculate the total difficulty of the header
 	ptd := hc.GetTd(header.ParentHash, number-1)
 	if ptd == nil {
+		fmt.Println("150---")
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	head := hc.CurrentHeader().Number.Uint64()
