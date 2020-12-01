@@ -47,6 +47,9 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 }
 
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	if block.NumberU64() == 8010001 {
+		//panic(fmt.Errorf("need panic:by scf block number=%v", block.NumberU64()))
+	}
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -67,7 +70,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
-
 	return receipts, allLogs, *usedGas, nil
 }
 
