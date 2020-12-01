@@ -91,6 +91,23 @@ type txSortManager struct {
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
 	groupList := grouping(from, to)
 
+	common.DebugInfo.Groups += len(groupList)
+	maxx := -1
+	for _, txs := range groupList {
+		l := len(txs)
+		if common.DebugInfo.MaxDepeth < l {
+			common.DebugInfo.MaxDepeth = l
+		}
+		if common.DebugInfo.MinDepeth > l {
+			common.DebugInfo.MinDepeth = l
+		}
+		if l > maxx {
+			maxx = l
+		}
+	}
+	common.DebugInfo.SumMaxDepth += maxx
+	fmt.Println("最大深度", maxx)
+
 	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
 		for index := 0; index < len(list)-1; index++ {
@@ -277,6 +294,7 @@ func (p *pallTxManager) handleReceipt(rr *txResult) {
 		return
 	}
 	p.txResults[rr.txIndex] = nil
+	common.DebugInfo.Conflicts++
 	//fmt.Println("??????????", rr.txIndex)
 	p.txSortManger.push(rr.txIndex)
 }

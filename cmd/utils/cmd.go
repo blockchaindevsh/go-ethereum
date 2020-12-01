@@ -34,6 +34,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 )
@@ -107,6 +108,16 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		}
 	}
 
+	fileName := "./pprof"
+	os.Remove(fileName)
+	f, err := os.Create(fileName)
+	if err != nil {
+		panic(err)
+	}
+	if err := pprof.StartCPUProfile(f); err != nil {
+		panic(err)
+	}
+
 	log.Info("Importing blockchain", "file", fn)
 
 	// Open the file handle and potentially unwrap the gzip stream
@@ -163,7 +174,15 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
+		if chain.CurrentBlock().NumberU64() >= 8025000 {
+			break
+		}
 	}
+	pprof.StopCPUProfile()
+	f.Close()
+	fmt.Println("stop cpu profile", f.Name())
+	common.DebugInfo.Print()
+
 	return nil
 }
 
