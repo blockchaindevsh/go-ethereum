@@ -205,6 +205,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 		fromList = append(fromList, sender)
 		toList = append(toList, tx.To())
 	}
+	go p.baseStateDB.PreCache(fromList, toList)
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
 	thread := p.txSortManger.groupLen

@@ -210,6 +210,46 @@ func (m *mergedStatus) GetState(addr common.Address, key common.Hash) (common.Ha
 
 }
 
+func (s *StateDB) PreCache(from []common.Address, to []*common.Address) {
+	mp := make(map[common.Address]bool, 0)
+	for index, addr := range from {
+		if !mp[addr] {
+			mp[addr] = true
+		}
+		if to[index] != nil {
+			if !mp[*to[index]] {
+				mp[*to[index]] = true
+			}
+		}
+	}
+	for addr, _ := range mp {
+		enc, err := s.trie.TryGet(addr.Bytes())
+		if err != nil {
+
+		}
+		if len(enc) == 0 {
+			continue
+		}
+		data := new(Account)
+		if err := rlp.DecodeBytes(enc, data); err != nil {
+			log.Error("Failed to decode state object", "addr", addr, "err", err)
+			continue
+		}
+		s.MergedSts.setOriginAccount(addr, *data)
+
+		codeHash := data.CodeHash
+		addrHash := crypto.Keccak256Hash(addr[:])
+		if bytes.Equal(codeHash, emptyCodeHash) {
+			continue
+		}
+		code, err := s.db.ContractCode(addrHash, common.BytesToHash(data.CodeHash))
+		if err != nil {
+			continue
+		}
+		s.MergedSts.setOriginCode(addrHash, common.BytesToHash(codeHash), code)
+	}
+}
+
 // StateDB structs within the ethereum protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
 // nested states. It's the general query interface to retrieve:
