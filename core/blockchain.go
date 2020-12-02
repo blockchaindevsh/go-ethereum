@@ -655,7 +655,7 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	if err := batch.Write(); err != nil {
 		log.Crit("Failed to write genesis block", "err", err)
 	}
-	bc.writeHeadBlock(genesis)
+	bc.writeHeadBlock(types.Blocks{genesis})
 
 	// Last update all in-memory chain markers
 	bc.genesisBlock = genesis
@@ -706,25 +706,30 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 // or if they are on a different side chain.
 //
 // Note, this function assumes that the `mu` mutex is held!
-func (bc *BlockChain) writeHeadBlock(block *types.Block) {
+func (bc *BlockChain) writeHeadBlock(blocks types.Blocks) {
 	// If the block is on a side chain or an unknown one, force other heads onto it too
-	updateHeads := rawdb.ReadCanonicalHash(bc.db, block.NumberU64()) != block.Hash()
+	updateHeads := rawdb.ReadCanonicalHash(bc.db, blocks[0].NumberU64()) != blocks[0].Hash()
 
 	// Add the block to the canonical chain number scheme and mark as the head
 	batch := bc.db.NewBatch()
-	rawdb.WriteCanonicalHash(batch, block.Hash(), block.NumberU64())
-	rawdb.WriteTxLookupEntries(batch, block)
-	rawdb.WriteHeadBlockHash(batch, block.Hash())
 
-	// If the block is better than our head or is on a different chain, force update heads
-	if updateHeads {
-		rawdb.WriteHeadHeaderHash(batch, block.Hash())
-		rawdb.WriteHeadFastBlockHash(batch, block.Hash())
+	for _, block := range blocks {
+		rawdb.WriteCanonicalHash(batch, block.Hash(), block.NumberU64())
+		rawdb.WriteTxLookupEntries(batch, block)
+		rawdb.WriteHeadBlockHash(batch, block.Hash())
+
+		// If the block is better than our head or is on a different chain, force update heads
+		if updateHeads {
+			rawdb.WriteHeadHeaderHash(batch, block.Hash())
+			rawdb.WriteHeadFastBlockHash(batch, block.Hash())
+		}
 	}
+
 	// Flush the whole batch into the disk, exit the node if failed
 	if err := batch.Write(); err != nil {
 		log.Crit("Failed to update chain indexes and markers", "err", err)
 	}
+	block := blocks[len(blocks)-1]
 	// Update all in-memory chain markers in the last step
 	if updateHeads {
 		bc.hc.SetCurrentHeader(block.Header())
@@ -1417,7 +1422,7 @@ func (bc *BlockChain) writeKnownBlock(block *types.Block) error {
 			return err
 		}
 	}
-	bc.writeHeadBlock(block)
+	bc.writeHeadBlock(types.Blocks{block})
 	return nil
 }
 
@@ -1563,7 +1568,8 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	}
 	// Set new head.
 	if status == CanonStatTy {
-		bc.writeHeadBlock(blocks[len(blocks)-1])
+		bc.writeHeadBlock(blocks)
+
 	}
 	for _, block := range blocks {
 		bc.futureBlocks.Remove(block.Hash())
@@ -2196,7 +2202,7 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	// taking care of the proper incremental order.
 	for i := len(newChain) - 1; i >= 1; i-- {
 		// Insert the block in the canonical way, re-writing history
-		bc.writeHeadBlock(newChain[i])
+		bc.writeHeadBlock(types.Blocks{newChain[i]})
 
 		// Collect reborn logs due to chain reorg
 		collectLogs(newChain[i].Hash(), false)
