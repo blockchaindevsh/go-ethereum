@@ -39,7 +39,13 @@ type Stack struct {
 func newstack() *Stack {
 	return stackPool.Get().(*Stack)
 }
-
+func (st *Stack) SCFDATA() string {
+	ss := ""
+	for _, v := range st.data {
+		ss += fmt.Sprintf("%v ", v.String())
+	}
+	return ss
+}
 func returnStack(s *Stack) {
 	s.data = s.data[:0]
 	stackPool.Put(s)

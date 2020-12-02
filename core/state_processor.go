@@ -64,9 +64,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs  []*types.Log
 		gp       = new(GasPool).AddGas(block.GasLimit())
 	)
-	//if block.NumberU64() == 8200001 {
-	//	panic(fmt.Errorf("current blockNumber=%v,panic by scf", block.NumberU64()))
-	//}
+	if block.NumberU64() == 3882492 {
+		panic(fmt.Errorf("current blockNumber=%v,panic by scf", block.NumberU64()))
+	}
 	fmt.Println("block", block.NumberU64(), len(block.Transactions()))
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
@@ -99,9 +99,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	}
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
+
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	if tx.Hash().String() == "0x3d5fb1c14577eb6dca77add6fff2cd9727896b80cb2052b7be512bb925fd173b" || tx.Hash().String() == "" {
+		fmt.Println("开始执行",tx.Hash().String())
+		vmenv.PrintLog = true
+	}
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
