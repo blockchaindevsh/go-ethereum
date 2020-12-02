@@ -174,7 +174,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
-		if chain.CurrentBlock().NumberU64() >= 8025000 {
+		if chain.CurrentBlock().NumberU64() >= 8000000 {
 			break
 		}
 	}
