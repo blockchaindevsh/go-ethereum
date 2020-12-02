@@ -415,3 +415,7 @@ func (b *Block) Hash() common.Hash {
 }
 
 type Blocks []*Block
+
+var (
+	BlockAndHash = make(map[uint64]*Header, 0)
+)

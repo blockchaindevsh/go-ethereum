@@ -214,6 +214,8 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		gp += block.GasLimit()
 		rewardPoint = append(rewardPoint, txLen)
 		coinbaseList = append(coinbaseList, block.Coinbase())
+
+		types.BlockAndHash[block.NumberU64()] = block.Header()
 	}
 
 	p := &pallTxManager{

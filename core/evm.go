@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -70,6 +71,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 			cache = append(cache, ref.ParentHash)
 		}
 		if idx := ref.Number.Uint64() - n - 1; idx < uint64(len(cache)) {
+			fmt.Println("74------", idx, len(cache), ref.Number.Uint64(), n)
 			return cache[idx]
 		}
 		// No luck in the cache, but we can start iterating from the last element we already know
@@ -78,16 +80,24 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 
 		for {
 			header := chain.GetHeader(lastKnownHash, lastKnownNumber)
+			fmt.Println("lll", lastKnownNumber, lastKnownHash.String(), header == nil)
 			if header == nil {
-				break
+				if data, ok := types.BlockAndHash[lastKnownNumber]; ok {
+					header = data
+				} else {
+					break
+				}
+
 			}
 			cache = append(cache, header.ParentHash)
 			lastKnownHash = header.ParentHash
 			lastKnownNumber = header.Number.Uint64() - 1
+			fmt.Println("nnnnnnnnnnn", lastKnownNumber, n)
 			if n == lastKnownNumber {
 				return lastKnownHash
 			}
 		}
+		fmt.Println("here---")
 		return common.Hash{}
 	}
 }
