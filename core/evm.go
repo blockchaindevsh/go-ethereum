@@ -66,6 +66,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 	var cache []common.Hash
 
 	return func(n uint64) common.Hash {
+		fmt.Println("nnnn", n, len(cache))
 		// If there's no hash cache yet, make one
 		if len(cache) == 0 {
 			cache = append(cache, ref.ParentHash)
@@ -80,7 +81,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 
 		for {
 			header := chain.GetHeader(lastKnownHash, lastKnownNumber)
-			fmt.Println("lll", lastKnownNumber, lastKnownHash.String(), header == nil)
+			//fmt.Println("lll", lastKnownNumber, lastKnownHash.String(), header == nil)
 			if header == nil {
 				if data, ok := types.BlockAndHash[lastKnownNumber]; ok {
 					header = data
@@ -92,7 +93,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 			cache = append(cache, header.ParentHash)
 			lastKnownHash = header.ParentHash
 			lastKnownNumber = header.Number.Uint64() - 1
-			fmt.Println("nnnnnnnnnnn", lastKnownNumber, n)
+			fmt.Println("nnnn", lastKnownNumber, lastKnownHash.String(), n)
 			if n == lastKnownNumber {
 				return lastKnownHash
 			}
