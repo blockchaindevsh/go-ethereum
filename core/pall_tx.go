@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
@@ -275,6 +276,9 @@ func (p *pallTxManager) Fi(blockIndex int) {
 	block := p.blocks[blockIndex]
 	p.bc.engine.Finalize(p.bc, block.Header(), p.baseStateDB, block.Transactions(), block.Uncles())
 	fmt.Println("cal block reward", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
+	if block.NumberU64() == p.bc.Config().DAOForkBlock.Uint64()-1 {
+		misc.ApplyDAOHardFork(p.baseStateDB)
+	}
 	p.baseStateDB.MergeReward(p.rewardPoint[blockIndex] - 1)
 }
 

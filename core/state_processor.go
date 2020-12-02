@@ -19,7 +19,6 @@ package core
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -55,12 +54,12 @@ func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB,
 	)
 	// Mutate the block and state according to any hard-fork specs
 
-	for _, block := range blockList {
-		if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
-			misc.ApplyDAOHardFork(statedb)
-			statedb.Commit(false)
-		}
-	}
+	//for _, block := range blockList {
+	//	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+	//		misc.ApplyDAOHardFork(statedb)
+	//		statedb.Commit(false)
+	//	}
+	//}
 
 	pm := NewPallTxManage(blockList, statedb, p.bc)
 	if pm.txLen != 0 {
