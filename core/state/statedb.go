@@ -635,7 +635,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	fmt.Println("scf-update-addr", addr.String(), obj.data.Balance.String(), obj.Nonce())
+	//fmt.Println("scf-update-addr", addr.String(), obj.data.Balance.String(), obj.Nonce())
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
