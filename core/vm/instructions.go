@@ -435,6 +435,7 @@ func opGasprice(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) (
 func opBlockhash(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	num := callContext.stack.peek()
 	num64, overflow := num.Uint64WithOverflow()
+	fmt.Println("opBlockHash", interpreter.evm.BlockNumber, num64)
 	if overflow {
 		num.Clear()
 		return nil, nil

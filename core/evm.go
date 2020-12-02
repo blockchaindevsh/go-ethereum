@@ -66,7 +66,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 	var cache []common.Hash
 
 	return func(n uint64) common.Hash {
-		fmt.Println("nnnn", n, len(cache))
+		fmt.Println("nnnn", n, len(cache), "ref", ref.Number)
 		// If there's no hash cache yet, make one
 		if len(cache) == 0 {
 			cache = append(cache, ref.ParentHash)

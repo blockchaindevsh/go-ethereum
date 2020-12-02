@@ -1457,7 +1457,7 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 		externTd = new(big.Int).Add(block.Difficulty(), ptd)
 		rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 		rawdb.WriteBlock(blockBatch, block)
-		fmt.Println("write--", block.NumberU64(), block.Difficulty(), externTd)
+		//fmt.Println("write--", block.NumberU64(), block.Difficulty(), externTd)
 		rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts[index])
 		rawdb.WritePreimages(blockBatch, state.Preimages()) // bug?
 	}
@@ -1468,7 +1468,7 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	common.DebugInfo.WriteBlock += time.Since(ts)
 	ts = time.Now()
 
-	fmt.Println("准备commit", blocks[len(blocks)-1].NumberU64())
+	//fmt.Println("准备commit", blocks[len(blocks)-1].NumberU64())
 	// Commit all cached state changes into underlying memory database.
 	root, err := state.Commit(bc.chainConfig.IsEIP158(blocks[len(blocks)-1].Number()))
 	if err != nil {

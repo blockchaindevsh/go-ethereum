@@ -89,7 +89,7 @@ func (v *BlockValidator) ValidateState(block *types.Block, statedb *state.StateD
 		return nil
 	}
 
-	fmt.Println("检查receipit信息", block.NumberU64())
+	//fmt.Println("检查receipit信息", block.NumberU64())
 	// Validate the received block's bloom with the one derived from the generated receipts.
 	// For valid blocks this should always validate to true.
 	rbloom := types.CreateBloom(receipts)
