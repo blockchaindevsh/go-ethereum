@@ -509,6 +509,7 @@ func opMstore8(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
+	fmt.Println("ready",callContext.contract.Address().String(),hash.String())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
 	fmt.Println("callCon",callContext.contract.Address().String(),hash.String(),val.String())
 	loc.SetBytes(val.Bytes())

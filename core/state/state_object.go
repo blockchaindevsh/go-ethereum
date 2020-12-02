@@ -19,6 +19,7 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -178,6 +179,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If we have a dirty value for this state entry, return it
 	value, dirty := s.dirtyStorage[key]
 	if dirty {
+		fmt.Println("181----")
 		return value
 	}
 	// Otherwise return the entry's original value
@@ -192,9 +194,11 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	// If we have a pending write or clean cached, return that
 	if value, pending := s.pendingStorage[key]; pending {
+		fmt.Println("196")
 		return value
 	}
 	if value, cached := s.originStorage[key]; cached {
+		fmt.Println("2000")
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -226,6 +230,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 			s.setError(err)
 			return common.Hash{}
 		}
+		fmt.Println("???????????",hex.EncodeToString(enc),s.address.String(),s.data.Incarnation,key.String())
 	}
 	var value common.Hash
 	if len(enc) > 0 {
