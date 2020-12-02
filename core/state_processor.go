@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -85,8 +86,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if tx.Hash().String() == "" || tx.Hash().String() == "" {
+	if tx.Hash().String() == "0x2d9fee60badfa148345b8bbfd5d7c28469b451f6c78564842f8c1397d64020e3" || tx.Hash().String() == "" {
 		//vmenv.PrintLog = true
+		fmt.Println("开始执行",tx.Hash().String())
 		vmenv.PrintLog = true
 	}
 	// Apply the transaction to the current state (included in the env)
