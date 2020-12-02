@@ -262,7 +262,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		//} else {
 		//	evm.StateDB.DiscardSnapshot(snapshot)
 	}
-	
+
 	return ret, gas, err
 }
 
