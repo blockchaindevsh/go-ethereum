@@ -200,12 +200,15 @@ func (m *mergedStatus) GetState(addr common.Address, key common.Hash) (common.Ha
 
 	if r := m.writeCachedStateObjects[addr]; r != nil {
 		if r.data.Deleted {
+			fmt.Println("2-3----")
 			return common.Hash{}, true
 		}
 		if value, ok := r.pendingStorage[key]; ok {
+			fmt.Println("207---")
 			return value, ok
 		}
 	}
+	fmt.Println("209---")
 	return common.Hash{}, false
 
 }
@@ -475,6 +478,7 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.stateObjects[addr]; exist {
 		if value, dirty := data.dirtyStorage[hash]; dirty {
+			fmt.Println("476---",value.String())
 			return value
 		}
 	}
@@ -503,11 +507,13 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.MergedSts.GetState(addr, hash); exist {
+		fmt.Println("507----",data.String())
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		fmt.Println("513----",)
 		return stateObject.GetCommittedState(s.db, hash)
 	}
 	return common.Hash{}
