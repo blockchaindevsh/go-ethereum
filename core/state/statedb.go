@@ -580,7 +580,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	fmt.Println("setstate", addr.String(), key.String(), value.String())
+	//fmt.Println("setstate", addr.String(), key.String(), value.String())
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		prevValue := s.GetState(addr, key)
@@ -635,7 +635,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	//fmt.Println("update addr", addr.String(), obj.data.Balance.String(), obj.Nonce())
+	fmt.Println("scf-update-addr", addr.String(), obj.data.Balance.String(), obj.Nonce())
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -932,7 +932,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	} else {
 		pre.AddBalance(txFee)
 	}
-	fmt.Println("??????????-- miner", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance.String())
+	//fmt.Println("??????????-- miner", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance.String())
 }
 
 func (s *StateDB) MergeReward(txIndex int) {

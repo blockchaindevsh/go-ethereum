@@ -1817,7 +1817,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		if parent == nil {
 			parent = bc.GetHeader(block.ParentHash(), block.NumberU64()-1)
 		}
-		fmt.Println("准备执行", "基于", parent.Number, "from", blockList[0].NumberU64(), blockList[len(blockList)-1].NumberU64())
 		statedb, err := state.New(parent.Root, bc.stateCache, bc.snaps)
 		if err != nil {
 			return it.index, err

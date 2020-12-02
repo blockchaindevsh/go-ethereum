@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -236,7 +235,7 @@ func opSAR(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byt
 func opSha3(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	offset, size := callContext.stack.pop(), callContext.stack.peek()
 	data := callContext.memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
-	fmt.Println("data", hex.EncodeToString(data), hex.EncodeToString(callContext.memory.Data()))
+	//fmt.Println("data", hex.EncodeToString(data), hex.EncodeToString(callContext.memory.Data()))
 	if interpreter.hasher == nil {
 		interpreter.hasher = sha3.NewLegacyKeccak256().(keccakState)
 	} else {
@@ -249,7 +248,7 @@ func opSha3(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	if evm.vmConfig.EnablePreimageRecording {
 		evm.StateDB.AddPreimage(interpreter.hasherBuf, data)
 	}
-	fmt.Println("hashBug", interpreter.hasherBuf.String())
+	//fmt.Println("hashBug", interpreter.hasherBuf.String())
 	size.SetBytes(interpreter.hasherBuf[:])
 	return nil, nil
 }
@@ -447,11 +446,13 @@ func opBlockhash(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) 
 	} else {
 		lower = upper - 256
 	}
-	fmt.Println("upper", upper, num64, interpreter.evm.GetHash(num64).String())
+	fmt.Println("upper", upper, num64)
 	if num64 >= lower && num64 < upper {
 		num.SetBytes(interpreter.evm.GetHash(num64).Bytes())
+		fmt.Println("res", num.String())
 	} else {
 		num.Clear()
+		fmt.Println("res-clear", num.String())
 	}
 	return nil, nil
 }

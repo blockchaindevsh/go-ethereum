@@ -93,7 +93,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 			cache = append(cache, header.ParentHash)
 			lastKnownHash = header.ParentHash
 			lastKnownNumber = header.Number.Uint64() - 1
-			fmt.Println("nnnn", lastKnownNumber, lastKnownHash.String(), n)
+			fmt.Println("nnnnnnnnnnn", lastKnownNumber, lastKnownHash.String(), n)
 			if n == lastKnownNumber {
 				return lastKnownHash
 			}

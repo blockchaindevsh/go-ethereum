@@ -191,6 +191,10 @@ type txIndex struct {
 }
 
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
+
+	fmt.Println("准备执行", "基于", bc.CurrentBlock().Number(), "from", blockList[0].NumberU64(), blockList[len(blockList)-1].NumberU64())
+
+	errCnt = 0
 	txLen := 0
 	gp := uint64(0)
 	rewardPoint := make([]int, 0)
@@ -240,6 +244,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 
 	p.txSortManger = NewSortTxManager(fromList, toList)
 
+	//fmt.Println("ready to fin init")
 	index := 0
 	for index < len(p.blocks) {
 		block := p.blocks[index]
@@ -250,7 +255,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		}
 		index++
 	}
-	fmt.Println("?-=----", index, rewardPoint)
+	fmt.Println("首次奖励", index, "奖励点", rewardPoint)
 	if index == len(p.blocks) {
 		p.baseStateDB.FinalUpdateObjs(p.coinbaseList)
 		return p
@@ -274,6 +279,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 func (p *pallTxManager) Fi(blockIndex int) {
 	block := p.blocks[blockIndex]
 	p.bc.engine.Finalize(p.bc, block.Header(), p.baseStateDB, block.Transactions(), block.Uncles())
+	fmt.Println("开搞", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
 	p.baseStateDB.MergeReward(p.rewardPoint[blockIndex] - 1)
 }
 
@@ -320,26 +326,22 @@ func (p *pallTxManager) mergeLoop() {
 			if succ := p.handleReceipt(p.txResults[startTxIndex]); !succ {
 				break
 			}
-			fmt.Println("合并完毕", p.baseStateDB.MergedIndex, p.txLen, p.nextRewardPoint)
+			fmt.Println("合并完毕", "现在", p.baseStateDB.MergedIndex, "总长度", p.txLen, "下次奖励点", p.nextRewardPoint)
 
 			for p.nextRewardPoint == p.baseStateDB.MergedIndex+1 {
 				sbBlockIndex := p.mpToRealIndex[p.baseStateDB.MergedIndex].blockIndex
 
-				block := p.blocks[sbBlockIndex]
-				fmt.Println("开搞", block.NumberU64(), len(block.Transactions()))
 				p.Fi(sbBlockIndex)
 
 				sbBlockIndex++
 
 				//fmt.Println("?????", sbBlockIndex, p.txLen, len(p.blocks[sbBlockIndex].Transactions()))
 				for sbBlockIndex < len(p.blocks) && len(p.blocks[sbBlockIndex].Transactions()) == 0 {
-					block := p.blocks[sbBlockIndex]
-					fmt.Println("开搞", block.NumberU64(), len(block.Transactions()))
 					p.Fi(sbBlockIndex)
 					sbBlockIndex++
 				}
 				if sbBlockIndex < len(p.blocks) {
-					fmt.Println("340000", sbBlockIndex, p.rewardPoint[sbBlockIndex])
+					//fmt.Println("340000", sbBlockIndex, p.rewardPoint[sbBlockIndex])
 					p.nextRewardPoint = p.rewardPoint[sbBlockIndex]
 				} else {
 					break
@@ -352,7 +354,7 @@ func (p *pallTxManager) mergeLoop() {
 
 		if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
 			p.ended = true
-			fmt.Println("FFFFFFFFFFFFFFFFFFFFFF", p.blocks[0])
+			//fmt.Println("FFFFFFFFFFFFFFFFFFFFFF", p.blocks[0])
 			p.baseStateDB.FinalUpdateObjs(p.coinbaseList)
 			close(p.mergedQueue)
 			close(p.txQueue)
@@ -386,6 +388,10 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	return false
 }
 
+var (
+	errCnt = 0
+)
+
 func (p *pallTxManager) handleTx(index int) {
 	block := p.blocks[p.mpToRealIndex[index].blockIndex]
 	txRealIndex := p.mpToRealIndex[index].tx
@@ -401,6 +407,10 @@ func (p *pallTxManager) handleTx(index int) {
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", index, "realIndex", txRealIndex, "rewardList", p.rewardPoint)
+		if errCnt > 1000 {
+			panic(err)
+		}
+		errCnt++
 		for _, v := range p.rewardPoint {
 			if st.MergedIndex+1 == v {
 				//panic(err)
