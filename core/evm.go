@@ -66,13 +66,13 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 	var cache []common.Hash
 
 	return func(n uint64) common.Hash {
-		fmt.Println("nnnn", n, len(cache), "ref", ref.Number)
+		//fmt.Println("nnnn", n, len(cache), "ref", ref.Number)
 		// If there's no hash cache yet, make one
 		if len(cache) == 0 {
 			cache = append(cache, ref.ParentHash)
 		}
 		if idx := ref.Number.Uint64() - n - 1; idx < uint64(len(cache)) {
-			fmt.Println("74------", idx, len(cache), ref.Number.Uint64(), n)
+			//fmt.Println("74------", idx, len(cache), ref.Number.Uint64(), n)
 			return cache[idx]
 		}
 		// No luck in the cache, but we can start iterating from the last element we already know
@@ -93,7 +93,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 			cache = append(cache, header.ParentHash)
 			lastKnownHash = header.ParentHash
 			lastKnownNumber = header.Number.Uint64() - 1
-			fmt.Println("nnnnnnnnnnn", lastKnownNumber, lastKnownHash.String(), n)
+			//fmt.Println("nnnnnnnnnnn", lastKnownNumber, lastKnownHash.String(), n)
 			if n == lastKnownNumber {
 				return lastKnownHash
 			}

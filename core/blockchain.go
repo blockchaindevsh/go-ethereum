@@ -1473,10 +1473,10 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	common.DebugInfo.WriteBlock += time.Since(ts)
 	ts = time.Now()
 
-	fmt.Println("ready commit", blocks[len(blocks)-1].NumberU64())
+	//fmt.Println("ready commit", blocks[len(blocks)-1].NumberU64())
 	// Commit all cached state changes into underlying memory database.
 	root, err := state.Commit(bc.chainConfig.IsEIP158(blocks[len(blocks)-1].Number()))
-	fmt.Println("end commit")
+	//fmt.Println("end commit")
 	if err != nil {
 		return NonStatTy, err
 	}

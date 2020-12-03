@@ -347,7 +347,7 @@ func (p *pallTxManager) mergeLoop() {
 			}
 
 			p.baseStateDB.MergedIndex = startTxIndex
-			fmt.Println("merge end MMM", "now", p.baseStateDB.MergedIndex, "allTxLen", p.txLen, "next block reward", p.nextRewardPoint)
+			//fmt.Println("merge end MMM", "now", p.baseStateDB.MergedIndex, "allTxLen", p.txLen, "next block reward", p.nextRewardPoint)
 			startTxIndex = p.baseStateDB.MergedIndex + 1
 		}
 
@@ -381,7 +381,7 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	p.txResults[rr.index] = nil
 	common.DebugInfo.Conflicts++
 
-	fmt.Println("receipt failed", "index", rr.index, "blockIndex", p.mpToRealIndex[rr.index].blockIndex, "real index", p.mpToRealIndex[rr.index].tx)
+	//fmt.Println("receipt failed", "index", rr.index, "blockIndex", p.mpToRealIndex[rr.index].blockIndex, "real index", p.mpToRealIndex[rr.index].tx)
 	p.txSortManger.push(rr.index)
 	return false
 }
