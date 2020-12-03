@@ -1769,8 +1769,11 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		fmt.Println("1769????",block.NumberU64())
 		common.DebugInfo.Txs += len(block.Transactions())
 		blockList = append(blockList, block)
-		if len(blockList) != handleLength {
-			continue
+
+		if len(blockList) != handleLength  {
+			if block.NumberU64()!=chain[len(chain)-1].NumberU64(){
+				continue
+			}
 		}
 		// If the chain is terminating, stop processing blocks
 		if bc.insertStopped() {
