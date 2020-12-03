@@ -200,15 +200,15 @@ func (m *mergedStatus) GetState(addr common.Address, key common.Hash) (common.Ha
 
 	if r := m.writeCachedStateObjects[addr]; r != nil {
 		if r.data.Deleted {
-			fmt.Println("2-3----")
+			//fmt.Println("2-3----")
 			return common.Hash{}, true
 		}
 		if value, ok := r.pendingStorage[key]; ok {
-			fmt.Println("207---")
+			//fmt.Println("207---")
 			return value, ok
 		}
 	}
-	fmt.Println("209---")
+	//fmt.Println("209---")
 	return common.Hash{}, false
 
 }
@@ -507,13 +507,13 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.MergedSts.GetState(addr, hash); exist {
-		fmt.Println("507----",data.String())
+		//fmt.Println("507----",data.String())
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("513----",)
+		//fmt.Println("513----",)
 		return stateObject.GetCommittedState(s.db, hash)
 	}
 	return common.Hash{}
@@ -943,12 +943,12 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
-		fmt.Println("scf-sb-start",len(v.dirtyStorage),len(v.pendingStorage))
+		//fmt.Println("scf-sb-start",len(v.dirtyStorage),len(v.pendingStorage))
 		s.MergedSts.MergeWriteObj (v, txIndex,true)
 
 
-		sb:=s.MergedSts.getWriteObj(v.address)
-		fmt.Println("scf--sb-end", v.address.String(), len(sb.pendingStorage))
+		//sb:=s.MergedSts.getWriteObj(v.address)
+		//fmt.Println("scf--sb-end", v.address.String(), len(sb.pendingStorage))
 	}
 
 	s.stateObjects = make(map[common.Address]*stateObject)
@@ -1028,7 +1028,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 			obj.data.Deleted = true
 		}
 		if isCommit {
-			fmt.Println("isCommit",addr.String())
+			//fmt.Println("isCommit",addr.String())
 			obj.updateRoot(s.db)
 			s.updateStateObject(obj)
 		}
@@ -1074,11 +1074,11 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}
-	fmt.Println("ready IntermediateRoot")
+	//fmt.Println("ready IntermediateRoot")
 	// Finalize any pending changes and merge everything into the tries
 	s.IntermediateRoot(deleteEmptyObjects)
 	isCommit=false
-	fmt.Println("end IntermediateRoot")
+	//fmt.Println("end IntermediateRoot")
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjects {

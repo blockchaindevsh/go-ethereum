@@ -275,12 +275,12 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 func (p *pallTxManager) Fi(blockIndex int) {
 	block := p.blocks[blockIndex]
 	p.bc.engine.Finalize(p.bc, block.Header(), p.baseStateDB, block.Transactions(), block.Uncles())
-	fmt.Println("cal block reward", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
+	//fmt.Println("cal block reward", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
 	if block.NumberU64() == p.bc.Config().DAOForkBlock.Uint64()-1 {
 		misc.ApplyDAOHardFork(p.baseStateDB)
 	}
 	p.baseStateDB.MergeReward(p.rewardPoint[blockIndex] - 1)
-	fmt.Println("cal block reward end", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
+	//fmt.Println("cal block reward end", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
@@ -381,7 +381,7 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	p.txResults[rr.index] = nil
 	common.DebugInfo.Conflicts++
 
-	fmt.Println("handle re failed", "index", rr.index, "blockIndex", p.mpToRealIndex[rr.index].blockIndex, "real index", p.mpToRealIndex[rr.index].tx)
+	fmt.Println("receipt failed", "index", rr.index, "blockIndex", p.mpToRealIndex[rr.index].blockIndex, "real index", p.mpToRealIndex[rr.index].tx)
 	p.txSortManger.push(rr.index)
 	return false
 }
@@ -405,7 +405,7 @@ func (p *pallTxManager) handleTx(index int) {
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
 		fmt.Println("---apply tx err---", err, "blockNumber", block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", index, "realIndex", txRealIndex, "rewardList", p.rewardPoint)
-		if errCnt > 1000 {
+		if errCnt > 100 {
 			panic(err)
 		}
 		errCnt++
