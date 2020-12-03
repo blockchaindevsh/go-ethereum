@@ -280,6 +280,7 @@ func (p *pallTxManager) Fi(blockIndex int) {
 		misc.ApplyDAOHardFork(p.baseStateDB)
 	}
 	p.baseStateDB.MergeReward(p.rewardPoint[blockIndex] - 1)
+	fmt.Println("cal block reward end", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {

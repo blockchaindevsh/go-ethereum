@@ -943,8 +943,12 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
-		s.MergedSts.setWriteObj(v.address, v, txIndex)
-		//fmt.Println("rewwwwwww", v.address.String(), v.Balance().String(), txIndex)
+		fmt.Println("scf-sb-start",len(v.dirtyStorage),len(v.pendingStorage))
+		s.MergedSts.MergeWriteObj (v, txIndex,true)
+
+
+		sb:=s.MergedSts.getWriteObj(v.address)
+		fmt.Println("scf--sb-end", v.address.String(), len(sb.pendingStorage))
 	}
 
 	s.stateObjects = make(map[common.Address]*stateObject)
