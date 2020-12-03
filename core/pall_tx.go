@@ -193,6 +193,9 @@ type txIndex struct {
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	fmt.Println("--------------- read pall tx -----------------", "base", bc.CurrentBlock().Number(), "from", blockList[0].NumberU64(), "to", blockList[len(blockList)-1].NumberU64())
 
+	if blockList[0].NumberU64()!=bc.CurrentBlock().NumberU64()+1{
+		panic(fmt.Errorf("bug here %v %v",blockList[0].NumberU64(),bc.CurrentBlock().NumberU64()))
+	}
 	errCnt = 0
 	txLen := 0
 	gp := uint64(0)
