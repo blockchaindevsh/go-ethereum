@@ -220,7 +220,7 @@ func NewPallTxManage(block *types.Block, st *state.StateDB, bc *BlockChain) *pal
 	go p.schedule()
 
 	go p.mergeLoop()
-	fmt.Println("process-", block.NumberU64(), len(block.Transactions()), len(p.txSortManger.groupList), p.txSortManger.groupList)
+	fmt.Println("process-", block.NumberU64(), len(block.Transactions()), len(p.txSortManger.groupList))
 	return p
 }
 

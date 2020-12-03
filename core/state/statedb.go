@@ -211,6 +211,10 @@ func (m *mergedStatus) GetState(addr common.Address, key common.Hash) (common.Ha
 }
 
 func (s *StateDB) PreCache(from []common.Address, to []*common.Address) {
+	tr, err := s.db.OpenTrie(common.Hash{})
+	if err != nil {
+		panic(err)
+	}
 	mp := make(map[common.Address]bool, 0)
 	for index, addr := range from {
 		if !mp[addr] {
@@ -223,7 +227,7 @@ func (s *StateDB) PreCache(from []common.Address, to []*common.Address) {
 		}
 	}
 	for addr, _ := range mp {
-		enc, err := s.trie.TryGet(addr.Bytes())
+		enc, err := tr.TryGet(addr.Bytes())
 		if err != nil {
 
 		}
