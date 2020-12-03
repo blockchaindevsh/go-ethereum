@@ -234,7 +234,7 @@ func opSAR(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byt
 func opSha3(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	offset, size := callContext.stack.pop(), callContext.stack.peek()
 	data := callContext.memory.GetPtr(int64(offset.Uint64()), int64(size.Uint64()))
-	//fmt.Println("data", hex.EncodeToString(data), hex.EncodeToString(callContext.memory.Data()))
+
 	if interpreter.hasher == nil {
 		interpreter.hasher = sha3.NewLegacyKeccak256().(keccakState)
 	} else {
@@ -247,7 +247,7 @@ func opSha3(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	if evm.vmConfig.EnablePreimageRecording {
 		evm.StateDB.AddPreimage(interpreter.hasherBuf, data)
 	}
-	//fmt.Println("hashBug", interpreter.hasherBuf.String())
+
 	size.SetBytes(interpreter.hasherBuf[:])
 	return nil, nil
 }
@@ -433,7 +433,6 @@ func opGasprice(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) (
 func opBlockhash(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	num := callContext.stack.peek()
 	num64, overflow := num.Uint64WithOverflow()
-	//fmt.Println("opBlockHash", interpreter.evm.BlockNumber, num64)
 	if overflow {
 		num.Clear()
 		return nil, nil
@@ -445,13 +444,10 @@ func opBlockhash(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) 
 	} else {
 		lower = upper - 256
 	}
-	//fmt.Println("upper", upper, num64)
 	if num64 >= lower && num64 < upper {
 		num.SetBytes(interpreter.evm.GetHash(num64).Bytes())
-		//fmt.Println("res", num.String())
 	} else {
 		num.Clear()
-		//fmt.Println("res-clear", num.String())
 	}
 	return nil, nil
 }
@@ -512,9 +508,7 @@ func opMstore8(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
-	//fmt.Println("begin",callContext.contract.Address().String(),hash.String())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
-	//fmt.Println("GetState",callContext.contract.Address().String(),hash.String(),val.String())
 	loc.SetBytes(val.Bytes())
 	return nil, nil
 }
@@ -524,7 +518,6 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	val := callContext.stack.pop()
 	interpreter.evm.StateDB.SetState(callContext.contract.Address(),
 		common.Hash(loc.Bytes32()), common.Hash(val.Bytes32()))
-	//fmt.Println("SetState",callContext.contract.Address().String(),common.Hash(loc.Bytes32()).String(), common.Hash(val.Bytes32()).String())
 	return nil, nil
 }
 

@@ -156,4 +156,3 @@ func makeBenchBlock() *Block {
 	}
 	return NewBlock(header, txs, uncles, receipts, newHasher())
 }
-

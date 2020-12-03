@@ -77,9 +77,7 @@ func (st *Stack) len() int {
 }
 
 func (st *Stack) swap(n int) {
-	//fmt.Println("ready to swap",n,st.len(),st.SCFDATA())
 	st.data[st.len()-n], st.data[st.len()-1] = st.data[st.len()-1], st.data[st.len()-n]
-	//fmt.Println("end to swap",n,st.len(),st.SCFDATA())
 }
 
 func (st *Stack) dup(n int) {
