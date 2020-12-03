@@ -1022,11 +1022,13 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	s.Finalise(deleteEmptyObjects)
 
 	for addr := range s.stateObjects {
+
 		obj := s.stateObjects[addr]
 		if obj.deleted {
 			obj.data.Deleted = true
 		}
 		if isCommit {
+			fmt.Println("isCommit",addr.String())
 			obj.updateRoot(s.db)
 			s.updateStateObject(obj)
 		}
@@ -1072,9 +1074,10 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	if s.dbErr != nil {
 		return common.Hash{}, fmt.Errorf("commit aborted due to earlier error: %v", s.dbErr)
 	}
+	fmt.Println("ready IntermediateRoot")
 	// Finalize any pending changes and merge everything into the tries
 	s.IntermediateRoot(deleteEmptyObjects)
-
+	fmt.Println("end IntermediateRoot")
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjects {
