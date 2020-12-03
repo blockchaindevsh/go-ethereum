@@ -166,7 +166,9 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if checkInterrupt() {
 			return fmt.Errorf("interrupted")
 		}
+		fmt.Println("Misssssssss",blocks[0].NumberU64(),blocks[len(blocks)-1].NumberU64())
 		missing := missingBlocks(chain, blocks[:i])
+		fmt.Println("Misss-end",missing[0].NumberU64(),missing[len(missing)-1].NumberU64())
 		if len(missing) == 0 {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
