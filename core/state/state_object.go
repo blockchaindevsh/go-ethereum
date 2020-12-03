@@ -19,7 +19,6 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -200,7 +199,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
 	if s.fakeStorage != nil {
-		fmt.Println("203--")
+		//fmt.Println("203--")
 		return s.fakeStorage[key]
 	}
 
@@ -227,7 +226,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 
 	dbKey := makeFastDbKey(s.address, s.data.Incarnation, key)
 	if value, exist := s.db.MergedSts.GetStorage(dbKey); exist {
-		fmt.Println("239999",value.String())
+		//fmt.Println("239999",value.String())
 		return value
 	}
 
@@ -238,10 +237,10 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		if enc, err = s.getTrie(db).TryGet(dbKey); err != nil {
 			s.setError(err)
-			fmt.Println("240----",hex.EncodeToString(enc))
+			//fmt.Println("240----",hex.EncodeToString(enc))
 			return common.Hash{}
 		}
-		fmt.Println("???????????",hex.EncodeToString(enc),s.address.String(),s.data.Incarnation,key.String())
+		//fmt.Println("???????????",hex.EncodeToString(enc),s.address.String(),s.data.Incarnation,key.String())
 	}
 	var value common.Hash
 	if len(enc) > 0 {
@@ -358,7 +357,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		return tr
 	}
 	for key, value := range s.pendingStorage {
-		fmt.Println("----storage--", s.address.String(), s.data.Incarnation,key.String(), value.String())
+		//fmt.Println("----storage--", s.address.String(), s.data.Incarnation,key.String(), value.String())
 		var v []byte
 		if (value == common.Hash{}) {
 			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))

@@ -478,7 +478,7 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.stateObjects[addr]; exist {
 		if value, dirty := data.dirtyStorage[hash]; dirty {
-			fmt.Println("476---",value.String())
+			//fmt.Println("476---",value.String())
 			return value
 		}
 	}
