@@ -934,26 +934,17 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
-		//fmt.Println("scf-sb-start",len(v.dirtyStorage),len(v.pendingStorage))
 		s.MergedSts.MergeWriteObj (v, txIndex,true)
-
-
-		//sb:=s.MergedSts.getWriteObj(v.address)
-		//fmt.Println("scf--sb-end", v.address.String(), len(sb.pendingStorage))
 	}
-
 	s.stateObjects = make(map[common.Address]*stateObject)
-	//fmt.Println("MMMM--rr", miner.String(), s.getStateObject(miner).Balance(), txIndex)
 }
 
 func (s *StateDB) FinalUpdateObjs(miner []common.Address) {
 	for addr, obj := range s.MergedSts.writeCachedStateObjects {
 		s.stateObjects[addr] = obj
-		//fmt.Println("final--", obj == nil)
 	}
 	for _, miner := range miner {
 		s.stateObjects[miner] = s.MergedSts.writeCachedStateObjects[miner]
-		//fmt.Println("final--miner", s.stateObjects[miner] == nil)
 	}
 }
 
@@ -1065,7 +1056,6 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	// Finalize any pending changes and merge everything into the tries
 	s.IntermediateRoot(deleteEmptyObjects)
 	isCommit=false
-	//fmt.Println("end IntermediateRoot")
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjects {

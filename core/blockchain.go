@@ -1444,7 +1444,6 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block0.ParentHash(), block0.NumberU64()-1)
 	if ptd == nil {
-		fmt.Println("1442---", block0.NumberU64())
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	// Make sure no inconsistent state is leaked during insertion
@@ -1462,7 +1461,6 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 		externTd = new(big.Int).Add(block.Difficulty(), ptd)
 		rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 		rawdb.WriteBlock(blockBatch, block)
-		//fmt.Println("write--", block.NumberU64(), block.Difficulty(), externTd)
 		rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts[index])
 		rawdb.WritePreimages(blockBatch, state.Preimages()) // bug?
 	}
@@ -1473,10 +1471,8 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	common.DebugInfo.WriteBlock += time.Since(ts)
 	ts = time.Now()
 
-	//fmt.Println("ready commit", blocks[len(blocks)-1].NumberU64())
 	// Commit all cached state changes into underlying memory database.
 	root, err := state.Commit(bc.chainConfig.IsEIP158(blocks[len(blocks)-1].Number()))
-	//fmt.Println("end commit")
 	if err != nil {
 		return NonStatTy, err
 	}
@@ -1556,7 +1552,6 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	if reorg {
 		// Reorganise the chain if the parent is not the head block
 		if blocks[0].ParentHash() != currentBlock.Hash() {
-			fmt.Println("block...", blocks[0].NumberU64(), currentBlock.NumberU64())
 			panic("sb")
 			if err := bc.reorg(currentBlock, blocks[0]); err != nil {
 				panic(err)
@@ -1659,7 +1654,6 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
 func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, error) {
-	//fmt.Println("Iiiiiiiiiiiiii",chain[0].NumberU64(),chain[len(chain)-1].NumberU64())
 	// If the chain is terminating, don't even bother starting up
 	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 		return 0, nil
@@ -1766,8 +1760,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	handleLength := 5
 	// No validation errors for the first block (or chain prefix skipped)
 	for ; block != nil && err == nil || err == ErrKnownBlock; block, err = it.next() {
-		//fmt.Println("1769????",block.NumberU64())
-		common.DebugInfo.Txs += len(block.Transactions())
 		blockList = append(blockList, block)
 
 		if len(blockList) != handleLength  {

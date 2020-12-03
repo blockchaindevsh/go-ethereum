@@ -85,11 +85,7 @@ func (v *BlockValidator) ValidateState(block *types.Block, statedb *state.StateD
 	if block.GasUsed() != usedGas {
 		return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
 	}
-	if block.NumberU64()%5 != 0 {
-		return nil
-	}
 
-	//fmt.Println("检查receipit信息", block.NumberU64())
 	// Validate the received block's bloom with the one derived from the generated receipts.
 	// For valid blocks this should always validate to true.
 	rbloom := types.CreateBloom(receipts)

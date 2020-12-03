@@ -206,6 +206,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	fromList := make([]common.Address, 0)
 	toList := make([]*common.Address, 0)
 	for blockIndex, block := range blockList {
+		common.DebugInfo.Txs += len(block.Transactions())
 		signer := types.MakeSigner(bc.chainConfig, block.Number())
 		for tIndex, tx := range block.Transactions() {
 			sender, _ := types.Sender(signer, tx)
@@ -278,12 +279,10 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 func (p *pallTxManager) Fi(blockIndex int) {
 	block := p.blocks[blockIndex]
 	p.bc.engine.Finalize(p.bc, block.Header(), p.baseStateDB, block.Transactions(), block.Uncles())
-	//fmt.Println("cal block reward", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
 	if block.NumberU64() == p.bc.Config().DAOForkBlock.Uint64()-1 {
 		misc.ApplyDAOHardFork(p.baseStateDB)
 	}
 	p.baseStateDB.MergeReward(p.rewardPoint[blockIndex] - 1)
-	//fmt.Println("cal block reward end", block.NumberU64(), len(block.Transactions()), block.Coinbase().String(), p.baseStateDB.GetBalance(block.Coinbase()), p.rewardPoint[blockIndex]-1)
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
@@ -350,7 +349,6 @@ func (p *pallTxManager) mergeLoop() {
 			}
 
 			p.baseStateDB.MergedIndex = startTxIndex
-			//fmt.Println("merge end MMM", "now", p.baseStateDB.MergedIndex, "allTxLen", p.txLen, "next block reward", p.nextRewardPoint)
 			startTxIndex = p.baseStateDB.MergedIndex + 1
 		}
 
@@ -371,7 +369,6 @@ func (p *pallTxManager) mergeLoop() {
 
 func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	block := p.blocks[p.mpToRealIndex[rr.index].blockIndex]
-	//fmt.Println("handle re", "index", rr.index, "block index", p.mpToRealIndex[rr.index].blockIndex, "real index", p.mpToRealIndex[rr.index].tx, "handle base", rr.st.MergedIndex, "curr base", p.baseStateDB.MergedIndex)
 	if rr.receipt != nil && !rr.st.Conflict(block.Coinbase()) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), block.Transactions()[p.mpToRealIndex[rr.index].tx].GasPrice())
 		rr.st.Merge(p.baseStateDB, block.Coinbase(), txFee)
@@ -384,7 +381,6 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	p.txResults[rr.index] = nil
 	common.DebugInfo.Conflicts++
 
-	//fmt.Println("receipt failed", "index", rr.index, "blockIndex", p.mpToRealIndex[rr.index].blockIndex, "real index", p.mpToRealIndex[rr.index].tx)
 	p.txSortManger.push(rr.index)
 	return false
 }
