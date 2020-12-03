@@ -404,7 +404,7 @@ func (p *pallTxManager) handleTx(index int) {
 	st.Prepare(tx.Hash(), block.Hash(), txRealIndex, index)
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
 	if err != nil {
-		fmt.Println("---apply tx err---", err, "blockNumber", block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", index, "realIndex", txRealIndex, "rewardList", p.rewardPoint)
+		fmt.Println("---apply tx err---", err, "blockNumber", block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", index, "realIndex", txRealIndex)
 		if errCnt > 100 {
 			panic(err)
 		}
