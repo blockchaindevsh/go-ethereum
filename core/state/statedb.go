@@ -183,6 +183,7 @@ func (m *mergedStatus) GetCode(addr common.Address) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if w := m.writeCachedStateObjects[addr]; w != nil {
+		fmt.Println("wwwwwwwwww",w.lastWriteIndex,w.data.Deleted)
 		if w.data.Deleted {
 			return nil, true
 		} else if w.code != nil {
@@ -267,6 +268,7 @@ type StateDB struct {
 
 	MergedSts   *mergedStatus
 	MergedIndex int
+	Pre int
 	RWSet       map[common.Address]bool // true dirty ; false only read
 }
 
@@ -440,16 +442,24 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	s.RWSet[addr] = false
-	if data, exist := s.stateObjects[addr]; exist && data.code != nil {
-		return data.code
-	}
+	if data, exist := s.stateObjects[addr]; exist {
+		//fmt.Println("445---",  bytes.Equal(data.data.CodeHash,emptyCodeHash),len(data.code))
+		if bytes.Equal(data.data.CodeHash,emptyCodeHash){
+			return nil
+		}
+		if data.code != nil {
 
+			return data.code
+		}
+	}
 	if data, exist := s.MergedSts.GetCode(addr); exist {
+		fmt.Println("450---===")
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		fmt.Println("456------")
 		return stateObject.Code(s.db)
 	}
 	return nil
@@ -544,6 +554,7 @@ func (s *StateDB) HasSuicided(addr common.Address) bool {
 
 // AddBalance adds amount to the account associated with addr.
 func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
+	s.RWSet[addr]=true
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.AddBalance(amount)
@@ -552,6 +563,7 @@ func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 
 // SubBalance subtracts amount from the account associated with addr.
 func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
+	s.RWSet[addr]=true
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SubBalance(amount)
@@ -559,6 +571,7 @@ func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
 }
 
 func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
+	s.RWSet[addr]=true
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)
@@ -634,6 +647,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
+	fmt.Println("update",addr.String(),obj.data.Balance,obj.data.Nonce)
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
@@ -834,19 +848,26 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 	return nil
 }
 
+func (s *StateDB)Print()string  {
+	ss:=""
+	ss+=fmt.Sprintf("len(sts) =%v",len(s.stateObjects))
+	return ss
+}
 // Copy creates a deep, independent copy of the state.
 // Snapshots of the copied state cannot be applied to the copy.
 func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	state := &StateDB{
 		db:           s.db,
-		trie:         s.db.CopyTrie(s.trie),
+		//trie:         s.db.CopyTrie(s.trie),
+		trie:         trie.NewFastDB(s.db.TrieDB()),
 		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
-		refund:       s.refund,
+		//refund:       s.refund,
 		logs:         make(map[common.Hash][]*types.Log, len(s.logs)),
-		logSize:      s.logSize,
+		//logSize:      s.logSize,
 		preimages:    make(map[common.Hash][]byte, len(s.preimages)),
 		journal:      newJournal(),
+		RWSet:make(map[common.Address]bool),
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
@@ -870,17 +891,17 @@ func (s *StateDB) Copy() *StateDB {
 		}
 	}
 
-	for hash, logs := range s.logs {
-		cpy := make([]*types.Log, len(logs))
-		for i, l := range logs {
-			cpy[i] = new(types.Log)
-			*cpy[i] = *l
-		}
-		state.logs[hash] = cpy
-	}
-	for hash, preimage := range s.preimages {
-		state.preimages[hash] = preimage
-	}
+	//for hash, logs := range s.logs {
+	//	cpy := make([]*types.Log, len(logs))
+	//	for i, l := range logs {
+	//		cpy[i] = new(types.Log)
+	//		*cpy[i] = *l
+	//	}
+	//	state.logs[hash] = cpy
+	//}
+	//for hash, preimage := range s.preimages {
+	//	state.preimages[hash] = preimage
+	//}
 	return state
 }
 
@@ -901,6 +922,7 @@ func (s *StateDB) CalReadAndWrite() {
 
 func (s *StateDB) Conflict(miner common.Address) bool {
 	for k, _ := range s.RWSet {
+		fmt.Println("k",k.String())
 		if k == miner {
 			if s.MergedIndex+1 != s.indexInAllBlock {
 				return true
@@ -909,6 +931,9 @@ func (s *StateDB) Conflict(miner common.Address) bool {
 		}
 
 		preWrite := s.MergedSts.getWriteObj(k)
+		if preWrite!=nil{
+			fmt.Println("preWrite",preWrite.lastWriteIndex,s.MergedIndex)
+		}
 		if preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
 			return true
 		}
@@ -921,15 +946,17 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for addr, newObj := range s.stateObjects {
 		dirty := s.RWSet[addr]
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, dirty)
+		fmt.Println("mmmm",addr.String(),s.MergedSts.getWriteObj(addr).data.Balance,s.MergedSts.getWriteObj(addr).Nonce())
 	}
 
-	pre := base.MergedSts.getWriteObj(miner)
-	if pre == nil {
-		s.AddBalance(miner, txFee)
-		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
-	} else {
-		pre.AddBalance(txFee)
-	}
+	//pre := base.MergedSts.getWriteObj(miner)
+	//if pre == nil {
+	//	s.AddBalance(miner, txFee)
+	//	base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
+	//} else {
+	//	pre.AddBalance(txFee)
+	//}
+	fmt.Println("mmmm",miner.String(),s.MergedSts.getWriteObj(miner).data.Balance,s.MergedSts.getWriteObj(miner).Nonce())
 }
 
 func (s *StateDB) MergeReward(txIndex int) {

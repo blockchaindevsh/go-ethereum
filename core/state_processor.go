@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -70,6 +71,12 @@ func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB,
 	return receipts, allLogs, usedGas, nil
 }
 
+var (
+	mp=map[string]bool{
+		"0x5606b81f1783649f4f2c9dd3b0579e70f0bd631e2ceea90454207ef0d05b46a0":true,
+		"":true,
+	}
+)
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
@@ -84,7 +91,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if tx.Hash().String() == "0x60d09eba95fb9e819420bad40a784f8358490f8da37dd14ea4c5ec20f21f06a6" || tx.Hash().String() == "" {
+	if mp[tx.Hash().String()]	{
+		fmt.Println("sssssssssssssssssss",tx.Hash().String(),msg.From().String(),msg.To().String())
 		vmenv.PrintLog = true
 	}
 	// Apply the transaction to the current state (included in the env)
@@ -104,6 +112,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if usedGas != nil {
 		*usedGas += result.UsedGas
 	}
+
+	fmt.Println("执行完毕",tx.Hash().String(),result.UsedGas,err)
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing whether the root touch-delete accounts.

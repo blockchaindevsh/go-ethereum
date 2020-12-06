@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/trie"
 	"io"
 	"math/big"
 	"time"
@@ -445,7 +446,7 @@ func (s *stateObject) ReturnGas(gas *big.Int) {}
 func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject := newObject(db, s.address, s.data)
 	if s.trie != nil {
-		stateObject.trie = db.db.CopyTrie(s.trie)
+		stateObject.trie = trie.NewFastDB(db.db.TrieDB())
 	}
 	stateObject.code = s.code
 	stateObject.dirtyStorage = s.dirtyStorage.Copy()

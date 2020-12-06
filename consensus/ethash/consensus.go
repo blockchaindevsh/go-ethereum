@@ -640,10 +640,12 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 		r.Sub(r, header.Number)
 		r.Mul(r, blockReward)
 		r.Div(r, big8)
+		state.RWSet[uncle.Coinbase]=true
 		state.AddBalance(uncle.Coinbase, r)
 
 		r.Div(blockReward, big32)
 		reward.Add(reward, r)
 	}
+	state.RWSet[header.Coinbase]=true
 	state.AddBalance(header.Coinbase, reward)
 }
