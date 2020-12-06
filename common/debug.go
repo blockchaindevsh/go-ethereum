@@ -118,4 +118,5 @@ func (d *DebugTime) Print() {
 
 var (
 	DebugInfo = NewDebugTime()
+	BlockNumber=uint64(0)
 )
