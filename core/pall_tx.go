@@ -431,7 +431,9 @@ func (p *pallTxManager) mergeLoop() {
 			nn:=p.baseStateDB.MergedIndex+1
 			 if p.txResults[nn]==nil{
 				p.txSortManger.push(nn)
-				 p.mergedQueue <- struct{}{}
+				if len(p.mergedQueue)!=p.txLen{
+					p.mergedQueue <- struct{}{}
+				}
 			}
 			//fmt.Println("111",p.baseStateDB.MergedIndex,len(p.mergedQueue))
 
