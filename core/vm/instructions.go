@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -262,6 +261,7 @@ func opBalance(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 	slot := callContext.stack.peek()
 	address := common.Address(slot.Bytes20())
 	slot.SetFromBig(interpreter.evm.StateDB.GetBalance(address))
+	fmt.Println("OPBalance",address.String(),slot.String())
 	return nil, nil
 }
 
@@ -878,7 +878,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 	return func(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 		codeLen := len(callContext.contract.Code)
 		if interpreter.evm.PrintLog{
-			fmt.Println("makePush-??????",callContext.contract.caller.Address().String(),callContext.contract.self.Address().String(),hex.EncodeToString(callContext.contract.Code))
+			//fmt.Println("makePush-??????",callContext.contract.caller.Address().String(),callContext.contract.self.Address().String(),hex.EncodeToString(callContext.contract.Code))
 		}
 
 		startMin := codeLen
@@ -895,7 +895,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 		callContext.stack.push(integer.SetBytes(common.RightPadBytes(
 			callContext.contract.Code[startMin:endMin], pushByteSize)))
 		if interpreter.evm.PrintLog{
-		fmt.Println("makePush-iiiiiiii",integer.String())
+		//fmt.Println("makePush-iiiiiiii",integer.String())
 		}
 		*pc += size
 		return nil, nil

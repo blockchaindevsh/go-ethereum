@@ -18,7 +18,6 @@ package vm
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -209,7 +208,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	snapshot := evm.StateDB.Snapshot()
 	p, isPrecompile := evm.precompile(addr)
 
-	fmt.Println("212222",!evm.StateDB.Exist(addr),addr.String())
+	//fmt.Println("212222",!evm.StateDB.Exist(addr),addr.String())
 	if !evm.StateDB.Exist(addr) {
 		if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
@@ -219,7 +218,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			}
 			return nil, gas, nil
 		}
-		fmt.Println("221-----")
+		//fmt.Println("221-----")
 		evm.StateDB.CreateAccount(addr, true)
 	}
 	evm.Transfer(evm.StateDB, caller.Address(), addr, value)
@@ -238,7 +237,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		code := evm.StateDB.GetCode(addr)
-		fmt.Println("code",addr.String(),len(code))
+		//fmt.Println("code",addr.String(),len(code))
 		if len(code) == 0 {
 			ret, err = nil, nil // gas is unchanged
 		} else {

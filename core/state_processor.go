@@ -95,6 +95,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		fmt.Println("sssssssssssssssssss",tx.Hash().String(),msg.From().String(),msg.To().String())
 		vmenv.PrintLog = true
 	}
+	//vmenv.PrintLog = true
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {
@@ -113,7 +114,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		*usedGas += result.UsedGas
 	}
 
-	fmt.Println("执行完毕",tx.Hash().String(),result.UsedGas,err)
+	//fmt.Println("执行完毕",tx.Hash().String(),result.UsedGas,err)
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing whether the root touch-delete accounts.

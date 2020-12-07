@@ -183,7 +183,7 @@ func (m *mergedStatus) GetCode(addr common.Address) (Code, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if w := m.writeCachedStateObjects[addr]; w != nil {
-		fmt.Println("wwwwwwwwww",w.lastWriteIndex,w.data.Deleted)
+		//fmt.Println("wwwwwwwwww",w.lastWriteIndex,w.data.Deleted)
 		if w.data.Deleted {
 			return nil, true
 		} else if w.code != nil {
@@ -400,6 +400,7 @@ func (s *StateDB) SubRefund(gas uint64) error {
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
 	s.RWSet[addr] = false
+	//fmt.Println("403---",addr.String())
 	return s.getStateObject(addr) != nil
 }
 
@@ -408,14 +409,17 @@ func (s *StateDB) Exist(addr common.Address) bool {
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
 	s.RWSet[addr] = false
+	//fmt.Println("4111",addr.String())
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 	s.RWSet[addr] = false
+	//fmt.Println("4190----",addr.String())
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		//fmt.Println("419----")
 		return stateObject.Balance()
 	}
 	return common.Big0
@@ -442,6 +446,7 @@ func (s *StateDB) BlockHash() common.Hash {
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	s.RWSet[addr] = false
+	//fmt.Println("449---",addr.String())
 	if data, exist := s.stateObjects[addr]; exist {
 		//fmt.Println("445---",  bytes.Equal(data.data.CodeHash,emptyCodeHash),len(data.code))
 		if bytes.Equal(data.data.CodeHash,emptyCodeHash){
@@ -453,13 +458,13 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 		}
 	}
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		fmt.Println("450---===")
+		//fmt.Println("450---===")
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("456------")
+		//fmt.Println("456------")
 		return stateObject.Code(s.db)
 	}
 	return nil
@@ -554,7 +559,7 @@ func (s *StateDB) HasSuicided(addr common.Address) bool {
 
 // AddBalance adds amount to the account associated with addr.
 func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
-	s.RWSet[addr]=true
+	//s.RWSet[addr]=true
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.AddBalance(amount)
@@ -563,7 +568,7 @@ func (s *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 
 // SubBalance subtracts amount from the account associated with addr.
 func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
-	s.RWSet[addr]=true
+	//s.RWSet[addr]=true
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SubBalance(amount)
@@ -571,7 +576,7 @@ func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
 }
 
 func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
-	s.RWSet[addr]=true
+	//s.RWSet[addr]=true
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)
@@ -919,29 +924,48 @@ func (s *StateDB) Snapshot() int {
 func (s *StateDB) CalReadAndWrite() {
 	for addr, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[addr]
+		//fmt.Println("923-------",addr.String())
 		s.RWSet[addr] = ok
 	}
 }
 
-func (s *StateDB) Conflict(miner common.Address) bool {
-	for k, _ := range s.RWSet {
-		fmt.Println("k",k.String())
-		if k == miner {
-			if s.MergedIndex+1 != s.indexInAllBlock {
-				return true
-			}
-			continue
-		}
 
+/*
+矿工：
+ */
+func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Address]bool,useFake bool,isLastIndex bool) bool {
+	for k, _ := range s.RWSet {
 		preWrite := s.MergedSts.getWriteObj(k)
-		if preWrite!=nil{
-			fmt.Println("preWrite",preWrite.lastWriteIndex,s.MergedIndex)
-		}
 		if preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
+			fmt.Println("chongtu-2",preWrite.lastWriteIndex,s.MergedIndex)
 			return true
 		}
 
 	}
+
+
+	for k,_:=range miners{
+		if preWrite:=s.MergedSts.getWriteObj(k);preWrite!=nil{
+			if useFake{
+				return true
+			}
+			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
+				fmt.Println("chongtu-miner",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
+				return true
+			}
+		}
+	}
+
+
+	if isLastIndex {
+		for k,_:=range uncle{
+			if useFake||s.MergedIndex+1 != s.indexInAllBlock {
+				fmt.Println("chongtu-uncle",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
