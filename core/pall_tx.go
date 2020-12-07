@@ -391,7 +391,11 @@ func (p *pallTxManager) mergeLoop() {
 		handle := false
 		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
 			handle = true
-			if succ := p.handleReceipt(p.txResults[startTxIndex]); !succ {
+
+			rr:=p.txResults[startTxIndex]
+			fmt.Println("处理收据",rr.index,"当前base",p.baseStateDB.MergedIndex,"基于",rr.st.MergedIndex,"区块",p.blocks[p.mpToRealIndex[rr.index].blockIndex].NumberU64(),"real tx",p.mpToRealIndex[rr.index].tx)
+
+			if succ := p.handleReceipt(rr); !succ {
 				break
 			}
 
@@ -456,7 +460,7 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	}
 
 
-	fmt.Println("处理收据",rr.index,"当前base",p.baseStateDB.MergedIndex,"基于",rr.st.MergedIndex,"区块",p.blocks[p.mpToRealIndex[rr.index].blockIndex].NumberU64(),"real tx",p.mpToRealIndex[rr.index].tx)
+
 	block := p.blocks[p.mpToRealIndex[rr.index].blockIndex]
 
 	blockIndex:=p.mpToRealIndex[rr.index].blockIndex
