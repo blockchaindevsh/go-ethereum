@@ -621,12 +621,6 @@ func (p *pallTxManager) handleTx(index int) {
 	}else{
 		sbR :=p.txResults[preIndex]
 		if preIndex>p.baseStateDB.MergedIndex && sbR !=nil && sbR.receipt!=nil {
-
-			if preIndex==p.baseStateDB.MergedIndex+1&&preIndex+1==index{
-				fmt.Println("CCCCCCCCCCCCCCCCCCCCCCCCc",index,preIndex)
-				sb =true
-				return
-			}
 			st= sbR.st.Copy()
 			st.MergedIndex=preIndex
 			st.Pre= sbR.st.MergedIndex
