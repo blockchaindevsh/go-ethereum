@@ -342,7 +342,7 @@ func (p *pallTxManager) Fi(blockIndex int) {
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
 
 	p.txResults[re.index] = re
-	fmt.Println("Addrecript",re.index,len(p.resultQueue),p.txLen)
+	fmt.Println("Addrecript",re.index,len(p.resultQueue),p.txLen,re.receipt==nil)
 	p.resultQueue <- struct{}{}
 
 }
