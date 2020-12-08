@@ -1758,7 +1758,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		return it.index, err
 	}
 	blockList := make(types.Blocks, 0)
-	handleLength := 5
+	handleLength := 1
 	// No validation errors for the first block (or chain prefix skipped)
 	for ; block != nil && err == nil || err == ErrKnownBlock; block, err = it.next() {
 		blockList = append(blockList, block)
