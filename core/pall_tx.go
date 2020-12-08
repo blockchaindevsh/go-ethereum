@@ -342,7 +342,7 @@ func (p *pallTxManager) Fi(blockIndex int) {
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
 
 	p.txResults[re.index] = re
-	//fmt.Println("Addrecript",re.index,time.Now().String(),p.txResults[re.index]==nil)
+	fmt.Println("Addrecript",re.index,len(p.resultQueue),p.txLen)
 	p.resultQueue <- struct{}{}
 
 }
@@ -443,7 +443,7 @@ func (p *pallTxManager) mergeLoop() {
 
 			//fmt.Println("222",p.baseStateDB.MergedIndex,len(p.mergedQueue))
 		}
-
+		fmt.Println("结束",p.baseStateDB.MergedIndex)
 	}
 }
 
