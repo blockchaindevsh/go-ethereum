@@ -398,24 +398,24 @@ func (p *pallTxManager) mergeLoop() {
 				break
 			}
 
-			for p.nextRewardPoint == startTxIndex+1 {
-				sbBlockIndex := p.mpToRealIndex[startTxIndex].blockIndex
-
-				p.Fi(sbBlockIndex)
-
-				sbBlockIndex++
-
-				for sbBlockIndex < len(p.blocks) && len(p.blocks[sbBlockIndex].Transactions()) == 0 {
-					p.Fi(sbBlockIndex)
-					sbBlockIndex++
-				}
-				if sbBlockIndex < len(p.blocks) {
-					p.nextRewardPoint = p.rewardPoint[sbBlockIndex]
-				} else {
-					break
-				}
-
-			}
+			//for p.nextRewardPoint == startTxIndex+1 {
+			//	sbBlockIndex := p.mpToRealIndex[startTxIndex].blockIndex
+			//
+			//	p.Fi(sbBlockIndex)
+			//
+			//	sbBlockIndex++
+			//
+			//	for sbBlockIndex < len(p.blocks) && len(p.blocks[sbBlockIndex].Transactions()) == 0 {
+			//		p.Fi(sbBlockIndex)
+			//		sbBlockIndex++
+			//	}
+			//	if sbBlockIndex < len(p.blocks) {
+			//		p.nextRewardPoint = p.rewardPoint[sbBlockIndex]
+			//	} else {
+			//		break
+			//	}
+			//
+			//}
 
 			p.baseStateDB.MergedIndex = startTxIndex
 			fmt.Println("MMMMMMMMMMMMMM",p.baseStateDB.MergedIndex)
@@ -424,6 +424,7 @@ func (p *pallTxManager) mergeLoop() {
 
 		if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
 			p.ended = true
+			p.Fi(0)
 			p.baseStateDB.FinalUpdateObjs(p.coinbaseList)
 			close(p.mergedQueue)
 			close(p.txQueue)
@@ -578,7 +579,7 @@ func (p *pallTxManager) handleTx(index int) {
 			p.Finally(index)
 			//fmt.Println("564------")
 			p.txSortManger.push(index)
-			if len(p.mergedQueue)!=p.txLen{
+			if len(p.mergedQueue)!=p.txLen && !p.ended{
 				p.mergedQueue<- struct{}{}
 			}
 			fmt.Println("sssssssssssssssssbbb",len(p.mergedQueue),p.txLen)

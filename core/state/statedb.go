@@ -940,31 +940,37 @@ func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Addre
 			fmt.Println("chongtu-2",preWrite.lastWriteIndex,s.MergedIndex)
 			return true
 		}
-
-	}
-
-
-	for k,_:=range miners{
-		if preWrite:=s.MergedSts.getWriteObj(k);preWrite!=nil{
-			if useFake{
-				return true
-			}
+		if miners[k]{
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
 				fmt.Println("chongtu-miner",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
 				return true
 			}
 		}
+
 	}
 
 
-	if isLastIndex {
-		for k,_:=range uncle{
-			if useFake||s.MergedIndex+1 != s.indexInAllBlock {
-				fmt.Println("chongtu-uncle",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
-				return true
-			}
-		}
-	}
+	//for k,_:=range miners{
+	//	if preWrite:=s.MergedSts.getWriteObj(k);preWrite!=nil{
+	//		if useFake{
+	//			return true
+	//		}
+	//		if useFake || s.MergedIndex+1 != s.indexInAllBlock {
+	//			fmt.Println("chongtu-miner",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
+	//			return true
+	//		}
+	//	}
+	//}
+	//
+	//
+	//if isLastIndex {
+	//	for k,_:=range uncle{
+	//		if useFake||s.MergedIndex+1 != s.indexInAllBlock {
+	//			fmt.Println("chongtu-uncle",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
+	//			return true
+	//		}
+	//	}
+	//}
 
 	return false
 }
@@ -972,17 +978,25 @@ func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Addre
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for addr, newObj := range s.stateObjects {
 		dirty := s.RWSet[addr]
+		if addr==miner && !dirty{
+			continue
+		}
+
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, dirty)
 		fmt.Println("mmmm",addr.String(),s.MergedSts.getWriteObj(addr).data.Balance,s.MergedSts.getWriteObj(addr).Nonce())
 	}
+	
+	if s.RWSet[miner]{
+		return
+	}
 
-	//pre := base.MergedSts.getWriteObj(miner)
-	//if pre == nil {
-	//	s.AddBalance(miner, txFee)
-	//	base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
-	//} else {
-	//	pre.AddBalance(txFee)
-	//}
+	pre := base.MergedSts.getWriteObj(miner)
+	if pre == nil {
+		s.AddBalance(miner, txFee)
+		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
+	} else {
+		pre.AddBalance(txFee)
+	}
 	fmt.Println("mmmm",miner.String(),s.MergedSts.getWriteObj(miner).data.Balance,s.MergedSts.getWriteObj(miner).Nonce())
 }
 
