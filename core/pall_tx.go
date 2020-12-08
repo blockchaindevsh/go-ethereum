@@ -362,7 +362,7 @@ func (p *pallTxManager) txLoop() {
 		if !ok {
 			break
 		}
-		//fmt.Println("txLoop",txIndex)
+		fmt.Println("txLoop",p.IsRunning(txIndex))
 		if p.IsRunning(txIndex){
 			fmt.Println("348-------",txIndex)
 			continue
