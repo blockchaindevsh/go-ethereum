@@ -353,7 +353,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	} else {
 		fmt.Println("maybe is merge ... ", re.index)
 	}
-
+	return true
 }
 
 func (p *pallTxManager) txLoop() {
