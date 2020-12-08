@@ -364,7 +364,7 @@ func (p *pallTxManager) txLoop() {
 		}
 		//fmt.Println("txLoop",txIndex)
 		if p.IsRunning(txIndex){
-			//fmt.Println("348-------",txIndex)
+			fmt.Println("348-------",txIndex)
 			continue
 		}
 		p.Run(txIndex)
@@ -376,6 +376,7 @@ func (p *pallTxManager) txLoop() {
 func (p *pallTxManager) schedule() {
 	for !p.ended {
 		if data := p.txSortManger.pop(); data != -1 {
+			fmt.Println("schedule",data,p.txResults[data]==nil,!p.IsRunning(data))
 			if p.txResults[data]==nil &&!p.IsRunning(data){
 				p.txQueue <- data
 			}
