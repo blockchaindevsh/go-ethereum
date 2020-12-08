@@ -661,41 +661,34 @@ func (p *pallTxManager) handleTx(index int) {
 	if err != nil {
 		//fmt.Println("---apply tx err---", err, "blockNumber", block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", index, "realIndex", txRealIndex)
 		if errCnt > 10 {
-			//fmt.Println("---apply tx err---", err, "blockNumber", block.NumberU64(), "baseMergedNumber", st.MergedIndex, "currTxIndex", index, "realIndex", txRealIndex)
-
 			panic(err)
 		}
-
 
 		if st.MergedIndex+1==index && st.MergedIndex==p.baseStateDB.MergedIndex&&!useFake{
 			errCnt++
 			fmt.Println("?????????",st.MergedIndex,index,p.baseStateDB.MergedIndex,useFake)
 			//panic(err)
 		}
-		for _, v := range p.rewardPoint {
-			if st.MergedIndex+1 == v {
-				//panic(err)
-			}
-		}
-
 	}
 	if err==nil{
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), block.Transactions()[p.mpToRealIndex[index].tx].GasPrice())
+		preState:=st.RWSet[block.Coinbase()]
 		st.AddBalance(block.Coinbase(),txFee)
-		if txRealIndex==len(block.Transactions())-1{
-			p.bc.engine.Finalize(p.bc, block.Header(), st, block.Transactions(), block.Uncles())
-			nextBlockIndex:=p.mpToRealIndex[index].blockIndex+1
-			for true{
-				if nextBlockIndex<len(p.blocks)&&len(p.blocks[nextBlockIndex].Transactions())==0{
-					block=p.blocks[nextBlockIndex]
-					p.bc.engine.Finalize(p.bc, block.Header(), st, block.Transactions(), block.Uncles())
-					nextBlockIndex++
-				}else{
-					break
-				}
-			}
-
-		}
+		st.RWSet[block.Coinbase()]=preState
+		//if txRealIndex==len(block.Transactions())-1{
+		//	p.bc.engine.Finalize(p.bc, block.Header(), st, block.Transactions(), block.Uncles())
+		//	nextBlockIndex:=p.mpToRealIndex[index].blockIndex+1
+		//	for true{
+		//		if nextBlockIndex<len(p.blocks)&&len(p.blocks[nextBlockIndex].Transactions())==0{
+		//			block=p.blocks[nextBlockIndex]
+		//			p.bc.engine.Finalize(p.bc, block.Header(), st, block.Transactions(), block.Uncles())
+		//			nextBlockIndex++
+		//		}else{
+		//			break
+		//		}
+		//	}
+		//
+		//}
 	}
 	next:=index
 

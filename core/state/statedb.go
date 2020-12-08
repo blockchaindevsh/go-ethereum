@@ -985,7 +985,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, dirty)
 		fmt.Println("mmmm",addr.String(),s.MergedSts.getWriteObj(addr).data.Balance,s.MergedSts.getWriteObj(addr).Nonce())
 	}
-	
+
 	if s.RWSet[miner]{
 		return
 	}
