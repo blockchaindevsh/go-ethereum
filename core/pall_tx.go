@@ -447,6 +447,8 @@ func (p *pallTxManager) mergeLoop() {
 }
 
 func (p *pallTxManager) handleReceipt(rr *txResult) bool {
+	sb:=false
+
 	if rr.useFake{
 		fmt.Println("rr.useFake,",rr.st.Pre,rr.st.MergedIndex,p.txResults[rr.st.MergedIndex].st.MergedIndex)
 		if rr.st.Pre!=p.txResults[rr.st.MergedIndex].st.MergedIndex{
@@ -522,6 +524,9 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 
 	common.DebugInfo.Conflicts++
 	p.txSortManger.push(rr.index)
+	if len(p.mergedQueue)!=p.txLen{
+		p.mergedQueue<- struct{}{}
+	}
 	return false
 }
 
