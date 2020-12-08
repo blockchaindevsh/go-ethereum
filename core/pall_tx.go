@@ -173,7 +173,6 @@ func (s *txSortManager) push(txIndex int) {
 		s.heapExist[txIndex]=true
 
 		if s.pall.txLen!=len(s.pall.mergedQueue){
-
 			s.pall.mergedQueue<- struct{}{}
 			fmt.Println("mergeQueue<-struct{}")
 		}
@@ -370,13 +369,13 @@ func (p *pallTxManager) txLoop() {
 			fmt.Println("348-------",txIndex)
 			continue
 		}
-		fmt.Println("begin-11",txIndex)
+		//fmt.Println("begin-11",txIndex)
 		p.Run(txIndex)
-		fmt.Println("begin-22",txIndex)
+		//fmt.Println("begin-22",txIndex)
 		p.handleTx(txIndex)
-		fmt.Println("begin-33",txIndex)
+		//fmt.Println("begin-33",txIndex)
 		p.Finally(txIndex)
-		fmt.Println("begin-44",txIndex)
+		//fmt.Println("begin-44",txIndex)
 	}
 }
 
@@ -442,7 +441,6 @@ func (p *pallTxManager) mergeLoop() {
 
 		if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
 			p.ended = true
-
 			p.Fi(0)
 			p.baseStateDB.FinalUpdateObjs(p.coinbaseList)
 			close(p.mergedQueue)
@@ -453,17 +451,11 @@ func (p *pallTxManager) mergeLoop() {
 		if  !p.ended {
 			nn:=p.baseStateDB.MergedIndex+1
 			 if p.txResults[nn]==nil{
-			 	fmt.Println("need nn",len(p.mergedQueue),p.txLen)
+			 	fmt.Println("need nn","insert",nn,len(p.mergedQueue),p.txLen)
 				p.txSortManger.push(nn)
-				//if len(p.mergedQueue)!=p.txLen{
-				//	p.mergedQueue <- struct{}{}
-				//}
 			}else{
 				fmt.Println("not need",nn)
 			 }
-			//fmt.Println("111",p.baseStateDB.MergedIndex,len(p.mergedQueue))
-
-			//fmt.Println("222",p.baseStateDB.MergedIndex,len(p.mergedQueue))
 		}
 		fmt.Println("结束",p.baseStateDB.MergedIndex)
 	}
