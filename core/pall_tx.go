@@ -189,7 +189,6 @@ func (s *txSortManager) pop() int {
 		return -1
 	}
 	data:= heap.Pop(s.heap).(int)
-	s.heapExist[data]=false
 	if s.pall.IsRunning(data){
 		fmt.Println("Pop isRunning",data)
 		return -1
@@ -387,6 +386,7 @@ func (p *pallTxManager) schedule() {
 			if p.txResults[data]==nil &&!p.IsRunning(data) &&!p.ended{
 				p.txQueue <- data
 			}
+			p.txSortManger.heapExist[data]=false
 
 		} else {
 			_, ok := <-p.mergedQueue
