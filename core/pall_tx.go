@@ -166,7 +166,7 @@ func (s *txSortManager) pushNextTxInGroup(txIndex int) {
 func (s *txSortManager) push(txIndex int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	fmt.Println("push",txIndex)
+	fmt.Println("push",txIndex,s.heapExist[txIndex],!s.pall.IsRunning(txIndex))
 	if !s.heapExist[txIndex] && !s.pall.IsRunning(txIndex){
 		fmt.Println("push---",txIndex)
 		heap.Push(s.heap, txIndex)
