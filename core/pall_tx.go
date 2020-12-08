@@ -367,7 +367,7 @@ func (p *pallTxManager) txLoop() {
 		stats := p.handleTx(txIndex)
 		p.isRunning[txIndex] = false
 		fmt.Println("txLoop end ", txIndex, stats)
-		if !stats {
+		if !stats && txIndex > p.baseStateDB.MergedIndex {
 			p.txSortManger.push(txIndex)
 		}
 		//fmt.Println("begin-33",txIndex)
