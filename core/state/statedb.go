@@ -1003,10 +1003,9 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 
 	pre := base.MergedSts.getWriteObj(miner)
 	if pre == nil {
-		s.stateObjects[miner]=nil
-		//pre.AddBalance(txFee)
-		s.AddBalance(miner, txFee)
-		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
+		base.AddBalance(miner,txFee)
+		base.MergedSts.setWriteObj(miner, base.getStateObject(miner), s.indexInAllBlock)
+		base.stateObjects=make(map[common.Address]*stateObject)
 	} else {
 		pre.AddBalance(txFee)
 	}

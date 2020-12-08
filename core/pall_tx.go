@@ -304,7 +304,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 
 	fmt.Println("gropuList",p.txSortManger.groupList)
 	for index:=0;index<txLen;index++{
-		fmt.Println("txIndex",index,"blockIndex",p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(),"txIndex",p.mpToRealIndex[index].tx)
+		//fmt.Println("txIndex",index,"blockIndex",p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(),"txIndex",p.mpToRealIndex[index].tx)
 	}
 	index := 0
 	for index < len(p.blocks) {
