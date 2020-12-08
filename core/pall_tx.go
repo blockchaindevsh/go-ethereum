@@ -192,6 +192,7 @@ func (s *txSortManager) pop() int {
 type pallTxManager struct {
 	isMereg   []bool
 	isRunning []bool
+	canotSave []bool
 	mu        sync.Mutex
 	//exeMp map[int]bool
 	blocks types.Blocks
@@ -273,6 +274,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	p := &pallTxManager{
 		isMereg:       make([]bool, txLen, txLen),
 		isRunning:     make([]bool, txLen, txLen),
+		canotSave:     make([]bool, txLen, txLen),
 		blocks:        blockList,
 		rewardPoint:   rewardPoint,
 		coinbaseList:  coinbaseList,
@@ -338,7 +340,12 @@ func (p *pallTxManager) Fi(blockIndex int) {
 	p.baseStateDB.MergeReward(p.rewardPoint[blockIndex] - 1)
 }
 
-func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
+func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
+	if p.canotSave[re.index] {
+		p.canotSave[re.index] = false
+		fmt.Println("old handle diuqi", re.index)
+		return false
+	}
 	if !p.isMereg[re.index] {
 		p.txResults[re.index] = re
 		fmt.Println("Addrecript", re.index, len(p.resultQueue), p.txLen, re.receipt == nil)
@@ -497,6 +504,9 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 		if p.txResults[next] != nil {
 			p.txResults[next] = nil
 		} else {
+			if p.isRunning[next] {
+				p.canotSave[next] = true
+			}
 			break
 		}
 	}
@@ -586,18 +596,22 @@ func (p *pallTxManager) handleTx(index int) bool {
 		if p.txResults[next] != nil {
 			p.txResults[next] = nil
 		} else {
+			if p.isRunning[next] {
+				p.canotSave[next] = true
+			}
+
 			break
 		}
 	}
 
 	p.txSortManger.pushNextTxInGroup(index)
-	go p.AddReceiptToQueue(&txResult{
+	return p.AddReceiptToQueue(&txResult{
 		useFake: useFake,
 		st:      st,
 		index:   index,
 		receipt: receipt,
 	})
-	return true
+	//return true
 }
 
 func (p *pallTxManager) GetReceiptsAndLogs() ([]types.Receipts, [][]*types.Log, []uint64) {
