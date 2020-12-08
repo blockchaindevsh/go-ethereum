@@ -173,7 +173,9 @@ func (s *txSortManager) push(txIndex int) {
 		s.heapExist[txIndex]=true
 
 		if s.pall.txLen!=len(s.pall.mergedQueue){
+
 			s.pall.mergedQueue<- struct{}{}
+			fmt.Println("mergeQueue<-struct{}")
 		}
 	}
 
@@ -387,6 +389,7 @@ func (p *pallTxManager) schedule() {
 
 		} else {
 			_, ok := <-p.mergedQueue
+			fmt.Println("have sched")
 			if !ok {
 				break
 			}
