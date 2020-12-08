@@ -433,11 +433,14 @@ func (p *pallTxManager) mergeLoop() {
 		if  !p.ended {
 			nn:=p.baseStateDB.MergedIndex+1
 			 if p.txResults[nn]==nil{
+			 	fmt.Println("need nn",len(p.mergedQueue),p.txLen)
 				p.txSortManger.push(nn)
 				if len(p.mergedQueue)!=p.txLen{
 					p.mergedQueue <- struct{}{}
 				}
-			}
+			}else{
+				fmt.Println("not need",nn)
+			 }
 			//fmt.Println("111",p.baseStateDB.MergedIndex,len(p.mergedQueue))
 
 			//fmt.Println("222",p.baseStateDB.MergedIndex,len(p.mergedQueue))
@@ -447,8 +450,6 @@ func (p *pallTxManager) mergeLoop() {
 }
 
 func (p *pallTxManager) handleReceipt(rr *txResult) bool {
-	sb:=false
-
 	if rr.useFake{
 		fmt.Println("rr.useFake,",rr.st.Pre,rr.st.MergedIndex,p.txResults[rr.st.MergedIndex].st.MergedIndex)
 		if rr.st.Pre!=p.txResults[rr.st.MergedIndex].st.MergedIndex{
