@@ -362,14 +362,18 @@ func (p *pallTxManager) txLoop() {
 		if !ok {
 			break
 		}
-		fmt.Println("txLoop",p.IsRunning(txIndex))
+		fmt.Println("txLoop",txIndex,p.IsRunning(txIndex))
 		if p.IsRunning(txIndex){
 			fmt.Println("348-------",txIndex)
 			continue
 		}
+		fmt.Println("begin-11",txIndex)
 		p.Run(txIndex)
+		fmt.Println("begin-22",txIndex)
 		p.handleTx(txIndex)
+		fmt.Println("begin-33",txIndex)
 		p.Finally(txIndex)
+		fmt.Println("begin-44",txIndex)
 	}
 }
 
