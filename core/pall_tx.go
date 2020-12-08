@@ -384,7 +384,7 @@ func (p *pallTxManager) schedule() {
 	for !p.ended {
 		if data := p.txSortManger.pop(); data != -1 {
 			fmt.Println("schedule",data,p.txResults[data]==nil,!p.IsRunning(data))
-			if p.txResults[data]==nil &&!p.IsRunning(data){
+			if p.txResults[data]==nil &&!p.IsRunning(data) &&!p.ended{
 				p.txQueue <- data
 			}
 
