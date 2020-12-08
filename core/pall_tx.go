@@ -739,7 +739,7 @@ func (p *pallTxManager) handleTx(index int) {
 	//if len(p.mergedQueue)!=p.txLen{
 	//	p.mergedQueue<- struct{}{}
 	//}
-	p.AddReceiptToQueue(&txResult{
+	go p.AddReceiptToQueue(&txResult{
 		useFake:useFake,
 		st:      st,
 		index:   index,
