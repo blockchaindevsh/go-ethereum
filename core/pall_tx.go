@@ -389,6 +389,7 @@ func (p *pallTxManager) mergeLoop() {
 
 		startTxIndex := p.baseStateDB.MergedIndex + 1
 		handle := false
+		fmt.Println("392-----",startTxIndex,p.txLen,p.txResults[startTxIndex]!=nil)
 		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
 			handle = true
 
