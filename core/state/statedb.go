@@ -399,7 +399,10 @@ func (s *StateDB) SubRefund(gas uint64) error {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
-	s.RWSet[addr] = false
+	if !s.RWSet[addr]{
+		s.RWSet[addr] = false
+	}
+
 	//fmt.Println("403---",addr.String())
 	return s.getStateObject(addr) != nil
 }
@@ -408,14 +411,18 @@ func (s *StateDB) Exist(addr common.Address) bool {
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
-	s.RWSet[addr] = false
+	if !s.RWSet[addr]{
+		s.RWSet[addr] = false
+	}
 	//fmt.Println("4111",addr.String())
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	s.RWSet[addr] = false
+	if !s.RWSet[addr]{
+		s.RWSet[addr] = false
+	}
 	//fmt.Println("4190----",addr.String())
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -445,7 +452,9 @@ func (s *StateDB) BlockHash() common.Hash {
 }
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
-	s.RWSet[addr] = false
+	if !s.RWSet[addr]{
+		s.RWSet[addr] = false
+	}
 	//fmt.Println("449---",addr.String())
 	if data, exist := s.stateObjects[addr]; exist {
 		//fmt.Println("445---",  bytes.Equal(data.data.CodeHash,emptyCodeHash),len(data.code))
@@ -652,9 +661,9 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	if common.BlockNumber%5==0{
+	//if common.BlockNumber%5==0{
 		fmt.Println("uuuu",addr.String(),obj.data.Balance,obj.data.Nonce)
-	}
+	//}
 
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
@@ -924,7 +933,10 @@ func (s *StateDB) Snapshot() int {
 func (s *StateDB) CalReadAndWrite() {
 	for addr, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[addr]
-		//fmt.Println("923-------",addr.String())
+		//fmt.Println("xxxxxxxxxxx",addr.String(),ok)
+		if s.RWSet[addr]==true{
+			continue
+		}
 		s.RWSet[addr] = ok
 	}
 }
@@ -934,13 +946,13 @@ func (s *StateDB) CalReadAndWrite() {
 矿工：
  */
 func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Address]bool,useFake bool,isLastIndex bool) bool {
-	for k, _ := range s.RWSet {
+	for k, v := range s.RWSet {
 		preWrite := s.MergedSts.getWriteObj(k)
-		if preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
+		if v&&preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
 			fmt.Println("chongtu-2",preWrite.lastWriteIndex,s.MergedIndex)
 			return true
 		}
-		if miners[k]{
+		if miners[k] && v{
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
 				fmt.Println("chongtu-miner",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
 				return true
@@ -977,12 +989,11 @@ func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Addre
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for addr, newObj := range s.stateObjects {
-		dirty := s.RWSet[addr]
-		if addr==miner && !dirty{
+		if !s.RWSet[addr]{
 			continue
 		}
 
-		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, dirty)
+		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, true)
 		fmt.Println("mmmm",addr.String(),s.MergedSts.getWriteObj(addr).data.Balance,s.MergedSts.getWriteObj(addr).Nonce())
 	}
 
@@ -992,6 +1003,8 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 
 	pre := base.MergedSts.getWriteObj(miner)
 	if pre == nil {
+		s.stateObjects[miner]=nil
+		//pre.AddBalance(txFee)
 		s.AddBalance(miner, txFee)
 		base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
 	} else {
@@ -1002,6 +1015,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
+		fmt.Println("mmm--rrrrrr",v.address.String(),v.data.Balance)
 		s.MergedSts.MergeWriteObj (v, txIndex,true)
 	}
 	s.stateObjects = make(map[common.Address]*stateObject)
