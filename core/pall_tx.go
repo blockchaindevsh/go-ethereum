@@ -166,7 +166,7 @@ func (s *txSortManager) pushNextTxInGroup(txIndex int) {
 func (s *txSortManager) push(txIndex int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	//fmt.Println("push",txIndex)
+	fmt.Println("push",txIndex)
 	if !s.heapExist[txIndex] && !s.pall.IsRunning(txIndex){
 		fmt.Println("push---",txIndex)
 		heap.Push(s.heap, txIndex)
@@ -350,9 +350,9 @@ func (p *pallTxManager) Fi(blockIndex int) {
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) {
-
-	p.txResults[re.index] = re
 	p.Finally(re.index)
+	p.txResults[re.index] = re
+
 	fmt.Println("Addrecript",re.index,len(p.resultQueue),p.txLen,re.receipt==nil)
 	p.resultQueue <- struct{}{}
 
@@ -405,7 +405,6 @@ func (p *pallTxManager) mergeLoop() {
 		}
 
 		startTxIndex := p.baseStateDB.MergedIndex + 1
-		//fmt.Println("392-----",startTxIndex,p.txLen,p.txResults[startTxIndex]!=nil)
 		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
 
 			rr:=p.txResults[startTxIndex]
@@ -415,24 +414,6 @@ func (p *pallTxManager) mergeLoop() {
 				break
 			}
 
-			//for p.nextRewardPoint == startTxIndex+1 {
-			//	sbBlockIndex := p.mpToRealIndex[startTxIndex].blockIndex
-			//
-			//	p.Fi(sbBlockIndex)
-			//
-			//	sbBlockIndex++
-			//
-			//	for sbBlockIndex < len(p.blocks) && len(p.blocks[sbBlockIndex].Transactions()) == 0 {
-			//		p.Fi(sbBlockIndex)
-			//		sbBlockIndex++
-			//	}
-			//	if sbBlockIndex < len(p.blocks) {
-			//		p.nextRewardPoint = p.rewardPoint[sbBlockIndex]
-			//	} else {
-			//		break
-			//	}
-			//
-			//}
 
 			p.baseStateDB.MergedIndex = startTxIndex
 			fmt.Println("MMMMMMMMMMMMMM",p.baseStateDB.MergedIndex)
