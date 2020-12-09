@@ -888,18 +888,18 @@ func (s *StateDB) Copy() *StateDB {
 		RWSet:     make(map[common.Address]bool),
 	}
 	// Copy the dirty states, logs, and preimages
-	for addr := range s.journal.dirties {
-		// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
-		// and in the Finalise-method, there is a case where an object is in the journal but not
-		// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
-		// nil
-		if object, exist := s.stateObjects[addr]; exist {
-			// Even though the original object is dirty, we are not copying the journal,
-			// so we need to make sure that anyside effect the journal would have caused
-			// during a commit (or similar op) is already applied to the copy.
-			state.stateObjects[addr] = object.deepCopy(state)
-		}
-	}
+	//for addr := range s.journal.dirties {
+	// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
+	// and in the Finalise-method, there is a case where an object is in the journal but not
+	// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
+	// nil
+	//if object, exist := s.stateObjects[addr]; exist {
+	// Even though the original object is dirty, we are not copying the journal,
+	// so we need to make sure that anyside effect the journal would have caused
+	// during a commit (or similar op) is already applied to the copy.
+	//state.stateObjects[addr] = object.deepCopy(state)
+	//}
+	//}
 	// Above, we don't copy the actual journal. This means that if the copy is copied, the
 	// loop above will be a no-op, since the copy's journal is empty.
 	// Thus, here we iterate over stateObjects, to enable copies of copies
