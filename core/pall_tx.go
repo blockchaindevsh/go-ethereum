@@ -397,7 +397,7 @@ func (p *pallTxManager) schedule() {
 				p.isRunning[data] = true
 				p.txQueue <- data
 			} else {
-				fmt.Println("skip--- not send to txQueue", data)
+				fmt.Println("skip--- not send to txQueue", data, p.txResults[data] == nil, p.isRunning[data])
 			}
 
 		} else {
@@ -418,7 +418,7 @@ func (p *pallTxManager) mergeLoop() {
 		}
 
 		startTxIndex := p.baseStateDB.MergedIndex + 1
-		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil {
+		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil && !p.isRunning[startTxIndex] {
 
 			rr := p.txResults[startTxIndex]
 			fmt.Println("处理收据", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.mpToRealIndex[rr.index].blockIndex].NumberU64(), "real tx", p.mpToRealIndex[rr.index].tx)
