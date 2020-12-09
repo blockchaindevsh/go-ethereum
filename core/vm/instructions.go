@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -511,9 +510,9 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	loc := callContext.stack.peek()
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
-	if interpreter.evm.PrintLog {
-		fmt.Println("GetState", callContext.contract.Address().String(), hash.String(), val.String())
-	}
+	//if interpreter.evm.PrintLog {
+	//	fmt.Println("GetState", callContext.contract.Address().String(), hash.String(), val.String())
+	//}
 
 	loc.SetBytes(val.Bytes())
 	return nil, nil
@@ -524,9 +523,9 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]
 	val := callContext.stack.pop()
 	interpreter.evm.StateDB.SetState(callContext.contract.Address(),
 		common.Hash(loc.Bytes32()), common.Hash(val.Bytes32()))
-	if interpreter.evm.PrintLog {
-		fmt.Println("SetState", callContext.contract.Address().String(), common.Hash(loc.Bytes32()).String(), common.Hash(val.Bytes32()).String())
-	}
+	//if interpreter.evm.PrintLog {
+	//	fmt.Println("SetState", callContext.contract.Address().String(), common.Hash(loc.Bytes32()).String(), common.Hash(val.Bytes32()).String())
+	//}
 
 	return nil, nil
 }
@@ -877,9 +876,9 @@ func opPush1(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 func makePush(size uint64, pushByteSize int) executionFunc {
 	return func(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 		codeLen := len(callContext.contract.Code)
-		if interpreter.evm.PrintLog {
-			//fmt.Println("makePush-??????",callContext.contract.caller.Address().String(),callContext.contract.self.Address().String(),hex.EncodeToString(callContext.contract.Code))
-		}
+		//if interpreter.evm.PrintLog {
+		//fmt.Println("makePush-??????",callContext.contract.caller.Address().String(),callContext.contract.self.Address().String(),hex.EncodeToString(callContext.contract.Code))
+		//}
 
 		startMin := codeLen
 		if int(*pc+1) < startMin {
@@ -894,9 +893,9 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 		integer := new(uint256.Int)
 		callContext.stack.push(integer.SetBytes(common.RightPadBytes(
 			callContext.contract.Code[startMin:endMin], pushByteSize)))
-		if interpreter.evm.PrintLog {
-			//fmt.Println("makePush-iiiiiiii",integer.String())
-		}
+		//if interpreter.evm.PrintLog {
+		//fmt.Println("makePush-iiiiiiii",integer.String())
+		//}
 		*pc += size
 		return nil, nil
 	}
