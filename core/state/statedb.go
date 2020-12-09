@@ -945,14 +945,24 @@ func (s *StateDB) CalReadAndWrite() {
 /*
 矿工：
 */
-func (s *StateDB) Conflict(miners map[common.Address]bool, uncle map[common.Address]bool, useFake bool, isLastIndex bool) bool {
-	for k, v := range s.RWSet {
+func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFake bool, indexToID map[int]int) bool {
+	for k, _ := range s.RWSet {
 		preWrite := s.MergedSts.getWriteObj(k)
-		if v && preWrite != nil && preWrite.lastWriteIndex != s.MergedIndex {
-			fmt.Println("chongtu-2", preWrite.lastWriteIndex, s.MergedIndex)
-			return true
+		if preWrite != nil {
+			if indexToID[s.indexInAllBlock] != indexToID[preWrite.lastWriteIndex] {
+				if useFake || s.MergedIndex != base.MergedIndex {
+					fmt.Println("chongtu-0", useFake, s.indexInAllBlock, indexToID[s.indexInAllBlock], preWrite.lastWriteIndex, indexToID[preWrite.lastWriteIndex])
+					return true
+				}
+			} else {
+				if preWrite.lastWriteIndex > s.MergedIndex {
+					fmt.Println("chongtu-2", k.String(), preWrite.lastWriteIndex, s.MergedIndex)
+					return true
+				}
+			}
+
 		}
-		if miners[k] && v {
+		if miners[k] {
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
 				fmt.Println("chongtu-miner", useFake, s.MergedIndex, s.indexInAllBlock, k.String())
 				return true
@@ -961,43 +971,13 @@ func (s *StateDB) Conflict(miners map[common.Address]bool, uncle map[common.Addr
 
 	}
 
-	//for k,_:=range miners{
-	//	if preWrite:=s.MergedSts.getWriteObj(k);preWrite!=nil{
-	//		if useFake{
-	//			return true
-	//		}
-	//		if useFake || s.MergedIndex+1 != s.indexInAllBlock {
-	//			fmt.Println("chongtu-miner",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
-	//			return true
-	//		}
-	//	}
-	//}
-	//
-	//
-	//if isLastIndex {
-	//	for k,_:=range uncle{
-	//		if useFake||s.MergedIndex+1 != s.indexInAllBlock {
-	//			fmt.Println("chongtu-uncle",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
-	//			return true
-	//		}
-	//	}
-	//}
-
 	return false
 }
 
-func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
+func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int, indexToID map[int]int) {
 	for addr, newObj := range s.stateObjects {
-		if !s.RWSet[addr] {
-			continue
-		}
-
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, true)
 		fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
-	}
-
-	if s.RWSet[miner] {
-		return
 	}
 
 	pre := base.MergedSts.getWriteObj(miner)

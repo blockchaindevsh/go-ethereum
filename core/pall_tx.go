@@ -57,26 +57,28 @@ func Union(x common.Address, y *common.Address) {
 	}
 }
 
-func grouping(from []common.Address, to []*common.Address) map[int][]int {
+func grouping(from []common.Address, to []*common.Address) (map[int][]int, map[int]int, map[common.Address]int) {
 	rootAddr = make(map[common.Address]common.Address, 0)
 	for index, sender := range from {
 		Union(sender, to[index])
 	}
 
 	groupList := make(map[int][]int, 0)
-	groupID := make(map[common.Address]int, 0)
+	mpAddrToID := make(map[common.Address]int, 0)
+	mapIndexToID := make(map[int]int, 0)
 
 	for index, sender := range from {
 		rootAddr := Find(sender)
-		id, exist := groupID[rootAddr]
+		id, exist := mpAddrToID[rootAddr]
 		if !exist {
 			id = len(groupList)
-			groupID[rootAddr] = id
+			mpAddrToID[rootAddr] = id
 
 		}
 		groupList[id] = append(groupList[id], index)
+		mapIndexToID[index] = id
 	}
-	return groupList
+	return groupList, mapIndexToID, mpAddrToID
 
 }
 
@@ -85,16 +87,18 @@ type txSortManager struct {
 	heapExist map[int]bool
 	heap      *intHeap
 
-	groupLen           int
-	groupList          map[int][]int //for fmt
-	nextTxIndexInGroup map[int]int
-	preTxIndexInGroup  map[int]int
+	groupLen            int
+	groupList           map[int][]int //for fmt
+	nextTxIndexInGroup  map[int]int
+	preTxIndexInGroup   map[int]int
+	mapAddressToGroupID map[common.Address]int
+	mapIndexToGroupID   map[int]int
 
 	pall *pallTxManager
 }
 
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
-	groupList := grouping(from, to)
+	groupList, indexToID, addrToID := grouping(from, to)
 
 	common.DebugInfo.Groups += len(groupList)
 	maxx := -1
@@ -135,12 +139,14 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 	heap.Init(&heapList)
 
 	return &txSortManager{
-		heap:               &heapList,
-		heapExist:          heapExist,
-		groupLen:           len(groupList),
-		nextTxIndexInGroup: nextTxIndexInGroup,
-		preTxIndexInGroup:  preTxIndexInGroup,
-		groupList:          groupList,
+		heap:                &heapList,
+		heapExist:           heapExist,
+		groupLen:            len(groupList),
+		nextTxIndexInGroup:  nextTxIndexInGroup,
+		preTxIndexInGroup:   preTxIndexInGroup,
+		groupList:           groupList,
+		mapAddressToGroupID: addrToID,
+		mapIndexToGroupID:   indexToID,
 	}
 }
 
@@ -461,13 +467,13 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	block := p.blocks[p.mpToRealIndex[rr.index].blockIndex]
 	blockIndex := p.mpToRealIndex[rr.index].blockIndex
 
-	uncles := make(map[common.Address]bool, 0)
+	//uncles := make(map[common.Address]bool, 0)
 	miners := make(map[common.Address]bool, 0)
 	for true {
 		bb := p.blocks[blockIndex]
-		for _, v := range bb.Uncles() {
-			uncles[v.Coinbase] = true
-		}
+		//for _, v := range bb.Uncles() {
+		//	uncles[v.Coinbase] = true
+		//}
 		miners[bb.Coinbase()] = true
 		blockIndex++
 		if blockIndex < len(p.blocks) && len(p.blocks[blockIndex].Transactions()) == 0 {
@@ -477,15 +483,10 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 		}
 	}
 
-	lastIndex := false
-	if p.mpToRealIndex[rr.index].tx == len(block.Transactions())-1 {
-		lastIndex = true
-	}
-
-	if rr.receipt != nil && !rr.st.Conflict(miners, uncles, rr.useFake, lastIndex) {
+	if rr.receipt != nil && !rr.st.Conflict(p.baseStateDB, miners, rr.useFake, p.txSortManger.mapIndexToGroupID) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), block.Transactions()[p.mpToRealIndex[rr.index].tx].GasPrice())
 		p.isMereg[rr.index] = true
-		rr.st.Merge(p.baseStateDB, block.Coinbase(), txFee)
+		rr.st.Merge(p.baseStateDB, block.Coinbase(), txFee, p.txSortManger.mapIndexToGroupID)
 		p.isMereg[rr.index] = false
 		p.gp -= rr.receipt.GasUsed
 		p.mergedReceipts[rr.index] = rr.receipt
@@ -578,12 +579,6 @@ func (p *pallTxManager) handleTx(index int) bool {
 			errCnt++
 			fmt.Println("?????????", st.MergedIndex, index, p.baseStateDB.MergedIndex, useFake)
 		}
-	}
-	if err == nil {
-		txFee := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), block.Transactions()[p.mpToRealIndex[index].tx].GasPrice())
-		preState := st.RWSet[block.Coinbase()]
-		st.AddBalance(block.Coinbase(), txFee)
-		st.RWSet[block.Coinbase()] = preState
 	}
 
 	next := index
