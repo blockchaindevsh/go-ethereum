@@ -978,7 +978,7 @@ func (s *StateDB) Conflict(base *StateDB, miners common.Address, useFake bool, i
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
-	for _, newObj := range s.stateObjects {
+	for addr, newObj := range s.stateObjects {
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, true)
 		fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
 	}
