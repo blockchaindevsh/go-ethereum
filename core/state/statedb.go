@@ -268,7 +268,7 @@ type StateDB struct {
 
 	MergedSts   *mergedStatus
 	MergedIndex int
-	Pre int
+	Pre         int
 	RWSet       map[common.Address]bool // true dirty ; false only read
 }
 
@@ -399,7 +399,7 @@ func (s *StateDB) SubRefund(gas uint64) error {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
-	if !s.RWSet[addr]{
+	if !s.RWSet[addr] {
 		s.RWSet[addr] = false
 	}
 
@@ -411,7 +411,7 @@ func (s *StateDB) Exist(addr common.Address) bool {
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
-	if !s.RWSet[addr]{
+	if !s.RWSet[addr] {
 		s.RWSet[addr] = false
 	}
 	//fmt.Println("4111",addr.String())
@@ -420,7 +420,7 @@ func (s *StateDB) Empty(addr common.Address) bool {
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	if !s.RWSet[addr]{
+	if !s.RWSet[addr] {
 		s.RWSet[addr] = false
 	}
 	//fmt.Println("4190----",addr.String())
@@ -452,13 +452,13 @@ func (s *StateDB) BlockHash() common.Hash {
 }
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
-	if !s.RWSet[addr]{
+	if !s.RWSet[addr] {
 		s.RWSet[addr] = false
 	}
 	//fmt.Println("449---",addr.String())
 	if data, exist := s.stateObjects[addr]; exist {
 		//fmt.Println("445---",  bytes.Equal(data.data.CodeHash,emptyCodeHash),len(data.code))
-		if bytes.Equal(data.data.CodeHash,emptyCodeHash){
+		if bytes.Equal(data.data.CodeHash, emptyCodeHash) {
 			return nil
 		}
 		if data.code != nil {
@@ -662,7 +662,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
 	//if common.BlockNumber%5==0{
-		fmt.Println("uuuu",addr.String(),obj.data.Balance,obj.data.Nonce)
+	fmt.Println("uuuu", addr.String(), obj.data.Balance, obj.data.Nonce)
 	//}
 
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
@@ -865,26 +865,27 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 	return nil
 }
 
-func (s *StateDB)Print()string  {
-	ss:=""
-	ss+=fmt.Sprintf("len(sts) =%v",len(s.stateObjects))
+func (s *StateDB) Print() string {
+	ss := ""
+	ss += fmt.Sprintf("len(sts) =%v", len(s.stateObjects))
 	return ss
 }
+
 // Copy creates a deep, independent copy of the state.
 // Snapshots of the copied state cannot be applied to the copy.
 func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	state := &StateDB{
-		db:           s.db,
+		db: s.db,
 		//trie:         s.db.CopyTrie(s.trie),
 		trie:         trie.NewFastDB(s.db.TrieDB()),
 		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
 		//refund:       s.refund,
-		logs:         make(map[common.Hash][]*types.Log, len(s.logs)),
+		logs: make(map[common.Hash][]*types.Log, len(s.logs)),
 		//logSize:      s.logSize,
-		preimages:    make(map[common.Hash][]byte, len(s.preimages)),
-		journal:      newJournal(),
-		RWSet:make(map[common.Address]bool),
+		preimages: make(map[common.Hash][]byte, len(s.preimages)),
+		journal:   newJournal(),
+		RWSet:     make(map[common.Address]bool),
 	}
 	// Copy the dirty states, logs, and preimages
 	for addr := range s.journal.dirties {
@@ -934,33 +935,31 @@ func (s *StateDB) CalReadAndWrite() {
 	for addr, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[addr]
 		//fmt.Println("xxxxxxxxxxx",addr.String(),ok)
-		if s.RWSet[addr]==true{
+		if s.RWSet[addr] == true {
 			continue
 		}
 		s.RWSet[addr] = ok
 	}
 }
 
-
 /*
 矿工：
- */
-func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Address]bool,useFake bool,isLastIndex bool) bool {
+*/
+func (s *StateDB) Conflict(miners map[common.Address]bool, uncle map[common.Address]bool, useFake bool, isLastIndex bool) bool {
 	for k, v := range s.RWSet {
 		preWrite := s.MergedSts.getWriteObj(k)
-		if v&&preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
-			fmt.Println("chongtu-2",preWrite.lastWriteIndex,s.MergedIndex)
+		if v && preWrite != nil && preWrite.lastWriteIndex != s.MergedIndex {
+			fmt.Println("chongtu-2", preWrite.lastWriteIndex, s.MergedIndex)
 			return true
 		}
-		if miners[k] && v{
+		if miners[k] && v {
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
-				fmt.Println("chongtu-miner",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
+				fmt.Println("chongtu-miner", useFake, s.MergedIndex, s.indexInAllBlock, k.String())
 				return true
 			}
 		}
 
 	}
-
 
 	//for k,_:=range miners{
 	//	if preWrite:=s.MergedSts.getWriteObj(k);preWrite!=nil{
@@ -989,33 +988,33 @@ func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Addre
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for addr, newObj := range s.stateObjects {
-		if !s.RWSet[addr]{
+		if !s.RWSet[addr] {
 			continue
 		}
 
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, true)
-		fmt.Println("mmmm",addr.String(),s.MergedSts.getWriteObj(addr).data.Balance,s.MergedSts.getWriteObj(addr).Nonce())
+		fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
 	}
 
-	if s.RWSet[miner]{
+	if s.RWSet[miner] {
 		return
 	}
 
 	pre := base.MergedSts.getWriteObj(miner)
 	if pre == nil {
-		base.AddBalance(miner,txFee)
+		base.AddBalance(miner, txFee)
 		base.MergedSts.setWriteObj(miner, base.getStateObject(miner), s.indexInAllBlock)
-		base.stateObjects=make(map[common.Address]*stateObject)
+		base.stateObjects = make(map[common.Address]*stateObject)
 	} else {
 		pre.AddBalance(txFee)
 	}
-	fmt.Println("mmmm",miner.String(),s.MergedSts.getWriteObj(miner).data.Balance,s.MergedSts.getWriteObj(miner).Nonce())
+	fmt.Println("mmmm", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance, s.MergedSts.getWriteObj(miner).Nonce())
 }
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
-		fmt.Println("mmm--rrrrrr",v.address.String(),v.data.Balance)
-		s.MergedSts.MergeWriteObj (v, txIndex,true)
+		fmt.Println("mmm--rrrrrr", v.address.String(), v.data.Balance)
+		s.MergedSts.MergeWriteObj(v, txIndex, true)
 	}
 	s.stateObjects = make(map[common.Address]*stateObject)
 }
@@ -1136,7 +1135,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	}
 	// Finalize any pending changes and merge everything into the tries
 	s.IntermediateRoot(deleteEmptyObjects)
-	isCommit=false
+	isCommit = false
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjects {
