@@ -355,12 +355,11 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	if !p.isMereg[re.index] {
 		p.txResults[re.index] = re
 		fmt.Println("Addrecript", re.index, len(p.resultQueue), p.txLen, re.receipt == nil)
-		p.isRunning[re.index] = false
 		return true
 	} else {
 		fmt.Println("maybe is merge ... ", re.index)
+		return false
 	}
-	return true
 }
 
 func (p *pallTxManager) txLoop() {
@@ -379,11 +378,17 @@ func (p *pallTxManager) txLoop() {
 		//fmt.Println("begin-22",txIndex)
 		fmt.Println("txLoop begin", txIndex)
 		stats := p.handleTx(txIndex)
+		p.isRunning[txIndex] = false
 		fmt.Println("txLoop end ", txIndex, stats)
 		if !stats && txIndex > p.baseStateDB.MergedIndex {
 			p.txSortManger.push(txIndex)
 		} else {
 
+		}
+		if stats {
+			if p.txLen != len(p.resultQueue) {
+				p.resultQueue <- struct{}{}
+			}
 		}
 
 		//fmt.Println("begin-33",txIndex)
@@ -610,11 +615,6 @@ func (p *pallTxManager) handleTx(index int) bool {
 		index:   index,
 		receipt: receipt,
 	})
-	if ss {
-		if len(p.resultQueue) != p.txLen {
-			p.resultQueue <- struct{}{}
-		}
-	}
 	return ss
 	//return true
 }
