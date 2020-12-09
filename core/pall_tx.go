@@ -355,7 +355,8 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	if !p.isMereg[re.index] {
 		p.txResults[re.index] = re
 		fmt.Println("Addrecript", re.index, len(p.resultQueue), p.txLen, re.receipt == nil)
-		p.resultQueue <- struct{}{}
+		p.isRunning[re.index] = false
+		return true
 	} else {
 		fmt.Println("maybe is merge ... ", re.index)
 	}
@@ -378,11 +379,13 @@ func (p *pallTxManager) txLoop() {
 		//fmt.Println("begin-22",txIndex)
 		fmt.Println("txLoop begin", txIndex)
 		stats := p.handleTx(txIndex)
-		p.isRunning[txIndex] = false
 		fmt.Println("txLoop end ", txIndex, stats)
 		if !stats && txIndex > p.baseStateDB.MergedIndex {
 			p.txSortManger.push(txIndex)
+		} else {
+
 		}
+
 		//fmt.Println("begin-33",txIndex)
 		//p.Finally(txIndex)
 		//fmt.Println("begin-44",txIndex)
@@ -418,6 +421,7 @@ func (p *pallTxManager) mergeLoop() {
 		}
 
 		startTxIndex := p.baseStateDB.MergedIndex + 1
+		fmt.Println("mergeLoop", startTxIndex < p.txLen, p.txResults[startTxIndex] != nil, !p.isRunning[startTxIndex])
 		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil && !p.isRunning[startTxIndex] {
 
 			rr := p.txResults[startTxIndex]
@@ -600,12 +604,18 @@ func (p *pallTxManager) handleTx(index int) bool {
 	}
 
 	p.txSortManger.pushNextTxInGroup(index)
-	return p.AddReceiptToQueue(&txResult{
+	ss := p.AddReceiptToQueue(&txResult{
 		useFake: useFake,
 		st:      st,
 		index:   index,
 		receipt: receipt,
 	})
+	if ss {
+		if len(p.resultQueue) != p.txLen {
+			p.resultQueue <- struct{}{}
+		}
+	}
+	return ss
 	//return true
 }
 
