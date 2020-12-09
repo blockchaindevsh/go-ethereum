@@ -226,6 +226,9 @@ type txIndex struct {
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	fmt.Println("pall", blockList[0].NumberU64())
 
+	bb := st.GetBalance(common.HexToAddress("0x080cfa3D7c57A890bA8A3e05346de52F843eb9Cc"))
+	fmt.Println("bbb", bb)
+	panic("sb")
 	if blockList[0].NumberU64() != bc.CurrentBlock().NumberU64()+1 {
 		panic(fmt.Errorf("bug here %v %v", blockList[0].NumberU64(), bc.CurrentBlock().NumberU64()))
 	}
