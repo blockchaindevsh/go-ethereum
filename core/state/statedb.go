@@ -951,7 +951,7 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 		if preWrite != nil {
 			if indexToID[s.indexInAllBlock] != indexToID[preWrite.lastWriteIndex] {
 				if useFake || s.MergedIndex != base.MergedIndex {
-					fmt.Println("chongtu-0", useFake, s.indexInAllBlock, indexToID[s.indexInAllBlock], preWrite.lastWriteIndex, indexToID[preWrite.lastWriteIndex])
+					fmt.Println("chongtu-0", k.String(), useFake, s.indexInAllBlock, indexToID[s.indexInAllBlock], preWrite.lastWriteIndex, indexToID[preWrite.lastWriteIndex])
 					return true
 				}
 			} else {
@@ -964,7 +964,7 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 		}
 		if miners[k] {
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
-				fmt.Println("chongtu-miner", useFake, s.MergedIndex, s.indexInAllBlock, k.String())
+				fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.indexInAllBlock)
 				return true
 			}
 		}
