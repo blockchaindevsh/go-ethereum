@@ -662,7 +662,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
 	//if common.BlockNumber%5==0{
-	fmt.Println("uuuu", addr.String(), obj.data.Balance, obj.data.Nonce)
+	//fmt.Println("uuuu", addr.String(), obj.data.Balance, obj.data.Nonce)
 	//}
 
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
@@ -945,9 +945,9 @@ func (s *StateDB) CalReadAndWrite() {
 /*
 矿工：
 */
-func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFake bool, indexToID map[int]int) bool {
+func (s *StateDB) Conflict(base *StateDB, miners common.Address, useFake bool, indexToID map[int]int) bool {
 	for k, _ := range s.RWSet {
-		if miners[k] {
+		if miners == k {
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
 				fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.indexInAllBlock)
 				return true
@@ -977,10 +977,10 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 	return false
 }
 
-func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int, indexToID map[int]int) {
-	for addr, newObj := range s.stateObjects {
+func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
+	for _, newObj := range s.stateObjects {
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, true)
-		fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
+		//fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
 	}
 
 	pre := base.MergedSts.getWriteObj(miner)
@@ -991,12 +991,12 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int, ind
 	} else {
 		pre.AddBalance(txFee)
 	}
-	fmt.Println("mmmm", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance, s.MergedSts.getWriteObj(miner).Nonce())
+	//fmt.Println("mmmm", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance, s.MergedSts.getWriteObj(miner).Nonce())
 }
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
-		fmt.Println("mmm--rrrrrr", v.address.String(), v.data.Balance)
+		//fmt.Println("mmm--rrrrrr", v.address.String(), v.data.Balance)
 		s.MergedSts.MergeWriteObj(v, txIndex, true)
 	}
 	s.stateObjects = make(map[common.Address]*stateObject)
