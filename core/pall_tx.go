@@ -442,7 +442,7 @@ func (p *pallTxManager) mergeLoop() {
 
 func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	if rr.useFake {
-		//fmt.Println("rr.useFake,", rr.st.Pre, rr.st.MergedIndex, p.txResults[rr.st.MergedIndex].st.MergedIndex)
+		fmt.Println("rr.useFake,", rr.st.Seed, rr.st.MergedIndex, p.txResults[rr.st.MergedIndex].st.MergedIndex)
 		if rr.st.Seed != p.txResults[rr.st.MergedIndex].seed {
 			p.txResults[rr.index] = nil
 			common.DebugInfo.Conflicts++
@@ -505,7 +505,10 @@ func (p *pallTxManager) handleTx(index int) bool {
 		st.MergedIndex = p.baseStateDB.MergedIndex
 	} else {
 		sbR := p.txResults[preIndex]
-		if preIndex > p.baseStateDB.MergedIndex && sbR != nil && sbR.receipt != nil {
+		if sbR == nil {
+			return false
+		}
+		if preIndex > p.baseStateDB.MergedIndex {
 			if p.isMereg[preIndex] {
 				//fmt.Println("isMerge return ", preIndex, index)
 				return false
