@@ -367,6 +367,7 @@ func (p *pallTxManager) txLoop() {
 
 		p.isRunning[txIndex] = false
 		if stats {
+			p.txSortManger.pushNextTxInGroup(txIndex)
 			if p.txLen != len(p.resultQueue) {
 				p.resultQueue <- struct{}{}
 			}
@@ -571,7 +572,6 @@ func (p *pallTxManager) handleTx(index int) bool {
 		}
 	}
 
-	p.txSortManger.pushNextTxInGroup(index)
 	return p.AddReceiptToQueue(&txResult{
 		useFake: useFake,
 		st:      st,
