@@ -395,14 +395,14 @@ func (p *pallTxManager) mergeLoop() {
 		//fmt.Println("mergeLoop---", startTxIndex < p.txLen, p.txResults[startTxIndex] != nil, !p.isRunning[startTxIndex])
 		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil && !p.isRunning[startTxIndex] {
 			rr := p.txResults[startTxIndex]
-			//fmt.Println("处理收据", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.mpToRealIndex[rr.index].blockIndex].NumberU64(), "real tx", p.mpToRealIndex[rr.index].tx)
+			fmt.Println("处理收据", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.mpToRealIndex[rr.index].blockIndex].NumberU64(), "real tx", p.mpToRealIndex[rr.index].tx)
 
 			if succ := p.handleReceipt(rr); !succ {
 				break
 			}
 
 			p.baseStateDB.MergedIndex = startTxIndex
-			//fmt.Println("MMMMMMMMMMMMMM", p.baseStateDB.MergedIndex)
+			fmt.Println("MMMMMMMMMMMMMM", p.baseStateDB.MergedIndex)
 			startTxIndex = p.baseStateDB.MergedIndex + 1
 		}
 
