@@ -947,6 +947,15 @@ func (s *StateDB) CalReadAndWrite() {
 */
 func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFake bool, indexToID map[int]int) bool {
 	for k, _ := range s.RWSet {
+		if miners[k] {
+			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
+				fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.indexInAllBlock)
+				return true
+			} else {
+				continue
+			}
+		}
+
 		preWrite := s.MergedSts.getWriteObj(k)
 		if preWrite != nil {
 			if indexToID[s.indexInAllBlock] != indexToID[preWrite.lastWriteIndex] {
@@ -961,12 +970,6 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 				}
 			}
 
-		}
-		if miners[k] {
-			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
-				fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.indexInAllBlock)
-				return true
-			}
 		}
 
 	}
