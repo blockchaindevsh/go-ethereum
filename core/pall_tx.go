@@ -100,7 +100,7 @@ func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManage
 	groupList, indexToID := grouping(from, to)
 	fmt.Println("groupList", groupList)
 
-	panic("sb")
+	//panic("sb")
 	common.DebugInfo.Groups += len(groupList)
 	maxx := -1
 	for _, txs := range groupList {
@@ -183,6 +183,9 @@ func (s *txSortManager) pop() int {
 }
 
 type pallTxManager struct {
+	seed   int
+	seedMu sync.Mutex
+
 	isMereg   []bool
 	isRunning []bool
 	canotSave []bool
@@ -213,6 +216,7 @@ type pallTxManager struct {
 }
 
 type txResult struct {
+	seed    int
 	useFake bool
 	st      *state.StateDB
 	index   int
@@ -224,10 +228,20 @@ type txIndex struct {
 	tx         int
 }
 
+func (p *pallTxManager) getSeed() int {
+	p.seedMu.Lock()
+	defer p.seedMu.Unlock()
+	data := p.seed
+	p.seed++
+	return data
+}
+
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	fmt.Println("pall", blockList[0].NumberU64())
 
-	blockList[0] = bc.GetBlockByNumber(3775735)
+	if blockList[0].NumberU64() == 3775735 {
+		panic("sbbbbb 3775735")
+	}
 
 	errCnt = 0
 	txLen := 0
@@ -332,6 +346,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 		return false
 	}
 	if !p.isMereg[re.index] {
+		re.seed = p.getSeed()
 		p.txResults[re.index] = re
 		//fmt.Println("Addrecript", re.index, len(p.resultQueue), p.txLen, re.receipt == nil)
 		return true
@@ -428,7 +443,7 @@ func (p *pallTxManager) mergeLoop() {
 func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	if rr.useFake {
 		//fmt.Println("rr.useFake,", rr.st.Pre, rr.st.MergedIndex, p.txResults[rr.st.MergedIndex].st.MergedIndex)
-		if rr.st.Pre != p.txResults[rr.st.MergedIndex].st.MergedIndex {
+		if rr.st.Seed != p.txResults[rr.st.MergedIndex].seed {
 			p.txResults[rr.index] = nil
 			common.DebugInfo.Conflicts++
 			//fmt.Println("=======================", rr.index, rr.st.MergedIndex, rr.st.Pre, p.txResults[rr.st.MergedIndex].st.MergedIndex)
@@ -497,7 +512,7 @@ func (p *pallTxManager) handleTx(index int) bool {
 			}
 			st = sbR.st.Copy()
 			st.MergedIndex = preIndex
-			st.Pre = sbR.st.MergedIndex
+			st.Seed = sbR.seed
 			useFake = true
 		} else {
 			st, _ = state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
@@ -513,7 +528,7 @@ func (p *pallTxManager) handleTx(index int) bool {
 	st.MergedSts = p.baseStateDB.MergedSts
 	gas := p.gp
 
-	//fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "当前base", p.baseStateDB.MergedIndex, "基于", st.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "st.stats", st.Print())
+	fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "当前base", p.baseStateDB.MergedIndex, "基于", st.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "st.stats", st.Print())
 	st.Prepare(tx.Hash(), block.Hash(), txRealIndex, index)
 	if p.txResults[index] != nil {
 		return true

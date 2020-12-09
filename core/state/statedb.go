@@ -268,7 +268,7 @@ type StateDB struct {
 
 	MergedSts   *mergedStatus
 	MergedIndex int
-	Pre         int
+	Seed        int
 	RWSet       map[common.Address]bool // true dirty ; false only read
 }
 
