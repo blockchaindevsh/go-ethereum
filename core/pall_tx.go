@@ -98,8 +98,9 @@ type txSortManager struct {
 
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
 	groupList, indexToID := grouping(from, to)
-	//fmt.Println("groupList", groupList)
+	fmt.Println("groupList", groupList)
 
+	panic("sb")
 	common.DebugInfo.Groups += len(groupList)
 	maxx := -1
 	for _, txs := range groupList {
@@ -226,12 +227,7 @@ type txIndex struct {
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	fmt.Println("pall", blockList[0].NumberU64())
 
-	bb := st.GetBalance(common.HexToAddress("0x080cfa3D7c57A890bA8A3e05346de52F843eb9Cc"))
-	fmt.Println("bbb", bb)
-	panic("sb")
-	if blockList[0].NumberU64() != bc.CurrentBlock().NumberU64()+1 {
-		panic(fmt.Errorf("bug here %v %v", blockList[0].NumberU64(), bc.CurrentBlock().NumberU64()))
-	}
+	blockList[0] = bc.GetBlockByNumber(3775735)
 
 	errCnt = 0
 	txLen := 0

@@ -199,3 +199,7 @@ func BenchmarkHashing(b *testing.B) {
 		b.Fatalf("hash wrong, got %x exp %x", got, exp)
 	}
 }
+
+func TestAdas(t *testing.T) {
+	fmt.Println("dsa")
+}
