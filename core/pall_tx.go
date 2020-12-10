@@ -239,8 +239,8 @@ func (p *pallTxManager) getSeed() int {
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	fmt.Println("pall", blockList[0].NumberU64())
 
-	if blockList[0].NumberU64() == 3775735 {
-		panic("sbbbbb 3775735")
+	if blockList[0].NumberU64() == 3775736 {
+		panic(fmt.Errorf("number=%v", blockList[0].NumberU64()))
 	}
 
 	errCnt = 0
