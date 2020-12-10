@@ -54,11 +54,11 @@ func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB,
 	)
 	// Mutate the block and state according to any hard-fork specs
 
-	for _, block := range blockList {
-		if block.NumberU64() == 3881784+1 {
-			panic("3881784+1")
-		}
-	}
+	//for _, block := range blockList {
+	//	if block.NumberU64() == 3881784+1 {
+	//		panic("3881784+1")
+	//}
+	//}
 
 	pm := NewPallTxManage(blockList, statedb, p.bc)
 	if pm.txLen != 0 {

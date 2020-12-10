@@ -240,7 +240,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	fmt.Println("pall", blockList[0].NumberU64())
 
 	if blockList[0].NumberU64() == 3775736 {
-		panic(fmt.Errorf("number=%v", blockList[0].NumberU64()))
+		//panic(fmt.Errorf("number=%v", blockList[0].NumberU64()))
 	}
 
 	errCnt = 0
