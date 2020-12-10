@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -55,11 +54,11 @@ func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB,
 	)
 	// Mutate the block and state according to any hard-fork specs
 
-	for _, block := range blockList {
-		if block.NumberU64()==3881784+1{
-			panic("3881784+1")
-		}
-	}
+	//for _, block := range blockList {
+	//	if block.NumberU64() == 3881784+1 {
+	//		panic("3881784+1")
+	//}
+	//}
 
 	pm := NewPallTxManage(blockList, statedb, p.bc)
 	if pm.txLen != 0 {
@@ -72,11 +71,12 @@ func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB,
 }
 
 var (
-	mp=map[string]bool{
-		"0x5606b81f1783649f4f2c9dd3b0579e70f0bd631e2ceea90454207ef0d05b46a0":true,
-		"":true,
+	mp = map[string]bool{
+		"0x5606b81f1783649f4f2c9dd3b0579e70f0bd631e2ceea90454207ef0d05b46a0": true,
+		"": true,
 	}
 )
+
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
@@ -91,10 +91,10 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	if mp[tx.Hash().String()]	{
-		fmt.Println("sssssssssssssssssss",tx.Hash().String(),msg.From().String(),msg.To().String())
-		vmenv.PrintLog = true
-	}
+	//if mp[tx.Hash().String()]	{
+	//	fmt.Println("sssssssssssssssssss",tx.Hash().String(),msg.From().String(),msg.To().String())
+	//	vmenv.PrintLog = true
+	//}
 	//vmenv.PrintLog = true
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)

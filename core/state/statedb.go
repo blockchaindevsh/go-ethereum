@@ -268,7 +268,7 @@ type StateDB struct {
 
 	MergedSts   *mergedStatus
 	MergedIndex int
-	Pre int
+	Seed        int
 	RWSet       map[common.Address]bool // true dirty ; false only read
 }
 
@@ -399,7 +399,10 @@ func (s *StateDB) SubRefund(gas uint64) error {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
-	s.RWSet[addr] = false
+	if !s.RWSet[addr] {
+		s.RWSet[addr] = false
+	}
+
 	//fmt.Println("403---",addr.String())
 	return s.getStateObject(addr) != nil
 }
@@ -408,14 +411,18 @@ func (s *StateDB) Exist(addr common.Address) bool {
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
-	s.RWSet[addr] = false
+	if !s.RWSet[addr] {
+		s.RWSet[addr] = false
+	}
 	//fmt.Println("4111",addr.String())
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	s.RWSet[addr] = false
+	if !s.RWSet[addr] {
+		s.RWSet[addr] = false
+	}
 	//fmt.Println("4190----",addr.String())
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -445,11 +452,13 @@ func (s *StateDB) BlockHash() common.Hash {
 }
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
-	s.RWSet[addr] = false
+	if !s.RWSet[addr] {
+		s.RWSet[addr] = false
+	}
 	//fmt.Println("449---",addr.String())
 	if data, exist := s.stateObjects[addr]; exist {
 		//fmt.Println("445---",  bytes.Equal(data.data.CodeHash,emptyCodeHash),len(data.code))
-		if bytes.Equal(data.data.CodeHash,emptyCodeHash){
+		if bytes.Equal(data.data.CodeHash, emptyCodeHash) {
 			return nil
 		}
 		if data.code != nil {
@@ -652,9 +661,9 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err != nil {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 	}
-	if common.BlockNumber%5==0{
-		fmt.Println("uuuu",addr.String(),obj.data.Balance,obj.data.Nonce)
-	}
+	//if common.BlockNumber%5==0{
+	//fmt.Println("uuuu", addr.String(), obj.data.Balance, obj.data.Nonce)
+	//}
 
 	if err = s.trie.TryUpdate(addr[:], data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
@@ -856,40 +865,41 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 	return nil
 }
 
-func (s *StateDB)Print()string  {
-	ss:=""
-	ss+=fmt.Sprintf("len(sts) =%v",len(s.stateObjects))
+func (s *StateDB) Print() string {
+	ss := ""
+	ss += fmt.Sprintf("len(sts) =%v", len(s.stateObjects))
 	return ss
 }
+
 // Copy creates a deep, independent copy of the state.
 // Snapshots of the copied state cannot be applied to the copy.
 func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	state := &StateDB{
-		db:           s.db,
+		db: s.db,
 		//trie:         s.db.CopyTrie(s.trie),
 		trie:         trie.NewFastDB(s.db.TrieDB()),
 		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
 		//refund:       s.refund,
-		logs:         make(map[common.Hash][]*types.Log, len(s.logs)),
+		logs: make(map[common.Hash][]*types.Log, len(s.logs)),
 		//logSize:      s.logSize,
-		preimages:    make(map[common.Hash][]byte, len(s.preimages)),
-		journal:      newJournal(),
-		RWSet:make(map[common.Address]bool),
+		preimages: make(map[common.Hash][]byte, len(s.preimages)),
+		journal:   newJournal(),
+		RWSet:     make(map[common.Address]bool),
 	}
 	// Copy the dirty states, logs, and preimages
-	for addr := range s.journal.dirties {
-		// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
-		// and in the Finalise-method, there is a case where an object is in the journal but not
-		// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
-		// nil
-		if object, exist := s.stateObjects[addr]; exist {
-			// Even though the original object is dirty, we are not copying the journal,
-			// so we need to make sure that anyside effect the journal would have caused
-			// during a commit (or similar op) is already applied to the copy.
-			state.stateObjects[addr] = object.deepCopy(state)
-		}
-	}
+	//for addr := range s.journal.dirties {
+	// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
+	// and in the Finalise-method, there is a case where an object is in the journal but not
+	// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
+	// nil
+	//if object, exist := s.stateObjects[addr]; exist {
+	// Even though the original object is dirty, we are not copying the journal,
+	// so we need to make sure that anyside effect the journal would have caused
+	// during a commit (or similar op) is already applied to the copy.
+	//state.stateObjects[addr] = object.deepCopy(state)
+	//}
+	//}
 	// Above, we don't copy the actual journal. This means that if the copy is copied, the
 	// loop above will be a no-op, since the copy's journal is empty.
 	// Thus, here we iterate over stateObjects, to enable copies of copies
@@ -924,71 +934,70 @@ func (s *StateDB) Snapshot() int {
 func (s *StateDB) CalReadAndWrite() {
 	for addr, _ := range s.stateObjects {
 		_, ok := s.journal.dirties[addr]
-		//fmt.Println("923-------",addr.String())
+		//fmt.Println("xxxxxxxxxxx",addr.String(),ok)
+		if s.RWSet[addr] == true {
+			continue
+		}
 		s.RWSet[addr] = ok
 	}
 }
 
-
 /*
 矿工：
- */
-func (s *StateDB) Conflict(miners map[common.Address]bool,uncle map[common.Address]bool,useFake bool,isLastIndex bool) bool {
+*/
+func (s *StateDB) Conflict(base *StateDB, miners common.Address, useFake bool, indexToID map[int]int) bool {
 	for k, _ := range s.RWSet {
-		preWrite := s.MergedSts.getWriteObj(k)
-		if preWrite != nil && preWrite.lastWriteIndex > s.MergedIndex {
-			fmt.Println("chongtu-2",preWrite.lastWriteIndex,s.MergedIndex)
-			return true
-		}
-
-	}
-
-
-	for k,_:=range miners{
-		if preWrite:=s.MergedSts.getWriteObj(k);preWrite!=nil{
-			if useFake{
-				return true
-			}
+		if miners == k {
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
-				fmt.Println("chongtu-miner",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
+				//fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.indexInAllBlock)
 				return true
+			} else {
+				continue
 			}
 		}
-	}
 
-
-	if isLastIndex {
-		for k,_:=range uncle{
-			if useFake||s.MergedIndex+1 != s.indexInAllBlock {
-				fmt.Println("chongtu-uncle",useFake,s.MergedIndex,s.indexInAllBlock,k.String())
-				return true
+		preWrite := s.MergedSts.getWriteObj(k)
+		if preWrite != nil {
+			if indexToID[s.indexInAllBlock] != indexToID[preWrite.lastWriteIndex] {
+				if useFake || s.MergedIndex != base.MergedIndex {
+					//fmt.Println("chongtu-0", k.String(), useFake, s.indexInAllBlock, indexToID[s.indexInAllBlock], preWrite.lastWriteIndex, indexToID[preWrite.lastWriteIndex])
+					return true
+				}
+			} else {
+				if preWrite.lastWriteIndex > s.MergedIndex {
+					//fmt.Println("chongtu-2", k.String(), preWrite.lastWriteIndex, s.MergedIndex)
+					return true
+				}
 			}
+
 		}
+
 	}
 
 	return false
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
-	for addr, newObj := range s.stateObjects {
-		dirty := s.RWSet[addr]
-		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, dirty)
-		fmt.Println("mmmm",addr.String(),s.MergedSts.getWriteObj(addr).data.Balance,s.MergedSts.getWriteObj(addr).Nonce())
+	for _, newObj := range s.stateObjects {
+		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, true)
+		//fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
 	}
 
-	//pre := base.MergedSts.getWriteObj(miner)
-	//if pre == nil {
-	//	s.AddBalance(miner, txFee)
-	//	base.MergedSts.setWriteObj(miner, s.getStateObject(miner), s.indexInAllBlock)
-	//} else {
-	//	pre.AddBalance(txFee)
-	//}
-	fmt.Println("mmmm",miner.String(),s.MergedSts.getWriteObj(miner).data.Balance,s.MergedSts.getWriteObj(miner).Nonce())
+	pre := base.MergedSts.getWriteObj(miner)
+	if pre == nil {
+		base.AddBalance(miner, txFee)
+		base.MergedSts.setWriteObj(miner, base.getStateObject(miner), s.indexInAllBlock)
+		base.stateObjects = make(map[common.Address]*stateObject)
+	} else {
+		pre.AddBalance(txFee)
+	}
+	//fmt.Println("mmmm", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance, s.MergedSts.getWriteObj(miner).Nonce())
 }
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
-		s.MergedSts.MergeWriteObj (v, txIndex,true)
+		//fmt.Println("mmm--rrrrrr", v.address.String(), v.data.Balance)
+		s.MergedSts.MergeWriteObj(v, txIndex, true)
 	}
 	s.stateObjects = make(map[common.Address]*stateObject)
 }
@@ -1109,7 +1118,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	}
 	// Finalize any pending changes and merge everything into the tries
 	s.IntermediateRoot(deleteEmptyObjects)
-	isCommit=false
+	isCommit = false
 	// Commit objects to the trie, measuring the elapsed time
 	codeWriter := s.db.TrieDB().DiskDB().NewBatch()
 	for addr := range s.stateObjects {
