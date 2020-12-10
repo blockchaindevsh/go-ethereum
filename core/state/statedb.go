@@ -268,7 +268,7 @@ type StateDB struct {
 
 	MergedSts   *mergedStatus
 	MergedIndex int
-	Seed        int
+	RandomSeed  int32
 	RWSet       map[common.Address]bool // true dirty ; false only read
 }
 
@@ -310,6 +310,50 @@ func (s *StateDB) setError(err error) {
 
 func (s *StateDB) Error() error {
 	return s.dbErr
+}
+
+func (s *StateDB) PreCache(from []common.Address, to []*common.Address) {
+	tr, err := s.db.OpenTrie(common.Hash{})
+	if err != nil {
+		panic(err)
+	}
+	mp := make(map[common.Address]bool, 0)
+	for index, addr := range from {
+		if !mp[addr] {
+			mp[addr] = true
+		}
+		if to[index] != nil {
+			if !mp[*to[index]] {
+				mp[*to[index]] = true
+			}
+		}
+	}
+	for addr, _ := range mp {
+		enc, err := tr.TryGet(addr.Bytes())
+		if err != nil {
+
+		}
+		if len(enc) == 0 {
+			continue
+		}
+		data := new(Account)
+		if err := rlp.DecodeBytes(enc, data); err != nil {
+			log.Error("Failed to decode state object", "addr", addr, "err", err)
+			continue
+		}
+		s.MergedSts.setOriginAccount(addr, *data)
+
+		codeHash := data.CodeHash
+		addrHash := crypto.Keccak256Hash(addr[:])
+		if bytes.Equal(codeHash, emptyCodeHash) {
+			continue
+		}
+		code, err := s.db.ContractCode(addrHash, common.BytesToHash(data.CodeHash))
+		if err != nil {
+			continue
+		}
+		s.MergedSts.setOriginCode(addrHash, common.BytesToHash(codeHash), code)
+	}
 }
 
 // Reset clears out all ephemeral state objects from the state db, but keeps
@@ -399,11 +443,7 @@ func (s *StateDB) SubRefund(gas uint64) error {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for suicided accounts.
 func (s *StateDB) Exist(addr common.Address) bool {
-	if !s.RWSet[addr] {
-		s.RWSet[addr] = false
-	}
-
-	//fmt.Println("403---",addr.String())
+	s.RWSet[addr] = false
 	return s.getStateObject(addr) != nil
 }
 
@@ -411,22 +451,15 @@ func (s *StateDB) Exist(addr common.Address) bool {
 // or empty according to the EIP161 specification (balance = nonce = code = 0)
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
-	if !s.RWSet[addr] {
-		s.RWSet[addr] = false
-	}
-	//fmt.Println("4111",addr.String())
+	s.RWSet[addr] = false
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	if !s.RWSet[addr] {
-		s.RWSet[addr] = false
-	}
-	//fmt.Println("4190----",addr.String())
+	s.RWSet[addr] = false
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		//fmt.Println("419----")
 		return stateObject.Balance()
 	}
 	return common.Big0
@@ -452,12 +485,8 @@ func (s *StateDB) BlockHash() common.Hash {
 }
 
 func (s *StateDB) GetCode(addr common.Address) []byte {
-	if !s.RWSet[addr] {
-		s.RWSet[addr] = false
-	}
-	//fmt.Println("449---",addr.String())
+	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist {
-		//fmt.Println("445---",  bytes.Equal(data.data.CodeHash,emptyCodeHash),len(data.code))
 		if bytes.Equal(data.data.CodeHash, emptyCodeHash) {
 			return nil
 		}
@@ -467,13 +496,11 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 		}
 	}
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		//fmt.Println("450---===")
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		//fmt.Println("456------")
 		return stateObject.Code(s.db)
 	}
 	return nil
@@ -933,23 +960,18 @@ func (s *StateDB) Snapshot() int {
 
 func (s *StateDB) CalReadAndWrite() {
 	for addr, _ := range s.stateObjects {
-		_, ok := s.journal.dirties[addr]
-		//fmt.Println("xxxxxxxxxxx",addr.String(),ok)
-		if s.RWSet[addr] == true {
-			continue
-		}
-		s.RWSet[addr] = ok
+		s.RWSet[addr] = true
 	}
 }
 
 /*
 矿工：
 */
-func (s *StateDB) Conflict(base *StateDB, miners common.Address, useFake bool, indexToID map[int]int) bool {
+func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFake bool, indexToID map[int]int) bool {
 	for k, _ := range s.RWSet {
-		if miners == k {
+		if miners[k] {
 			if useFake || s.MergedIndex+1 != s.indexInAllBlock {
-				//fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.indexInAllBlock)
+				fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.indexInAllBlock)
 				return true
 			} else {
 				continue
@@ -965,7 +987,7 @@ func (s *StateDB) Conflict(base *StateDB, miners common.Address, useFake bool, i
 				}
 			} else {
 				if preWrite.lastWriteIndex > s.MergedIndex {
-					//fmt.Println("chongtu-2", k.String(), preWrite.lastWriteIndex, s.MergedIndex)
+					fmt.Println("chongtu-2", k.String(), preWrite.lastWriteIndex, s.MergedIndex)
 					return true
 				}
 			}
@@ -996,18 +1018,14 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 
 func (s *StateDB) MergeReward(txIndex int) {
 	for _, v := range s.stateObjects {
-		//fmt.Println("mmm--rrrrrr", v.address.String(), v.data.Balance)
 		s.MergedSts.MergeWriteObj(v, txIndex, true)
 	}
 	s.stateObjects = make(map[common.Address]*stateObject)
 }
 
-func (s *StateDB) FinalUpdateObjs(miner []common.Address) {
+func (s *StateDB) FinalUpdateObjs() {
 	for addr, obj := range s.MergedSts.writeCachedStateObjects {
 		s.stateObjects[addr] = obj
-	}
-	for _, miner := range miner {
-		s.stateObjects[miner] = s.MergedSts.writeCachedStateObjects[miner]
 	}
 }
 

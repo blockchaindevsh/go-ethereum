@@ -46,34 +46,18 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 }
 
 func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB, cfg vm.Config) ([]types.Receipts, [][]*types.Log, []uint64, error) {
-	var (
-		receipts []types.Receipts
-		usedGas  []uint64
-		//header   = block.Header()
-		allLogs [][]*types.Log
-	)
-	// Mutate the block and state according to any hard-fork specs
-
-	//for _, block := range blockList {
-	//	if block.NumberU64() == 3881784+1 {
-	//		panic("3881784+1")
-	//}
-	//}
-
 	pm := NewPallTxManage(blockList, statedb, p.bc)
 	if pm.txLen != 0 {
 		<-pm.ch
 	}
-
-	receipts, allLogs, usedGas = pm.GetReceiptsAndLogs()
-
+	receipts, allLogs, usedGas := pm.GetReceiptsAndLogs()
 	return receipts, allLogs, usedGas, nil
 }
 
 var (
 	mp = map[string]bool{
-		"0x5606b81f1783649f4f2c9dd3b0579e70f0bd631e2ceea90454207ef0d05b46a0": true,
-		"": true,
+		"1": true,
+		"":  true,
 	}
 )
 
@@ -113,8 +97,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if usedGas != nil {
 		*usedGas += result.UsedGas
 	}
-
-	//fmt.Println("执行完毕",tx.Hash().String(),result.UsedGas,err)
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing whether the root touch-delete accounts.
