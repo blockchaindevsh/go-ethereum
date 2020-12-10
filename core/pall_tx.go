@@ -297,9 +297,9 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	p.txSortManger = NewSortTxManager(fromList, toList)
 	p.txSortManger.pall = p
 
-	for index := 0; index < txLen; index++ {
-		fmt.Println("index", index, "blockIndex", blockList[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndexInBlock", p.mpToRealIndex[index].tx)
-	}
+	//for index := 0; index < txLen; index++ {
+	//	fmt.Println("index", index, "blockIndex", blockList[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndexInBlock", p.mpToRealIndex[index].tx)
+	//}
 
 	index := 0
 	for index < len(p.blocks) {
@@ -531,8 +531,9 @@ func (p *pallTxManager) handleTx(index int) bool {
 
 	if err != nil && st.MergedIndex+1 == index && st.MergedIndex == p.baseStateDB.MergedIndex && !useFake {
 		errCnt++
-		fmt.Println("?????????", st.MergedIndex, index, p.baseStateDB.MergedIndex, useFake)
-		if errCnt > 10 {
+		if errCnt > 100 {
+			fmt.Println("?????????", st.MergedIndex, index, p.baseStateDB.MergedIndex, useFake)
+			fmt.Println("sbbbbbbbbbbbb", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed)
 			panic(err)
 		}
 	}
