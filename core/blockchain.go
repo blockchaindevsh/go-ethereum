@@ -394,6 +394,7 @@ func (bc *BlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	// Make sure the entire head block is available
+
 	currentBlock := bc.GetBlockByHash(head)
 	if currentBlock == nil {
 		// Corrupt or empty database, init from scratch
@@ -1471,7 +1472,7 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	common.DebugInfo.WriteBlock += time.Since(ts)
 	ts = time.Now()
 
-	common.BlockNumber=blocks[len(blocks)-1].NumberU64()
+	common.BlockNumber = blocks[len(blocks)-1].NumberU64()
 	// Commit all cached state changes into underlying memory database.
 	root, err := state.Commit(bc.chainConfig.IsEIP158(blocks[len(blocks)-1].Number()))
 	if err != nil {
@@ -1763,8 +1764,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	for ; block != nil && err == nil || err == ErrKnownBlock; block, err = it.next() {
 		blockList = append(blockList, block)
 
-		if len(blockList) != handleLength  {
-			if block.NumberU64()!=chain[len(chain)-1].NumberU64(){
+		if len(blockList) != handleLength {
+			if block.NumberU64() != chain[len(chain)-1].NumberU64() {
 				continue
 			}
 		}

@@ -978,9 +978,9 @@ func (s *StateDB) Conflict(base *StateDB, miners common.Address, useFake bool, i
 }
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
-	for addr, newObj := range s.stateObjects {
+	for _, newObj := range s.stateObjects {
 		s.MergedSts.MergeWriteObj(newObj, s.indexInAllBlock, true)
-		fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
+		//fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
 	}
 
 	pre := base.MergedSts.getWriteObj(miner)
@@ -991,7 +991,7 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	} else {
 		pre.AddBalance(txFee)
 	}
-	fmt.Println("mmmm", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance, s.MergedSts.getWriteObj(miner).Nonce())
+	//fmt.Println("mmmm", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance, s.MergedSts.getWriteObj(miner).Nonce())
 }
 
 func (s *StateDB) MergeReward(txIndex int) {
