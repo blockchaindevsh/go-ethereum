@@ -158,7 +158,7 @@ func (s *txSortManager) pushNextTxInGroup(txIndex int) {
 func (s *txSortManager) push(txIndex int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.heapExist[txIndex] && s.pall.txResults[txIndex] == nil {
+	if !s.pall.ended && !s.heapExist[txIndex] && s.pall.txResults[txIndex] == nil {
 		heap.Push(s.heap, txIndex)
 		s.heapExist[txIndex] = true
 
