@@ -1762,13 +1762,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	handleLength := 5
 	// No validation errors for the first block (or chain prefix skipped)
 	for ; block != nil && err == nil || err == ErrKnownBlock; block, err = it.next() {
-		blockList = append(blockList, block)
-
-		if len(blockList) != handleLength {
-			if block.NumberU64() != chain[len(chain)-1].NumberU64() {
-				continue
-			}
-		}
 		// If the chain is terminating, stop processing blocks
 		if bc.insertStopped() {
 			log.Debug("Abort during block processing")
@@ -1816,6 +1809,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 			// Clique blocks to have the same state is if there are no transactions.
 			lastCanon = block
 			continue
+		}
+		blockList = append(blockList, block)
+
+		if len(blockList) != handleLength {
+			if block.NumberU64() != chain[len(chain)-1].NumberU64() {
+				continue
+			}
 		}
 		// Retrieve the parent block and it's state to execute on top
 		start := time.Now()
