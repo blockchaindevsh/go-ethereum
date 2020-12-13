@@ -226,6 +226,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 
 	dbKey := makeFastDbKey(s.address, s.data.Incarnation, key)
 	if value, exist := s.db.MergedSts.GetStorage(dbKey); exist {
+		fmt.Println("229---value", value.String())
 		return value
 	}
 
@@ -249,6 +250,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	s.originStorage[key] = value
 	s.db.MergedSts.setStorage(dbKey, value)
+	fmt.Println("252----", value.String())
 	return value
 }
 
