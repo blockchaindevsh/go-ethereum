@@ -260,11 +260,11 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
-	//fmt.Println("26-------------")
+	fmt.Println("26-------------", st.gas)
 	st.refundGas()
 	//st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
-	//fmt.Println("26666666666",)
+	fmt.Println("26666666666")
 	return &ExecutionResult{
 		UsedGas:    st.gasUsed(),
 		Err:        vmerr,
@@ -292,6 +292,6 @@ func (st *StateTransition) refundGas() {
 
 // gasUsed returns the amount of gas used up by the state transition.
 func (st *StateTransition) gasUsed() uint64 {
-	//fmt.Println("??????????",st.initialGas,st.gas,st.initialGas,st.gas)
+	fmt.Println("??????????", st.initialGas, st.gas, st.initialGas, st.gas)
 	return st.initialGas - st.gas
 }
