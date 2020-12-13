@@ -526,6 +526,7 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.stateObjects[addr]; exist {
 		if value, dirty := data.dirtyStorage[hash]; dirty {
+			fmt.Println("529????", value.String())
 			return value
 		}
 	}
@@ -557,20 +558,20 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		if value, pending := stateObject.pendingStorage[hash]; pending {
-			//fmt.Println("pending", value.String())
+			fmt.Println("pending", value.String())
 			return value
 		}
 		if data, exist := s.MergedSts.GetState(addr, hash); exist {
-			//fmt.Println("data???", data.String())
+			fmt.Println("data???", data.String())
 			return data
 		}
 
 		sb := stateObject.GetCommittedState(s.db, hash)
-		//fmt.Println("?????????????564", sb.String())
+		fmt.Println("?????????????564", sb.String())
 		return sb
 	} else {
 		if data, exist := s.MergedSts.GetState(addr, hash); exist {
-			//fmt.Println("data???", data.String())
+			fmt.Println("data???", data.String())
 			return data
 		}
 	}
