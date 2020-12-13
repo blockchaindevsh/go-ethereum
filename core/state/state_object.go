@@ -132,6 +132,7 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	//if data.Root == (common.Hash{}) {
 	//	data.Root = emptyRoot
 	//}
+	fmt.Println("heihei", address.String())
 	return &stateObject{
 		db:             db,
 		address:        address,

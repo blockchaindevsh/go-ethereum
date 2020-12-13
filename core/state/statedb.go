@@ -557,7 +557,7 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	s.RWSet[addr] = false
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("?ssssssssss", len(stateObject.pendingStorage))
+		fmt.Println("?ssssssssss", stateObject.address.String(), len(stateObject.pendingStorage))
 		for k, v := range stateObject.pendingStorage {
 			fmt.Println("?????????????---563333", k.String(), v.String())
 		}
@@ -754,6 +754,7 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
+		fmt.Println("??????????", obj.address.String())
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
