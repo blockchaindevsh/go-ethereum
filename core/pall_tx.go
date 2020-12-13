@@ -99,7 +99,7 @@ type txSortManager struct {
 
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
 	groupList, indexToID := grouping(from, to)
-	//fmt.Println("groupList", groupList)
+	fmt.Println("groupList", groupList)
 
 	common.DebugInfo.Groups += len(groupList)
 	maxx := -1
@@ -402,7 +402,7 @@ func (p *pallTxManager) mergeLoop() {
 		startTxIndex := p.baseStateDB.MergedIndex + 1
 		for startTxIndex < p.txLen && p.txResults[startTxIndex] != nil && !p.isRunning[startTxIndex] {
 			rr := p.txResults[startTxIndex]
-			//fmt.Println("处理收据", "fake", rr.useFake, "index", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.mpToRealIndex[rr.index].blockIndex].NumberU64(), "real tx", p.mpToRealIndex[rr.index].tx, "seed", rr.seed, "baseSeed", rr.st.RandomSeed)
+			fmt.Println("处理收据", "fake", rr.useFake, "index", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.mpToRealIndex[rr.index].blockIndex].NumberU64(), "real tx", p.mpToRealIndex[rr.index].tx, "seed", rr.seed, "baseSeed", rr.st.RandomSeed)
 
 			if succ := p.handleReceipt(rr); !succ {
 				p.markNextFailed(rr.index)
@@ -426,7 +426,7 @@ func (p *pallTxManager) mergeLoop() {
 			}
 
 			p.baseStateDB.MergedIndex = startTxIndex
-			//fmt.Println("MMMMMMMMMMMMMM", p.baseStateDB.MergedIndex)
+			fmt.Println("MMMMMMMMMMMMMM", p.baseStateDB.MergedIndex)
 			startTxIndex = p.baseStateDB.MergedIndex + 1
 		}
 
@@ -519,7 +519,7 @@ func (p *pallTxManager) handleTx(index int) bool {
 	st.MergedSts = p.baseStateDB.MergedSts
 	gas := p.gp
 
-	//fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed)
+	fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed)
 	st.Prepare(tx.Hash(), block.Hash(), txRealIndex, index)
 	if p.txResults[index] != nil || index <= p.baseStateDB.MergedIndex {
 		return true

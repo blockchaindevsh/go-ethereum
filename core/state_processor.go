@@ -58,7 +58,7 @@ func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB,
 var (
 	mp = map[string]bool{
 		"0x401531821c2bcc30db88057614d4c74aa9176cc96e1a64d9417d32e2048d6529 ": true,
-		"": true,
+		//"": true,
 	}
 )
 
@@ -76,6 +76,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
+	fmt.Println("Apply", tx.Hash().String(), msg.From().String())
 	if mp[tx.Hash().String()] {
 		fmt.Println("sssssssssssssssssss", tx.Hash().String(), msg.From().String(), msg.To().String())
 		vmenv.PrintLog = true
