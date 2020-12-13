@@ -82,7 +82,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		fmt.Println("sssssssssssssssssss", tx.Hash().String(), msg.From().String(), msg.To().String())
 		vmenv.PrintLog = true
 	}
-	fmt.Println("85?????????????", tx.Hash().String(), statedb.GetLen())
+	//fmt.Println("85?????????????", tx.Hash().String(), statedb.GetLen())
 	//vmenv.PrintLog = true
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)

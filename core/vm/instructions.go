@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -512,7 +511,7 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
 	//if interpreter.evm.PrintLog {
-	fmt.Println("GetState", callContext.contract.Address().String(), hash.String(), val.String())
+	//fmt.Println("GetState", callContext.contract.Address().String(), hash.String(), val.String())
 	//}
 
 	loc.SetBytes(val.Bytes())
@@ -836,14 +835,14 @@ func opSuicide(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 // make log instruction function
 func makeLog(size int) executionFunc {
 	return func(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
-		fmt.Println("begin make log")
+		//fmt.Println("begin make log")
 		topics := make([]common.Hash, size)
 		stack := callContext.stack
 		mStart, mSize := stack.pop(), stack.pop()
 		for i := 0; i < size; i++ {
 			addr := stack.pop()
 			topics[i] = common.Hash(addr.Bytes32())
-			fmt.Println("SSSSSSSSSSSS", addr.String())
+			//fmt.Println("SSSSSSSSSSSS", addr.String())
 		}
 
 		d := callContext.memory.GetCopy(int64(mStart.Uint64()), int64(mSize.Uint64()))
