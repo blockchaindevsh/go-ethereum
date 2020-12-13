@@ -556,10 +556,10 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	s.RWSet[addr] = false
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		//if value, pending := stateObject.pendingStorage[hash]; pending {
-		//	fmt.Println("pending", value.String())
-		//	return value
-		//}
+		if value, pending := stateObject.pendingStorage[hash]; pending {
+			//fmt.Println("pending", value.String())
+			return value
+		}
 		if data, exist := s.MergedSts.GetState(addr, hash); exist {
 			//fmt.Println("data???", data.String())
 			return data
@@ -922,7 +922,7 @@ func (s *StateDB) Copy() *StateDB {
 		trie:         trie.NewFastDB(s.db.TrieDB()),
 		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
 		//refund:       s.refund,
-		logs: make(map[common.Hash][]*types.Log, len(s.logs)),
+		//logs: make(map[common.Hash][]*types.Log, len(s.logs)),
 		//logSize:      s.logSize,
 		preimages: make(map[common.Hash][]byte, len(s.preimages)),
 		journal:   newJournal(),
