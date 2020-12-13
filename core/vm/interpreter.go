@@ -222,7 +222,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// enough stack items available to perform the operation.
 		op = contract.GetOp(pc)
 		if in.evm.PrintLog {
-			fmt.Println("OP---", op, contract.Gas, pc, stack.SCFDATA())
+			fmt.Println("OP---", op, contract.Gas, pc, stack.SCFDATA(), in.evm.StateDB.GetLen())
 		}
 		operation := in.cfg.JumpTable[op]
 		if operation == nil {

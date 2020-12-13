@@ -40,9 +40,10 @@ type StateDB interface {
 	GetCodeSize(common.Address) int
 
 	AddRefund(uint64)
-	SubRefund(uint64)error
+	SubRefund(uint64) error
 	GetRefund() uint64
 
+	GetLen() int
 	GetCommittedState(common.Address, common.Hash) common.Hash
 	GetState(common.Address, common.Hash) common.Hash
 	SetState(common.Address, common.Hash, common.Hash)
