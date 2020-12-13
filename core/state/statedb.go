@@ -557,6 +557,10 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	s.RWSet[addr] = false
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		fmt.Println("?ssssssssss", len(stateObject.pendingStorage))
+		for _, v := range stateObject.pendingStorage {
+			fmt.Println("?????????????---563333", v.String())
+		}
 		if value, pending := stateObject.pendingStorage[hash]; pending {
 			fmt.Println("pending", value.String())
 			return value

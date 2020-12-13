@@ -452,7 +452,7 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	}
 	stateObject.code = s.code
 	//stateObject.dirtyStorage = s.dirtyStorage.Copy()
-	stateObject.originStorage = s.originStorage.Copy()
+	//stateObject.originStorage = s.originStorage.Copy()
 	stateObject.pendingStorage = s.dirtyStorage.Copy()
 	stateObject.suicided = s.suicided
 	stateObject.dirtyCode = s.dirtyCode
