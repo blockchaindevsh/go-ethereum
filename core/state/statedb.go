@@ -922,7 +922,7 @@ func (s *StateDB) Copy() *StateDB {
 		trie:         trie.NewFastDB(s.db.TrieDB()),
 		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
 		//refund:       s.refund,
-		//logs: make(map[common.Hash][]*types.Log, len(s.logs)),
+		logs: make(map[common.Hash][]*types.Log, 0),
 		//logSize:      s.logSize,
 		preimages: make(map[common.Hash][]byte, len(s.preimages)),
 		journal:   newJournal(),
