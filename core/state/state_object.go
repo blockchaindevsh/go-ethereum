@@ -454,10 +454,11 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.code = s.code
 	//stateObject.dirtyStorage = s.dirtyStorage.Copy()
 	//stateObject.originStorage = s.originStorage.Copy()
-	stateObject.pendingStorage = s.dirtyStorage.Copy()
 	for k, v := range s.pendingStorage {
 		stateObject.pendingStorage[k] = v
 	}
+	stateObject.pendingStorage = s.dirtyStorage.Copy()
+
 	//TODO copy pending?
 	//fmt.Println("458-----", s.address.String(), len(stateObject.pendingStorage))
 	stateObject.suicided = s.suicided
