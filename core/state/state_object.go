@@ -52,6 +52,7 @@ func (s Storage) String() (str string) {
 func (s Storage) Copy() Storage {
 	cpy := make(Storage)
 	for key, value := range s {
+		fmt.Println("key", key.String(), value.String())
 		cpy[key] = value
 	}
 

@@ -507,7 +507,9 @@ func (p *pallTxManager) handleTx(index int) bool {
 			if p.isMerge[preIndex] {
 				return false
 			}
+			fmt.Println("ready copy", index)
 			st = preResult.st.Copy()
+			fmt.Println("end copy", index)
 			st.MergedIndex = preIndex
 			st.RandomSeed = preResult.seed
 			useFake = true
@@ -519,7 +521,7 @@ func (p *pallTxManager) handleTx(index int) bool {
 	st.MergedSts = p.baseStateDB.MergedSts
 	gas := p.gp
 
-	//fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed)
+	fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed)
 	st.Prepare(tx.Hash(), block.Hash(), txRealIndex, index)
 	if p.txResults[index] != nil || index <= p.baseStateDB.MergedIndex {
 		return true
