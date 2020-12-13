@@ -211,17 +211,27 @@ func TestAsd(t *testing.T) {
 		panic(err)
 	}
 
-	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(277496))
+	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(9069004))
 	if err != nil {
 		panic(err)
 	}
 
+	ans := ""
 	for k, v := range b.Transactions() {
 		r, err := client.TransactionReceipt(context.Background(), v.Hash())
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println("index", v.Hash().String(), k, r.CumulativeGasUsed, r.GasUsed)
+		for _, v := range r.Logs {
+			ans += fmt.Sprintf("+%v", k)
+			ans += v.Address.String()
+			for _, v := range v.Topics {
+				ans += "-"
+				ans += v.String()
+				//fmt.Println("tt", v.String())
+			}
+		}
 
 	}
+	fmt.Println("ans", ans)
 }
