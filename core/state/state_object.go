@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"io"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -66,6 +67,7 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
+	pendingmu      sync.Mutex
 	lastWriteIndex int
 	address        common.Address
 	addrHash       common.Hash // hash of ethereum address of the account
@@ -454,12 +456,14 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	stateObject.code = s.code
 	//stateObject.dirtyStorage = s.dirtyStorage.Copy()
 	//stateObject.originStorage = s.originStorage.Copy()
+	s.pendingmu.Lock()
 	for k, v := range s.pendingStorage {
 		stateObject.pendingStorage[k] = v
 	}
 	for k, v := range s.dirtyStorage {
 		stateObject.pendingStorage[k] = v
 	}
+	s.pendingmu.Unlock()
 	//stateObject.pendingStorage = s.dirtyStorage.Copy()
 
 	//TODO copy pending?

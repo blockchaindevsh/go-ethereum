@@ -128,9 +128,11 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int, dirty boo
 
 	pre, exist := m.writeCachedStateObjects[newObj.address]
 	if !exist {
+		newObj.pendingmu.Lock()
 		for k, v := range newObj.dirtyStorage {
 			newObj.pendingStorage[k] = v
 		}
+		newObj.pendingmu.Unlock()
 		if dirty {
 			newObj.lastWriteIndex = txIndex
 		}
@@ -139,10 +141,12 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int, dirty boo
 		return
 	}
 
+	pre.pendingmu.Lock()
 	for key, value := range newObj.dirtyStorage {
 		pre.pendingStorage[key] = value
 	}
 
+	pre.pendingmu.Unlock()
 	if bytes.Compare(newObj.CodeHash(), pre.CodeHash()) != 0 {
 		pre.code = newObj.code
 		pre.dirtyCode = newObj.dirtyCode
