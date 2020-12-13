@@ -512,7 +512,7 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 	hash := common.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetState(callContext.contract.Address(), hash)
 	//if interpreter.evm.PrintLog {
-	//	fmt.Println("GetState", callContext.contract.Address().String(), hash.String(), val.String())
+	fmt.Println("GetState", callContext.contract.Address().String(), hash.String(), val.String())
 	//}
 
 	loc.SetBytes(val.Bytes())
