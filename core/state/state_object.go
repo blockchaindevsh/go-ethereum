@@ -204,7 +204,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 
 	if value, pending := s.pendingStorage[key]; pending {
-		fmt.Println("pending", value.String())
+		//fmt.Println("pending", value.String())
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -230,7 +230,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 
 	dbKey := makeFastDbKey(s.address, s.data.Incarnation, key)
 	if value, exist := s.db.MergedSts.GetStorage(dbKey); exist {
-		fmt.Println("229---value", value.String())
+		//fmt.Println("229---value", value.String())
 		return value
 	}
 
@@ -254,7 +254,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	s.originStorage[key] = value
 	s.db.MergedSts.setStorage(dbKey, value)
-	fmt.Println("252----", value.String())
+	//fmt.Println("252----", value.String())
 	return value
 }
 
