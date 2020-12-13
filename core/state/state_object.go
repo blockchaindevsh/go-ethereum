@@ -457,7 +457,10 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 	for k, v := range s.pendingStorage {
 		stateObject.pendingStorage[k] = v
 	}
-	stateObject.pendingStorage = s.dirtyStorage.Copy()
+	for k, v := range s.dirtyStorage {
+		stateObject.pendingStorage[k] = v
+	}
+	//stateObject.pendingStorage = s.dirtyStorage.Copy()
 
 	//TODO copy pending?
 	//fmt.Println("458-----", s.address.String(), len(stateObject.pendingStorage))
