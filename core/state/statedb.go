@@ -553,7 +553,11 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 }
 
 func (s *StateDB) GetLen() int {
-	return len(s.stateObjects[common.HexToAddress("0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39")].pendingStorage)
+	ss := s.stateObjects[common.HexToAddress("0x2b591e99afE9f32eAA6214f7B7629768c40Eeb39")]
+	if ss == nil {
+		return 0
+	}
+	return len(ss.pendingStorage)
 }
 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
