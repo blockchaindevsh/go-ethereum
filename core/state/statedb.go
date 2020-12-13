@@ -553,13 +553,17 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 
 // GetCommittedState retrieves a value from the given account's committed storage trie.
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
-	if data, exist := s.MergedSts.GetState(addr, hash); exist {
-		//fmt.Println("data???", data.String())
-		return data
-	}
-
+	s.RWSet[addr] = false
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		if value, pending := stateObject.pendingStorage[hash]; pending {
+			//fmt.Println("pending", value.String())
+			return value
+		}
+		if data, exist := s.MergedSts.GetState(addr, hash); exist {
+			//fmt.Println("data???", data.String())
+			return data
+		}
 
 		sb := stateObject.GetCommittedState(s.db, hash)
 		//fmt.Println("?????????????564", sb.String())
