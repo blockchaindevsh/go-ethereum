@@ -203,6 +203,10 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		return s.fakeStorage[key]
 	}
 
+	if value, pending := s.dirtyStorage[key]; pending {
+		fmt.Println("ddddddddddditty", value.String())
+		return value
+	}
 	// If no live objects are available, attempt to use snapshots
 	var (
 		enc []byte
