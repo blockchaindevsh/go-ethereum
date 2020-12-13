@@ -569,7 +569,10 @@ func (p *pallTxManager) GetReceiptsAndLogs() ([]types.Receipts, [][]*types.Log, 
 			p.mergedReceipts[i].CumulativeGasUsed = cumulativeGasUsed
 			log = append(log, p.mergedReceipts[i].Logs...)
 			for _, sb := range p.mergedReceipts[i].Logs {
-				fmt.Println("i", sb)
+				fmt.Println("i", i, sb.Address.String(), sb.TxIndex, sb.Index, len(sb.Topics))
+				for _, vv := range sb.Topics {
+					fmt.Println("tt", vv.String())
+				}
 			}
 			rs = append(rs, p.mergedReceipts[i])
 		}
