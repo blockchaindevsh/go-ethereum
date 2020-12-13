@@ -556,10 +556,10 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	s.RWSet[addr] = false
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		if value, pending := stateObject.pendingStorage[hash]; pending {
-			//fmt.Println("pending", value.String())
-			return value
-		}
+		//if value, pending := stateObject.pendingStorage[hash]; pending {
+		//	fmt.Println("pending", value.String())
+		//	return value
+		//}
 		if data, exist := s.MergedSts.GetState(addr, hash); exist {
 			//fmt.Println("data???", data.String())
 			return data
