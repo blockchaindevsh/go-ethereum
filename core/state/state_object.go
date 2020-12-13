@@ -52,7 +52,7 @@ func (s Storage) String() (str string) {
 func (s Storage) Copy() Storage {
 	cpy := make(Storage)
 	for key, value := range s {
-		fmt.Println("key", key.String(), value.String())
+		//fmt.Println("key", key.String(), value.String())
 		cpy[key] = value
 	}
 
@@ -132,7 +132,7 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	//if data.Root == (common.Hash{}) {
 	//	data.Root = emptyRoot
 	//}
-	fmt.Println("heihei", address.String())
+	//fmt.Println("heihei", address.String())
 	return &stateObject{
 		db:             db,
 		address:        address,
@@ -459,7 +459,7 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 		stateObject.pendingStorage[k] = v
 	}
 	//TODO copy pending?
-	fmt.Println("458-----", s.address.String(), len(stateObject.pendingStorage))
+	//fmt.Println("458-----", s.address.String(), len(stateObject.pendingStorage))
 	stateObject.suicided = s.suicided
 	stateObject.dirtyCode = s.dirtyCode
 	stateObject.deleted = s.deleted
