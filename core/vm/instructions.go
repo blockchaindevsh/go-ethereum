@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -841,6 +842,7 @@ func makeLog(size int) executionFunc {
 		for i := 0; i < size; i++ {
 			addr := stack.pop()
 			topics[i] = common.Hash(addr.Bytes32())
+			fmt.Println("SSSSSSSSSSSS", addr.String())
 		}
 
 		d := callContext.memory.GetCopy(int64(mStart.Uint64()), int64(mSize.Uint64()))

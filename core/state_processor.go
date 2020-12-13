@@ -57,7 +57,7 @@ func (p *StateProcessor) Process(blockList types.Blocks, statedb *state.StateDB,
 
 var (
 	mp = map[string]bool{
-		"0xd3958791a8fca95f2f36f3c9fa0d12810aecc57cd062bcf7112dd344e111e982": true,
+		"0xa35d75c952db84bb0e1f87633300aa563d9616af9da40d4e9da64cd9e1a2eff5": true,
 		//"0x401531821c2bcc30db88057614d4c74aa9176cc96e1a64d9417d32e2048d6529 ": true,
 		//"": true,
 	}
