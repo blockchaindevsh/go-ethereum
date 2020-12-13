@@ -190,13 +190,13 @@ func gasSStoreEIP2200(evm *EVM, contract *Contract, stack *Stack, mem *Memory, m
 	)
 	value := common.Hash(y.Bytes32())
 
-	fmt.Println("???????", contract.Address(), x.String(), current.String(), value.String())
+	fmt.Println("???????", contract.Address().String(), x.String(), current.String(), value.String())
 	if current == value { // noop (1)
 		fmt.Println("194----")
 		return params.SstoreNoopGasEIP2200, nil
 	}
 	original := evm.StateDB.GetCommittedState(contract.Address(), common.Hash(x.Bytes32()))
-	fmt.Println("1999", original.String(), current.String())
+	fmt.Println("1999", contract.Address().String(), original.String(), current.String())
 	if original == current {
 		if original == (common.Hash{}) { // create slot (2.1.1)
 			return params.SstoreInitGasEIP2200, nil
