@@ -203,8 +203,8 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		return s.fakeStorage[key]
 	}
 
-	if value, pending := s.dirtyStorage[key]; pending {
-		fmt.Println("ddddddddddditty", value.String())
+	if value, pending := s.pendingStorage[key]; pending {
+		fmt.Println("pending", value.String())
 		return value
 	}
 	// If no live objects are available, attempt to use snapshots
@@ -455,9 +455,9 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 		stateObject.trie = trie.NewFastDB(db.db.TrieDB())
 	}
 	stateObject.code = s.code
-	stateObject.dirtyStorage = s.dirtyStorage.Copy()
+	//stateObject.dirtyStorage = s.dirtyStorage.Copy()
 	stateObject.originStorage = s.originStorage.Copy()
-	//stateObject.pendingStorage = s.pendingStorage.Copy()
+	stateObject.pendingStorage = s.dirtyStorage.Copy()
 	stateObject.suicided = s.suicided
 	stateObject.dirtyCode = s.dirtyCode
 	stateObject.deleted = s.deleted
