@@ -836,6 +836,7 @@ func opSuicide(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 // make log instruction function
 func makeLog(size int) executionFunc {
 	return func(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
+		fmt.Println("begin make log")
 		topics := make([]common.Hash, size)
 		stack := callContext.stack
 		mStart, mSize := stack.pop(), stack.pop()
