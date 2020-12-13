@@ -588,6 +588,6 @@ func (p *pallTxManager) GetReceiptsAndLogs() ([]types.Receipts, [][]*types.Log, 
 
 	}
 
-	fmt.Println("ans", ans)
+	//fmt.Println("ans", ans)
 	return rsList, logList, usdList
 }

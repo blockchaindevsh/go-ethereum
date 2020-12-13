@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"reflect"
@@ -217,11 +218,13 @@ func TestAsd(t *testing.T) {
 	}
 
 	ans := ""
+	rr := make(types.Receipts, 0)
 	for k, v := range b.Transactions() {
 		r, err := client.TransactionReceipt(context.Background(), v.Hash())
 		if err != nil {
 			panic(err)
 		}
+		rr = append(rr, r)
 		for _, v := range r.Logs {
 			ans += fmt.Sprintf("+%v", k)
 			ans += v.Address.String()
@@ -234,4 +237,6 @@ func TestAsd(t *testing.T) {
 
 	}
 	fmt.Println("ans", ans)
+	data := types.CreateBloom(rr)
+	fmt.Printf("data %x", data)
 }
