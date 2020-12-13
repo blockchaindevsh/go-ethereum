@@ -19,18 +19,21 @@ package utils
 
 import (
 	"compress/gzip"
+	"context"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rlp"
 	"io"
+	"math/big"
 	"os"
 	"os/signal"
 	"runtime"
@@ -86,6 +89,20 @@ func StartNode(stack *node.Node) {
 }
 
 func ImportChain(chain *core.BlockChain, fn string) error {
+
+	client, err := ethclient.Dial("https://mainnet.infura.io/v3/5f85acad140a4286858886f080177bc9")
+	//client, err := ethclient.Dial("https://ropsten.infura.io/v3/5f85acad140a4286858886f080177bc9")
+	if err != nil {
+		panic(err)
+	}
+
+	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(chain.CurrentBlock().NumberU64()+1))
+	if err != nil {
+		panic(err)
+	}
+	_, err = chain.InsertChain(types.Blocks{b})
+	panic(fmt.Errorf("err=%v", err))
+
 	// Watch for Ctrl-C while the import is running.
 	// If a signal is received, the import will stop at the next batch.
 	interrupt := make(chan os.Signal, 1)
