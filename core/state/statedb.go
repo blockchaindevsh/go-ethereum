@@ -526,7 +526,7 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	if data, exist := s.stateObjects[addr]; exist {
 		if value, dirty := data.dirtyStorage[hash]; dirty {
-			fmt.Println("529????", value.String())
+			//fmt.Println("529????", value.String())
 			return value
 		}
 	}
@@ -565,25 +565,25 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	s.RWSet[addr] = false
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("?ssssssssss", stateObject.address.String(), len(stateObject.pendingStorage))
-		for k, v := range stateObject.pendingStorage {
-			fmt.Println("?????????????---563333", k.String(), v.String())
-		}
+		//fmt.Println("?ssssssssss", stateObject.address.String(), len(stateObject.pendingStorage))
+		//for k, v := range stateObject.pendingStorage {
+		//fmt.Println("?????????????---563333", k.String(), v.String())
+		//}
 		if value, pending := stateObject.pendingStorage[hash]; pending {
-			fmt.Println("pending", value.String())
+			//fmt.Println("pending", value.String())
 			return value
 		}
 		if data, exist := s.MergedSts.GetState(addr, hash); exist {
-			fmt.Println("data???", data.String())
+			//fmt.Println("data???", data.String())
 			return data
 		}
 
 		sb := stateObject.GetCommittedState(s.db, hash)
-		fmt.Println("?????????????564", sb.String())
+		//fmt.Println("?????????????564", sb.String())
 		return sb
 	} else {
 		if data, exist := s.MergedSts.GetState(addr, hash); exist {
-			fmt.Println("data???", data.String())
+			//fmt.Println("data???", data.String())
 			return data
 		}
 	}
@@ -762,7 +762,7 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
-		fmt.Println("??????????", obj.address.String())
+		//fmt.Println("??????????", obj.address.String())
 		return obj
 	}
 	// If no live objects are available, attempt to use snapshots
