@@ -1877,6 +1877,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 				atomic.StoreUint32(&followupInterrupt, 1)
 				return it.index, err
 			}
+			common.DebugInfo.TxLen += len(b.Transactions())
 		}
 
 		common.DebugInfo.ValidateBlock += time.Since(substart)

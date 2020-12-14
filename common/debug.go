@@ -61,14 +61,7 @@ type DebugTime struct {
 	ValidateBlock time.Duration
 	WriteBlock    time.Duration
 	CommitTrie    time.Duration
-
-	Txs       int
-	Groups    int
-	Conflicts int
-
-	SumMaxDepth int
-	MaxDepeth   int
-	MinDepeth   int
+	TxLen         int
 }
 
 func NewDebugTime() *DebugTime {
@@ -77,13 +70,6 @@ func NewDebugTime() *DebugTime {
 		ValidateBlock: time.Duration(0),
 		WriteBlock:    time.Duration(0),
 		CommitTrie:    time.Duration(0),
-		Txs:           0,
-		Groups:        0,
-		Conflicts:     0,
-
-		SumMaxDepth: 0,
-		MaxDepeth:   -9999999999,
-		MinDepeth:   9999999999,
 	}
 	go d.cpuAndMem()
 	return d
@@ -101,22 +87,15 @@ func (d *DebugTime) cpuAndMem() {
 }
 
 func (d *DebugTime) Print() {
-	fmt.Println("执行区块数目", 200000)
-	fmt.Println("总的交易数目", d.Txs)
-	fmt.Println("总的分组数目", d.Groups)
-	fmt.Println("总的错误数目", d.Conflicts)
+	fmt.Println("总的交易数目", d.TxLen)
 
 	fmt.Println("执行区块用时", d.ExecuteTx)
 	fmt.Println("验证区块用时", d.ValidateBlock)
 	fmt.Println("写入区块用时", d.WriteBlock)
 	fmt.Println("写入trie用时", d.CommitTrie)
-
-	fmt.Println("分组最长深度", d.MaxDepeth)
-	fmt.Println("分组最短深度", d.MinDepeth)
-	fmt.Println("分组总深度", d.SumMaxDepth)
 }
 
 var (
-	DebugInfo = NewDebugTime()
-	BlockNumber=uint64(0)
+	DebugInfo   = NewDebugTime()
+	BlockNumber = uint64(0)
 )

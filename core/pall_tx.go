@@ -99,23 +99,6 @@ type txSortManager struct {
 
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
 	groupList, indexToID := grouping(from, to)
-	//fmt.Println("groupList", groupList)
-
-	common.DebugInfo.Groups += len(groupList)
-	maxx := -1
-	for _, txs := range groupList {
-		l := len(txs)
-		if common.DebugInfo.MaxDepeth < l {
-			common.DebugInfo.MaxDepeth = l
-		}
-		if common.DebugInfo.MinDepeth > l {
-			common.DebugInfo.MinDepeth = l
-		}
-		if l > maxx {
-			maxx = l
-		}
-	}
-	common.DebugInfo.SumMaxDepth += maxx
 
 	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
@@ -243,7 +226,6 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 
 	minerAndUncle := make([]map[common.Address]bool, 0)
 	for blockIndex, block := range blockList {
-		common.DebugInfo.Txs += len(block.Transactions())
 		signer := types.MakeSigner(bc.chainConfig, block.Number())
 		for tIndex, tx := range block.Transactions() {
 			sender, _ := types.Sender(signer, tx)
@@ -407,7 +389,6 @@ func (p *pallTxManager) mergeLoop() {
 			if succ := p.handleReceipt(rr); !succ {
 				p.markNextFailed(rr.index)
 				p.txResults[rr.index] = nil
-				common.DebugInfo.Conflicts++
 				p.txSortManger.push(rr.index)
 				break
 			}
@@ -426,7 +407,6 @@ func (p *pallTxManager) mergeLoop() {
 			}
 
 			p.baseStateDB.MergedIndex = startTxIndex
-			//fmt.Println("MMMMMMMMMMMMMM", p.baseStateDB.MergedIndex)
 			startTxIndex = p.baseStateDB.MergedIndex + 1
 		}
 
