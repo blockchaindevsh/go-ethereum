@@ -17,7 +17,6 @@
 package core
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -78,10 +77,10 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	//fmt.Println("Apply", tx.Hash().String(), msg.From().String(), mp[tx.Hash().String()], mp)
-	if mp[tx.Hash().String()] {
-		fmt.Println("sssssssssssssssssss", tx.Hash().String(), msg.From().String(), msg.To().String())
-		vmenv.PrintLog = true
-	}
+	//if mp[tx.Hash().String()] {
+	//	fmt.Println("sssssssssssssssssss", tx.Hash().String(), msg.From().String(), msg.To().String())
+	//	vmenv.PrintLog = true
+	//}
 	//fmt.Println("85?????????????", tx.Hash().String(), statedb.GetLen())
 	//vmenv.PrintLog = true
 	// Apply the transaction to the current state (included in the env)

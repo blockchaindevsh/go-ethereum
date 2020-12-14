@@ -269,7 +269,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		}
 		minerAndUncle = append(minerAndUncle, mp)
 	}
-	go st.PreCache(fromList, toList)
+	//go st.PreCache(fromList, toList)
 
 	p := &pallTxManager{
 		isMerge:        make([]bool, txLen, txLen),
@@ -552,7 +552,7 @@ func (p *pallTxManager) GetReceiptsAndLogs() ([]types.Receipts, [][]*types.Log, 
 	logList := make([][]*types.Log, 0)
 	rsList := make([]types.Receipts, 0)
 	usdList := make([]uint64, 0)
-	ans := ""
+	//ans := ""
 	start := 0
 	for _, block := range p.blocks {
 		if len(block.Transactions()) == 0 {
@@ -570,16 +570,16 @@ func (p *pallTxManager) GetReceiptsAndLogs() ([]types.Receipts, [][]*types.Log, 
 			cumulativeGasUsed = cumulativeGasUsed + p.mergedReceipts[i].GasUsed
 			p.mergedReceipts[i].CumulativeGasUsed = cumulativeGasUsed
 			log = append(log, p.mergedReceipts[i].Logs...)
-			for _, sb := range p.mergedReceipts[i].Logs {
-				//fmt.Println("i", i, sb.Address.String(), sb.TxIndex, sb.Index, len(sb.Topics))
-				ans += fmt.Sprintf("+%v", i)
-				ans += sb.Address.String()
-				for _, vv := range sb.Topics {
-					//fmt.Println("tt", vv.String())
-					ans += "-"
-					ans += vv.String()
-				}
-			}
+			//for _, sb := range p.mergedReceipts[i].Logs {
+			//	//fmt.Println("i", i, sb.Address.String(), sb.TxIndex, sb.Index, len(sb.Topics))
+			//	ans += fmt.Sprintf("+%v", i)
+			//	ans += sb.Address.String()
+			//	for _, vv := range sb.Topics {
+			//		//fmt.Println("tt", vv.String())
+			//		ans += "-"
+			//		ans += vv.String()
+			//	}
+			//}
 			rs = append(rs, p.mergedReceipts[i])
 		}
 		start += ll
