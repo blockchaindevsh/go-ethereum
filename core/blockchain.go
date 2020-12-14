@@ -677,6 +677,8 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 	bc.chainmu.RLock()
 	defer bc.chainmu.RUnlock()
 
+	fmt.Println("export", bc.CurrentBlock().NumberU64(), first, last)
+
 	if first > last {
 		return fmt.Errorf("export failed: first (%d) is greater than last (%d)", first, last)
 	}
