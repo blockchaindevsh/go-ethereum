@@ -1851,6 +1851,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		}
 		proctime := time.Since(start)
 		common.DebugInfo.ValidateBlock += time.Since(substart)
+		common.DebugInfo.TxLen += len(block.Transactions())
 
 		// Update the metrics touched during block validation
 		accountHashTimer.Update(statedb.AccountHashes) // Account hashes are complete, we can mark them
