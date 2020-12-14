@@ -688,8 +688,10 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 	for nr := first; nr <= last; nr++ {
 		block := bc.GetBlockByNumber(nr)
 		if block == nil {
+			fmt.Println("?????/")
 			return fmt.Errorf("export failed on #%d: not found", nr)
 		}
+		fmt.Println("block", block.NumberU64(), block.Hash().String())
 		if err := block.EncodeRLP(w); err != nil {
 			return err
 		}
