@@ -356,7 +356,7 @@ func (p *pallTxManager) mergeLoop() {
 			p.ended = true
 			p.baseStateDB.FinalUpdateObjs()
 			close(p.txQueue)
-			close(p.resultQueue)
+			//close(p.resultQueue)
 			p.ch <- struct{}{}
 			return
 		}
