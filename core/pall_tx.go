@@ -95,15 +95,15 @@ func newGroupInfo(from []common.Address, to []*common.Address) (*groupInfo, []in
 	}, heapList, len(groupList)
 }
 
-func (s *pallTxManager) push(txIndex int, next bool) {
+func (s *pallTxManager) push(txIndex int) {
 	if s.pending[txIndex] {
 		return
 	}
 	s.pending[txIndex] = true
 
-	fmt.Println("push", next, !s.ended, s.txResults[txIndex] == nil, !s.running[txIndex], txIndex)
+	fmt.Println("push", !s.ended, s.txResults[txIndex] == nil, !s.running[txIndex], txIndex)
 	if !s.ended && s.txResults[txIndex] == nil && !s.running[txIndex] {
-		fmt.Println("txIndex--", next, txIndex, len(s.txQueue), s.txLen)
+		fmt.Println("txIndex--", txIndex, len(s.txQueue), s.txLen)
 		s.txQueue <- txIndex
 
 		fmt.Println("txIndexend", txIndex)
@@ -300,9 +300,9 @@ func (p *pallTxManager) txLoop() {
 		p.running[txIndex] = false
 		fmt.Println("handle tx end", stats, txIndex, p.baseStateDB.MergedIndex)
 		if stats {
-			if nextTxIndex, ok := p.groupInfo.nextTxInGroup[txIndex]; ok {
+			if nextTxIndex, ok := p.groupInfo.nextTxInGroup[txIndex]; ok && nextTxIndex != p.baseStateDB.MergedIndex+1 {
 				fmt.Println("nexxxxxxxxxxxxxxxxx", nextTxIndex)
-				p.push(nextTxIndex, true)
+				p.push(nextTxIndex)
 				fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
 			}
 			if len(p.resultQueue) == 0 {
@@ -311,7 +311,7 @@ func (p *pallTxManager) txLoop() {
 		} else {
 			if txIndex > p.baseStateDB.MergedIndex {
 				fmt.Println("push-1", txIndex)
-				p.push(txIndex, false)
+				p.push(txIndex)
 				fmt.Println("push-2", txIndex)
 			}
 
@@ -358,7 +358,7 @@ func (p *pallTxManager) mergeLoop() {
 		}
 		if handled {
 			fmt.Println("====================================", p.baseStateDB.MergedIndex+1)
-			p.push(p.baseStateDB.MergedIndex+1, false)
+			p.push(p.baseStateDB.MergedIndex + 1)
 			fmt.Println("====================================-end", p.baseStateDB.MergedIndex+1)
 		}
 		fmt.Println("mergeLoop---end", p.baseStateDB.MergedIndex)
