@@ -763,6 +763,9 @@ func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCt
 	// Get arguments from the memory.
 	args := callContext.memory.GetPtr(int64(inOffset.Uint64()), int64(inSize.Uint64()))
 
+	if interpreter.evm.PrintLog {
+		fmt.Println("ready to aaaaa", gas, toAddr.String())
+	}
 	ret, returnGas, err := interpreter.evm.DelegateCall(callContext.contract, toAddr, args, gas)
 	if err != nil {
 		temp.Clear()
