@@ -774,7 +774,7 @@ func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCt
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
 	if interpreter.evm.PrintLog {
-		fmt.Println("775", callContext.contract.Gas, returnGas:q)
+		fmt.Println("775", callContext.contract.Gas, returnGas)
 	}
 
 	callContext.contract.Gas += returnGas
