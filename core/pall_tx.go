@@ -310,6 +310,7 @@ func (p *pallTxManager) txLoop() {
 		if stats {
 			p.pushNextTxInGroup(txIndex)
 			if p.txLen != len(p.resultQueue) && !p.ended {
+				fmt.Println("rrrrrrrrrr to resultQueue", p.blocks[0].NumberU64(), txIndex)
 				p.resultQueue <- struct{}{}
 			}
 		} else {
