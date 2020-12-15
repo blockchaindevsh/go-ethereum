@@ -95,14 +95,6 @@ func newGroupInfo(from []common.Address, to []*common.Address) (*groupInfo, []in
 	}, heapList, len(groupList)
 }
 
-func (s *pallTxManager) pushNextTxInGroup(txIndex int) {
-	if nextTxIndex, ok := s.groupInfo.nextTxInGroup[txIndex]; ok {
-		fmt.Println("nexxxxxxxxxxxxxxxxx", nextTxIndex)
-		s.push(nextTxIndex, true)
-		fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
-	}
-}
-
 func (s *pallTxManager) push(txIndex int, next bool) {
 	if s.pending[txIndex] {
 		return
@@ -308,7 +300,11 @@ func (p *pallTxManager) txLoop() {
 		p.running[txIndex] = false
 		fmt.Println("handle tx end", stats, txIndex, p.baseStateDB.MergedIndex)
 		if stats {
-			p.pushNextTxInGroup(txIndex)
+			if nextTxIndex, ok := p.groupInfo.nextTxInGroup[txIndex]; ok {
+				fmt.Println("nexxxxxxxxxxxxxxxxx", nextTxIndex)
+				p.push(nextTxIndex, true)
+				fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
+			}
 			if len(p.resultQueue) == 0 {
 				p.resultQueue <- struct{}{}
 			}
