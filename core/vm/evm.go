@@ -18,7 +18,6 @@ package vm
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -204,7 +203,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 	// Fail if we're trying to transfer more than the available balance
 	if value.Sign() != 0 && !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
-		fmt.Println("207??????")
 		return nil, gas, ErrInsufficientBalance
 	}
 	snapshot := evm.StateDB.Snapshot()
@@ -333,13 +331,10 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 		addrCopy := addr
 		// Initialise a new contract and make initialise the delegate values
 		contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
-		fmt.Println("3656666666??", addrCopy.String(), evm.StateDB.GetCodeHash(addrCopy).String(), len(evm.StateDB.GetCode(addrCopy)), addrCopy.String())
+		//fmt.Println("3656666666??", addrCopy.String(), evm.StateDB.GetCodeHash(addrCopy).String(), len(evm.StateDB.GetCode(addrCopy)), addrCopy.String())
 		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
 		ret, err = run(evm, contract, input, false)
 		gas = contract.Gas
-		if evm.PrintLog {
-			fmt.Println("gas---", gas, ret, err)
-		}
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)

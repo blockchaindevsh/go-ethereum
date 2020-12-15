@@ -18,7 +18,6 @@ package vm
 
 import (
 	"errors"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/params"
@@ -399,26 +398,16 @@ func gasDelegateCall(evm *EVM, contract *Contract, stack *Stack, mem *Memory, me
 	if err != nil {
 		return 0, err
 	}
-	if evm.PrintLog {
-		fmt.Println("gas", gas)
-	}
-	fmt.Println("gas", gas)
+
 	evm.callGasTemp, err = callGas(evm.chainRules.IsEIP150, contract.Gas, gas, stack.Back(0))
 	if err != nil {
 		return 0, err
 	}
 	var overflow bool
-	if evm.PrintLog {
-		fmt.Println("gasss", evm.callGasTemp)
-	}
 
 	if gas, overflow = math.SafeAdd(gas, evm.callGasTemp); overflow {
 		return 0, ErrGasUintOverflow
 	}
-	if evm.PrintLog {
-		fmt.Println("end gas", gas)
-	}
-
 	return gas, nil
 }
 

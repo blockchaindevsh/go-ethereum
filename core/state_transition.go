@@ -258,14 +258,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		if st.evm.PrintLog {
-			fmt.Println("call---", sender.Address().String(), st.gas)
-		}
-
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-	}
-	if st.evm.PrintLog {
-		fmt.Println("26-------------", st.gas, err)
 	}
 
 	st.refundGas()
