@@ -19,6 +19,7 @@ package state
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -492,11 +493,11 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist {
 		if bytes.Equal(data.data.CodeHash, emptyCodeHash) {
-			fmt.Println("??????-1")
+			fmt.Println("??????-1", addr.String())
 			return nil
 		}
 		if data.code != nil {
-			fmt.Println("???-2")
+			fmt.Println("???-2", addr.String(), hex.EncodeToString(data.data.CodeHash), data.data.Deleted)
 			return data.code
 		}
 	}
