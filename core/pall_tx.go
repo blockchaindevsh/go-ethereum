@@ -284,6 +284,11 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	if p.txResults[re.index] == nil {
 		re.id = p.getResultID()
 		p.txResults[re.index] = re
+
+		if len(p.resultQueue) == 0 {
+			p.resultQueue <- struct{}{}
+		}
+
 		return true
 	} else {
 		fmt.Println("already have resulet", re.index)
@@ -309,10 +314,6 @@ func (p *pallTxManager) txLoop() {
 		fmt.Println("handle tx end", stats, txIndex, p.baseStateDB.MergedIndex)
 		if stats {
 			p.pushNextTxInGroup(txIndex)
-			if len(p.resultQueue) == 0 && !p.ended {
-				fmt.Println("rrrrrrrrrr to resultQueue", p.blocks[0].NumberU64(), txIndex)
-				p.resultQueue <- struct{}{}
-			}
 		} else {
 			if txIndex > p.baseStateDB.MergedIndex {
 				fmt.Println("push-1", txIndex)
