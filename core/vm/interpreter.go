@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -127,6 +128,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 		}
 		cfg.JumpTable = jt
 	}
+	fmt.Println("jt????", reflect.TypeOf(cfg.JumpTable), cfg.JumpTable[DELEGATECALL].constantGas, cfg.JumpTable[DELEGATECALL].dynamicGas)
 
 	return &EVMInterpreter{
 		evm: evm,
