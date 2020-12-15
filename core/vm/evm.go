@@ -254,7 +254,13 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
 			ret, err = run(evm, contract, input, false)
 			gas = contract.Gas
+			if evm.PrintLog {
+				fmt.Println("25888888", ret, err)
+			}
 		}
+	}
+	if evm.PrintLog {
+		fmt.Println("err", err, gas)
 	}
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
