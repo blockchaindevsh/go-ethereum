@@ -527,6 +527,7 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 	if stateObject == nil {
 		return common.Hash{}
 	}
+	fmt.Println("530-------GetCodeHash", hex.EncodeToString(stateObject.CodeHash()), stateObject.data.Deleted)
 	return common.BytesToHash(stateObject.CodeHash())
 }
 

@@ -353,7 +353,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 		addrCopy := addr
 		// Initialise a new contract and make initialise the delegate values
 		contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
-		fmt.Println("3656666666??", addrCopy.String(), evm.StateDB.GetCodeHash(addrCopy), len(evm.StateDB.GetCode(addrCopy)), addrCopy.String())
+		fmt.Println("3656666666??", addrCopy.String(), evm.StateDB.GetCodeHash(addrCopy).String(), len(evm.StateDB.GetCode(addrCopy)), addrCopy.String())
 		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
 		ret, err = run(evm, contract, input, false)
 		gas = contract.Gas
