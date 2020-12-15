@@ -284,11 +284,10 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	if p.txResults[re.index] == nil {
 		re.id = p.getResultID()
 		p.txResults[re.index] = re
-
+		p.running[re.index] = false
 		if len(p.resultQueue) == 0 {
 			p.resultQueue <- struct{}{}
 		}
-
 		return true
 	} else {
 		fmt.Println("already have resulet", re.index)
