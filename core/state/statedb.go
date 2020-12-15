@@ -492,19 +492,22 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist {
 		if bytes.Equal(data.data.CodeHash, emptyCodeHash) {
+			fmt.Println("??????-1")
 			return nil
 		}
 		if data.code != nil {
-
+			fmt.Println("???-2")
 			return data.code
 		}
 	}
 	if data, exist := s.MergedSts.GetCode(addr); exist {
+		fmt.Println(">?>??-3")
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
+		fmt.Println("?>?????-4")
 		return stateObject.Code(s.db)
 	}
 	return nil
