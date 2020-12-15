@@ -309,7 +309,7 @@ func (p *pallTxManager) txLoop() {
 		fmt.Println("handle tx end", stats, txIndex, p.baseStateDB.MergedIndex)
 		if stats {
 			p.pushNextTxInGroup(txIndex)
-			if p.txLen != len(p.resultQueue) && !p.ended {
+			if len(p.resultQueue) == 0 && !p.ended {
 				fmt.Println("rrrrrrrrrr to resultQueue", p.blocks[0].NumberU64(), txIndex)
 				p.resultQueue <- struct{}{}
 			}
