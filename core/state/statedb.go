@@ -19,7 +19,6 @@ package state
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -493,22 +492,22 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist {
 		if bytes.Equal(data.data.CodeHash, emptyCodeHash) {
-			fmt.Println("??????-1", addr.String())
+			//fmt.Println("??????-1", addr.String())
 			return nil
 		}
 		if data.code != nil && !data.data.Deleted {
-			fmt.Println("???-2", addr.String(), hex.EncodeToString(data.data.CodeHash), data.data.Deleted)
+			//fmt.Println("???-2", addr.String(), hex.EncodeToString(data.data.CodeHash), data.data.Deleted)
 			return data.code
 		}
 	}
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		fmt.Println(">?>??-3")
+		//fmt.Println(">?>??-3")
 		return data
 	}
 
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		fmt.Println("?>?????-4")
+		//fmt.Println("?>?????-4")
 		return stateObject.Code(s.db)
 	}
 	return nil
@@ -527,7 +526,7 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 	if stateObject == nil {
 		return common.Hash{}
 	}
-	fmt.Println("530-------GetCodeHash", hex.EncodeToString(stateObject.CodeHash()), stateObject.data.Deleted)
+	//fmt.Println("530-------GetCodeHash", hex.EncodeToString(stateObject.CodeHash()), stateObject.data.Deleted)
 	return common.BytesToHash(stateObject.CodeHash())
 }
 

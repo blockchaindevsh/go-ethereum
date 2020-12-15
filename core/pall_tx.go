@@ -100,7 +100,7 @@ type txSortManager struct {
 func NewSortTxManager(from []common.Address, to []*common.Address) *txSortManager {
 	groupList, indexToID := grouping(from, to)
 
-	fmt.Println("gropuList", groupList)
+	//fmt.Println("gropuList", groupList)
 	nextTxIndexInGroup := make(map[int]int)
 	for _, list := range groupList {
 		for index := 0; index < len(list)-1; index++ {
@@ -406,7 +406,7 @@ func (p *pallTxManager) mergeLoop() {
 					}
 				}
 			}
-			fmt.Println("MMMMMMMMMMM", startTxIndex)
+			//fmt.Println("MMMMMMMMMMM", startTxIndex)
 
 			p.baseStateDB.MergedIndex = startTxIndex
 			startTxIndex = p.baseStateDB.MergedIndex + 1
@@ -509,12 +509,12 @@ func (p *pallTxManager) handleTx(index int) bool {
 	}
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
-	if err != nil {
-		fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed, err)
-
-	} else {
-		fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed, receipt.GasUsed)
-	}
+	//if err != nil {
+	//	fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed, err)
+	//
+	//} else {
+	//	fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.mpToRealIndex[index].blockIndex].NumberU64(), "realIndex", p.mpToRealIndex[index].tx, "baseSeed", st.RandomSeed, receipt.GasUsed)
+	//}
 
 	if index <= p.baseStateDB.MergedIndex {
 		return true

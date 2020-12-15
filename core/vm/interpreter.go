@@ -17,10 +17,7 @@
 package vm
 
 import (
-	"encoding/hex"
-	"fmt"
 	"hash"
-	"reflect"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -128,7 +125,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 		}
 		cfg.JumpTable = jt
 	}
-	fmt.Println("jt????", reflect.TypeOf(cfg.JumpTable), cfg.JumpTable[DELEGATECALL].constantGas, cfg.JumpTable[DELEGATECALL].dynamicGas)
+	//fmt.Println("jt????", reflect.TypeOf(cfg.JumpTable), cfg.JumpTable[DELEGATECALL].constantGas, cfg.JumpTable[DELEGATECALL].dynamicGas)
 
 	return &EVMInterpreter{
 		evm: evm,
@@ -224,9 +221,9 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// Get the operation from the jump table and validate the stack to ensure there are
 		// enough stack items available to perform the operation.
 		op = contract.GetOp(pc)
-		if in.evm.PrintLog {
-			fmt.Println("OP---", op, contract.Gas, pc, stack.SCFDATA(), in.evm.StateDB.GetLen(), hex.EncodeToString(mem.Data()))
-		}
+		//if in.evm.PrintLog {
+		//	fmt.Println("OP---", op, contract.Gas, pc, stack.SCFDATA(), in.evm.StateDB.GetLen(), hex.EncodeToString(mem.Data()))
+		//}
 		operation := in.cfg.JumpTable[op]
 		if operation == nil {
 			return nil, &ErrInvalidOpCode{opcode: op}
@@ -276,9 +273,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		if operation.dynamicGas != nil {
 			var dynamicCost uint64
 			dynamicCost, err = operation.dynamicGas(in.evm, contract, stack, mem, memorySize)
-			if in.evm.PrintLog {
-				fmt.Println("276", cost, dynamicCost, cost+dynamicCost)
-			}
 
 			cost += dynamicCost // total cost, for debug tracing
 			if err != nil || !contract.UseGas(dynamicCost) {

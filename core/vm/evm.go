@@ -209,11 +209,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 	snapshot := evm.StateDB.Snapshot()
 	p, isPrecompile := evm.precompile(addr)
-
-	if evm.PrintLog {
-		fmt.Println("212222", !evm.StateDB.Exist(addr), addr.String())
-	}
-
 	if !evm.StateDB.Exist(addr) {
 		if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
@@ -221,7 +216,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 				evm.vmConfig.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
 				evm.vmConfig.Tracer.CaptureEnd(ret, 0, 0, nil)
 			}
-			fmt.Println("221??????")
+
 			return nil, gas, nil
 		}
 		//fmt.Println("221-----")
@@ -251,21 +246,10 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// If the account has no code, we can abort here
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
-			if evm.PrintLog {
-				fmt.Println("gas--", gas, contract.Gas)
-			}
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
 			ret, err = run(evm, contract, input, false)
 			gas = contract.Gas
-
-			if evm.PrintLog {
-				fmt.Println("gas-end", gas)
-				fmt.Println("25888888", ret, err)
-			}
 		}
-	}
-	if evm.PrintLog {
-		fmt.Println("err", err, gas)
 	}
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -279,10 +263,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		//} else {
 		//	evm.StateDB.DiscardSnapshot(snapshot)
 	}
-	if evm.PrintLog {
-		fmt.Println("268??????", ret, gas, err)
-	}
-
 	return ret, gas, err
 }
 
