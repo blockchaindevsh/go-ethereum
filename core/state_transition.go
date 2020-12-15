@@ -258,10 +258,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		fmt.Println("call---", sender.Address().String())
+		if st.evm.PrintLog {
+			fmt.Println("call---", sender.Address().String())
+		}
+
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
-	fmt.Println("26-------------", st.gas)
+	if st.evm.PrintLog {
+		fmt.Println("26-------------", st.gas, err)
+	}
+
 	st.refundGas()
 	//st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
