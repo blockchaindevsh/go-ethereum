@@ -251,10 +251,15 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// If the account has no code, we can abort here
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
+			if evm.PrintLog {
+				fmt.Println("gas--", gas)
+			}
 			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
 			ret, err = run(evm, contract, input, false)
 			gas = contract.Gas
+
 			if evm.PrintLog {
+				fmt.Println("gas-end", gas)
 				fmt.Println("25888888", ret, err)
 			}
 		}
