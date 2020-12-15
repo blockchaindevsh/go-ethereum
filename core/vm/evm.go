@@ -268,7 +268,10 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		//} else {
 		//	evm.StateDB.DiscardSnapshot(snapshot)
 	}
-	fmt.Println("268??????", err)
+	if evm.PrintLog {
+		fmt.Println("268??????", ret, gas, err)
+	}
+
 	return ret, gas, err
 }
 
