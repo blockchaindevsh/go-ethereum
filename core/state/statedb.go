@@ -496,7 +496,7 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 			fmt.Println("??????-1", addr.String())
 			return nil
 		}
-		if data.code != nil {
+		if data.code != nil && !data.data.Deleted {
 			fmt.Println("???-2", addr.String(), hex.EncodeToString(data.data.CodeHash), data.data.Deleted)
 			return data.code
 		}
