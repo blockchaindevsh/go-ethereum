@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -772,6 +773,10 @@ func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCt
 	if err == nil || err == ErrExecutionReverted {
 		callContext.memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
 	}
+	if interpreter.evm.PrintLog {
+		fmt.Println("775", callContext.contract.Gas, returnGas:q)
+	}
+
 	callContext.contract.Gas += returnGas
 
 	return ret, nil
