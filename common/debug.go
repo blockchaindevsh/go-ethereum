@@ -96,6 +96,6 @@ func (d *DebugTime) Print() {
 }
 
 var (
-	DebugInfo   = NewDebugTime()
-	BlockNumber = uint64(0)
+	DebugInfo         = NewDebugTime()
+	BlockExecuteBatch = int(1)
 )

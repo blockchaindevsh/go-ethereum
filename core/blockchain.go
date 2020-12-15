@@ -1472,7 +1472,6 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 	common.DebugInfo.WriteBlock += time.Since(ts)
 	ts = time.Now()
 
-	common.BlockNumber = blocks[len(blocks)-1].NumberU64()
 	// Commit all cached state changes into underlying memory database.
 	root, err := state.Commit(bc.chainConfig.IsEIP158(blocks[len(blocks)-1].Number()))
 	if err != nil {
@@ -1759,7 +1758,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		return it.index, err
 	}
 	blockList := make(types.Blocks, 0)
-	handleLength := 1
 	// No validation errors for the first block (or chain prefix skipped)
 	for ; block != nil && err == nil || err == ErrKnownBlock; block, err = it.next() {
 		// If the chain is terminating, stop processing blocks
@@ -1812,7 +1810,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		}
 		blockList = append(blockList, block)
 
-		if len(blockList) != handleLength {
+		if len(blockList) != common.BlockExecuteBatch {
 			if block.NumberU64() != chain[len(chain)-1].NumberU64() {
 				continue
 			}
