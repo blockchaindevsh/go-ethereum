@@ -96,26 +96,26 @@ func newGroupInfo(from []common.Address, to []*common.Address) (*groupInfo, []in
 }
 
 func (s *pallTxManager) push(txIndex int) {
-	if s.pending[txIndex] {
+	if s.running[txIndex] {
 		return
 	}
-	s.pending[txIndex] = true
+	s.running[txIndex] = true
 
-	fmt.Println("push", !s.ended, s.txResults[txIndex] == nil, !s.running[txIndex], txIndex)
-	if !s.ended && s.txResults[txIndex] == nil && !s.running[txIndex] {
+	fmt.Println("push", !s.ended, s.txResults[txIndex] == nil, txIndex)
+	if !s.ended && s.txResults[txIndex] == nil {
 		fmt.Println("txIndex--", txIndex, len(s.txQueue), s.txLen)
 		s.txQueue <- txIndex
 
 		fmt.Println("txIndexend", txIndex)
 	} else {
-		s.pending[txIndex] = false
+		s.running[txIndex] = false
 	}
 }
 
 type pallTxManager struct {
 	resultID int32
 
-	pending    []bool
+	//pending    []bool
 	running    []bool
 	needFailed []bool
 
@@ -193,7 +193,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	}
 	groupInfo, headTxInGroup, groupLen := newGroupInfo(fromList, toList)
 	p := &pallTxManager{
-		pending:        make([]bool, txLen, txLen),
+		//pending:        make([]bool, txLen, txLen),
 		running:        make([]bool, txLen, txLen),
 		needFailed:     make([]bool, txLen, txLen),
 		blocks:         blockList,
@@ -290,17 +290,16 @@ func (p *pallTxManager) txLoop() {
 		if !ok {
 			break
 		}
-		p.pending[txIndex] = false
 		fmt.Println("txLoop", txIndex, p.running[txIndex], p.txResults[txIndex] != nil)
-		if p.running[txIndex] || p.txResults[txIndex] != nil {
+		if p.txResults[txIndex] != nil {
+			p.running[txIndex] = false
 			continue
 		}
-		p.running[txIndex] = true
 		stats := p.handleTx(txIndex)
 		p.running[txIndex] = false
 		fmt.Println("handle tx end", stats, txIndex, p.baseStateDB.MergedIndex)
 		if stats {
-			if nextTxIndex, ok := p.groupInfo.nextTxInGroup[txIndex]; ok && nextTxIndex != p.baseStateDB.MergedIndex+1 {
+			if nextTxIndex, ok := p.groupInfo.nextTxInGroup[txIndex]; ok {
 				fmt.Println("nexxxxxxxxxxxxxxxxx", nextTxIndex)
 				p.push(nextTxIndex)
 				fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
