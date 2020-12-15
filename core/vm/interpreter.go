@@ -276,7 +276,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		if operation.dynamicGas != nil {
 			var dynamicCost uint64
 			dynamicCost, err = operation.dynamicGas(in.evm, contract, stack, mem, memorySize)
-			//fmt.Println("276", cost, dynamicCost)
+			if in.evm.PrintLog {
+				fmt.Println("276", cost, dynamicCost, cost+dynamicCost)
+			}
+
 			cost += dynamicCost // total cost, for debug tracing
 			if err != nil || !contract.UseGas(dynamicCost) {
 				return nil, ErrOutOfGas
