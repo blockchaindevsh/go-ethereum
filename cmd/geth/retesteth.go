@@ -513,7 +513,7 @@ func (api *RetestethAPI) mineBlock() error {
 		for nonce := statedb.GetNonce(address); ; nonce++ {
 			if tx, ok := m[nonce]; ok {
 				// Try to apply transactions to the state
-				statedb.Prepare(tx.Hash(), common.Hash{}, txCount, 0)
+				statedb.Prepare(tx.Hash(), common.Hash{}, txCount)
 				snap := statedb.Snapshot()
 
 				receipt, err := core.ApplyTransaction(

@@ -260,7 +260,6 @@ func opBalance(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 	slot := callContext.stack.peek()
 	address := common.Address(slot.Bytes20())
 	slot.SetFromBig(interpreter.evm.StateDB.GetBalance(address))
-	//fmt.Println("OPBalance",address.String(),slot.String())
 	return nil, nil
 }
 
@@ -702,6 +701,7 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]by
 	}
 
 	ret, returnGas, err := interpreter.evm.Call(callContext.contract, toAddr, args, gas, bigVal)
+
 	if err != nil {
 		temp.Clear()
 	} else {
@@ -835,14 +835,12 @@ func opSuicide(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([
 // make log instruction function
 func makeLog(size int) executionFunc {
 	return func(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
-		//fmt.Println("begin make log")
 		topics := make([]common.Hash, size)
 		stack := callContext.stack
 		mStart, mSize := stack.pop(), stack.pop()
 		for i := 0; i < size; i++ {
 			addr := stack.pop()
 			topics[i] = common.Hash(addr.Bytes32())
-			//fmt.Println("SSSSSSSSSSSS", addr.String())
 		}
 
 		d := callContext.memory.GetCopy(int64(mStart.Uint64()), int64(mSize.Uint64()))
@@ -878,9 +876,6 @@ func opPush1(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]b
 func makePush(size uint64, pushByteSize int) executionFunc {
 	return func(pc *uint64, interpreter *EVMInterpreter, callContext *callCtx) ([]byte, error) {
 		codeLen := len(callContext.contract.Code)
-		//if interpreter.evm.PrintLog {
-		//fmt.Println("makePush-??????",callContext.contract.caller.Address().String(),callContext.contract.self.Address().String(),hex.EncodeToString(callContext.contract.Code))
-		//}
 
 		startMin := codeLen
 		if int(*pc+1) < startMin {
@@ -895,9 +890,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 		integer := new(uint256.Int)
 		callContext.stack.push(integer.SetBytes(common.RightPadBytes(
 			callContext.contract.Code[startMin:endMin], pushByteSize)))
-		//if interpreter.evm.PrintLog {
-		//fmt.Println("makePush-iiiiiiii",integer.String())
-		//}
+
 		*pc += size
 		return nil, nil
 	}

@@ -79,12 +79,10 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 		for {
 			header := chain.GetHeader(lastKnownHash, lastKnownNumber)
 			if header == nil {
-				if data, ok := types.BlockAndHash[lastKnownNumber]; ok {
-					header = data
-				} else {
+				header = types.GetCacheBlock(lastKnownNumber)
+				if header == nil {
 					break
 				}
-
 			}
 			cache = append(cache, header.ParentHash)
 			lastKnownHash = header.ParentHash

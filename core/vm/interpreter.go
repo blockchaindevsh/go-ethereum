@@ -125,7 +125,6 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 		}
 		cfg.JumpTable = jt
 	}
-	//fmt.Println("jt????", reflect.TypeOf(cfg.JumpTable), cfg.JumpTable[DELEGATECALL].constantGas, cfg.JumpTable[DELEGATECALL].dynamicGas)
 
 	return &EVMInterpreter{
 		evm: evm,
@@ -273,7 +272,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		if operation.dynamicGas != nil {
 			var dynamicCost uint64
 			dynamicCost, err = operation.dynamicGas(in.evm, contract, stack, mem, memorySize)
-
 			cost += dynamicCost // total cost, for debug tracing
 			if err != nil || !contract.UseGas(dynamicCost) {
 				return nil, ErrOutOfGas

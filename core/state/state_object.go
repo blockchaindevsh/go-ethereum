@@ -53,7 +53,6 @@ func (s Storage) String() (str string) {
 func (s Storage) Copy() Storage {
 	cpy := make(Storage)
 	for key, value := range s {
-		//fmt.Println("key", key.String(), value.String())
 		cpy[key] = value
 	}
 
@@ -134,7 +133,6 @@ func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	//if data.Root == (common.Hash{}) {
 	//	data.Root = emptyRoot
 	//}
-	//fmt.Println("heihei", address.String())
 	return &stateObject{
 		db:             db,
 		address:        address,
@@ -229,7 +227,6 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 
 	dbKey := makeFastDbKey(s.address, s.data.Incarnation, key)
 	if value, exist := s.db.MergedSts.GetStorage(dbKey); exist {
-		//fmt.Println("229---value", value.String())
 		return value
 	}
 

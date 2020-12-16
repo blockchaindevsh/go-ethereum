@@ -394,7 +394,6 @@ func (bc *BlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	// Make sure the entire head block is available
-
 	currentBlock := bc.GetBlockByHash(head)
 	if currentBlock == nil {
 		// Corrupt or empty database, init from scratch
@@ -1844,7 +1843,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		//}
 		// Process block using the parent state as reference point
 		substart := time.Now()
-		receipts, logs, usedGas, err := bc.processor.Process(blockList, statedb, bc.vmConfig)
+		receipts, logs, usedGas, err := bc.processor.PallProcess(blockList, statedb, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts[0], err)
 			atomic.StoreUint32(&followupInterrupt, 1)

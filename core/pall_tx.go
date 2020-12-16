@@ -141,8 +141,8 @@ type pallTxManager struct {
 }
 
 type txResult struct {
-	id      int32
-	useFake bool
+	preID   int32
+	ID      int32
 	st      *state.StateDB
 	index   int
 	receipt *types.Receipt
@@ -178,7 +178,8 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		}
 		txLen += len(block.Transactions())
 		gp += block.GasLimit()
-		types.BlockAndHash[block.NumberU64()] = block.Header()
+
+		types.AddCacheHeader(block.Header())
 
 		mp := make(map[common.Address]bool)
 		mp[block.Coinbase()] = true
@@ -273,7 +274,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	}
 
 	if p.txResults[re.index] == nil {
-		re.id = p.getResultID()
+		re.ID = p.getResultID()
 		p.txResults[re.index] = re
 		return true
 	} else {
@@ -329,7 +330,7 @@ func (p *pallTxManager) mergeLoop() {
 		nextTx := p.baseStateDB.MergedIndex + 1
 		for nextTx < p.txLen && p.txResults[nextTx] != nil {
 			rr := p.txResults[nextTx]
-			fmt.Println("处理收据", "fake", rr.useFake, "index", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.indexInfos[rr.index].blockIndex].NumberU64(), "real tx", p.indexInfos[rr.index].txIndex, "seed", rr.id, "baseSeed", rr.st.RandomSeed)
+			fmt.Println("处理收据", "fake", rr.preID, "index", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.indexInfos[rr.index].blockIndex].NumberU64(), "real tx", p.indexInfos[rr.index].txIndex, "seed", rr.ID)
 
 			handled = true
 			if succ := p.handleReceipt(rr); !succ {
@@ -381,7 +382,7 @@ func (p *pallTxManager) markNextFailed(next int) {
 	}
 }
 func (p *pallTxManager) handleReceipt(rr *txResult) bool {
-	if rr.useFake && rr.st.RandomSeed != p.txResults[rr.st.MergedIndex].id {
+	if rr.preID != -1 && rr.preID != p.txResults[rr.st.MergedIndex].ID {
 		fmt.Println("?>>>>>>>>>>>>>>>>>>>>")
 		return false
 	}
@@ -389,7 +390,7 @@ func (p *pallTxManager) handleReceipt(rr *txResult) bool {
 	blockIndex := p.indexInfos[rr.index].blockIndex
 	txIndex := p.indexInfos[rr.index].txIndex
 	block := p.blocks[blockIndex]
-	if rr.receipt != nil && !rr.st.Conflict(p.baseStateDB, p.minersAndUncle[blockIndex], rr.useFake, p.groupInfo.indexToGroupID) {
+	if rr.receipt != nil && !rr.st.Conflict(p.baseStateDB, p.minersAndUncle[blockIndex], rr.preID != -1, p.groupInfo.indexToGroupID) {
 		txFee := new(big.Int).Mul(new(big.Int).SetUint64(rr.receipt.GasUsed), block.Transactions()[txIndex].GasPrice())
 		rr.st.Merge(p.baseStateDB, block.Coinbase(), txFee)
 		p.gp -= rr.receipt.GasUsed
@@ -410,15 +411,16 @@ func (p *pallTxManager) handleTx(index int) bool {
 	tx := block.Transactions()[txRealIndex]
 
 	var st *state.StateDB
-	useFake := false
+
+	preResultID := int32(-1)
 	preIndex, existPre := p.groupInfo.preTxInGroup[index]
 
 	preResult := p.txResults[preIndex]
 	if existPre && preResult != nil && preIndex > p.baseStateDB.MergedIndex {
 		st = preResult.st.Copy()
 		st.MergedIndex = preIndex
-		st.RandomSeed = preResult.id
-		useFake = true
+		preResultID = preResult.ID
+
 	} else {
 		st, _ = state.New(common.Hash{}, p.bc.stateCache, p.bc.snaps)
 		st.MergedIndex = p.baseStateDB.MergedIndex
@@ -427,31 +429,32 @@ func (p *pallTxManager) handleTx(index int) bool {
 	st.MergedSts = p.baseStateDB.MergedSts
 	gas := p.gp
 
-	st.Prepare(tx.Hash(), block.Hash(), txRealIndex, index)
+	st.Prepare(tx.Hash(), block.Hash(), txRealIndex)
+	st.IndexInAllBlock = index
 	if p.txResults[index] != nil || index <= p.baseStateDB.MergedIndex {
 		fmt.Println("???????????-1", index, p.txResults[index] != nil, p.baseStateDB.MergedIndex)
 		return true
 	}
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
-	fmt.Println("开始执行交易", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.indexInfos[index].blockIndex].NumberU64(), "realIndex", p.indexInfos[index].txIndex, "baseSeed", st.RandomSeed, err)
+	fmt.Println("开始执行交易", "useFake", preResultID, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.indexInfos[index].blockIndex].NumberU64(), "realIndex", p.indexInfos[index].txIndex, err)
 
 	if index <= p.baseStateDB.MergedIndex {
 		fmt.Println("???????????-2", index, p.baseStateDB.MergedIndex)
 		return true
 	}
-	if err != nil && st.MergedIndex+1 == index && st.MergedIndex == p.baseStateDB.MergedIndex && !useFake {
+	if err != nil && st.MergedIndex+1 == index && st.MergedIndex == p.baseStateDB.MergedIndex && preResultID == -1 {
 		errCnt++
 		if errCnt > 100 {
-			fmt.Println("?????????", st.MergedIndex, index, p.baseStateDB.MergedIndex, useFake)
-			fmt.Println("sbbbbbbbbbbbb", "useFake", useFake, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.indexInfos[index].blockIndex].NumberU64(), "realIndex", p.indexInfos[index].txIndex, "baseSeed", st.RandomSeed)
+			fmt.Println("?????????", st.MergedIndex, index, p.baseStateDB.MergedIndex, preResultID)
+			fmt.Println("sbbbbbbbbbbbb", "useFake", preResultID, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.indexInfos[index].blockIndex].NumberU64(), "realIndex", p.indexInfos[index].txIndex)
 			panic(err)
 		}
 	}
 
 	p.markNextFailed(index)
 	return p.AddReceiptToQueue(&txResult{
-		useFake: useFake,
+		preID:   preResultID,
 		st:      st,
 		index:   index,
 		receipt: receipt,
