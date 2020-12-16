@@ -96,10 +96,10 @@ func newGroupInfo(from []common.Address, to []*common.Address) (*groupInfo, []in
 }
 
 func (s *pallTxManager) push(txIndex int) {
-	if s.running[txIndex] {
+	if s.pending[txIndex] {
 		return
 	}
-	s.running[txIndex] = true
+	s.pending[txIndex] = true
 
 	fmt.Println("push", !s.ended, s.txResults[txIndex] == nil, txIndex)
 	if !s.ended && s.txResults[txIndex] == nil {
@@ -108,15 +108,14 @@ func (s *pallTxManager) push(txIndex int) {
 
 		fmt.Println("txIndexend", txIndex)
 	} else {
-		s.running[txIndex] = false
+		s.pending[txIndex] = false
 	}
 }
 
 type pallTxManager struct {
 	resultID int32
 
-	//pending    []bool
-	running    []bool
+	pending    []bool
 	needFailed []bool
 
 	blocks         types.Blocks
@@ -194,7 +193,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	groupInfo, headTxInGroup, groupLen := newGroupInfo(fromList, toList)
 	p := &pallTxManager{
 		//pending:        make([]bool, txLen, txLen),
-		running:        make([]bool, txLen, txLen),
+		pending:        make([]bool, txLen, txLen),
 		needFailed:     make([]bool, txLen, txLen),
 		blocks:         blockList,
 		minersAndUncle: minerAndUncle,
@@ -290,13 +289,13 @@ func (p *pallTxManager) txLoop() {
 		if !ok {
 			break
 		}
-		fmt.Println("txLoop", txIndex, p.running[txIndex], p.txResults[txIndex] != nil)
+		fmt.Println("txLoop", txIndex, p.pending[txIndex], p.txResults[txIndex] != nil)
 		if p.txResults[txIndex] != nil {
-			p.running[txIndex] = false
+			p.pending[txIndex] = false
 			continue
 		}
 		stats := p.handleTx(txIndex)
-		p.running[txIndex] = false
+		p.pending[txIndex] = false
 		fmt.Println("handle tx end", stats, txIndex, p.baseStateDB.MergedIndex)
 		if stats {
 			if nextTxIndex, ok := p.groupInfo.nextTxInGroup[txIndex]; ok {
@@ -374,7 +373,7 @@ func (p *pallTxManager) markNextFailed(next int) {
 		if p.txResults[next] != nil {
 			p.txResults[next] = nil
 		} else {
-			if p.running[next] {
+			if p.pending[next] {
 				p.needFailed[next] = true
 			}
 			break
