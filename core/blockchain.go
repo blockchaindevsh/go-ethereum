@@ -337,7 +337,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 			}
 		}
 	}
-	fmt.Println("snapshotLimit", bc.cacheConfig.SnapshotLimit)
 	// Load any existing snapshot, regenerating it if loading failed
 	if bc.cacheConfig.SnapshotLimit > 0 {
 		bc.snaps = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, bc.CurrentBlock().Root(), !bc.cacheConfig.SnapshotWait)
@@ -712,7 +711,6 @@ func (bc *BlockChain) writeHeadBlock(blocks types.Blocks) {
 
 	// Add the block to the canonical chain number scheme and mark as the head
 	batch := bc.db.NewBatch()
-
 	for _, block := range blocks {
 		rawdb.WriteCanonicalHash(batch, block.Hash(), block.NumberU64())
 		rawdb.WriteTxLookupEntries(batch, block)
@@ -1809,10 +1807,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		}
 		blockList = append(blockList, block)
 
-		if len(blockList) != common.BlockExecuteBatch {
-			if block.NumberU64() != chain[len(chain)-1].NumberU64() {
-				continue
-			}
+		if len(blockList) != common.BlockExecuteBatch && block.NumberU64() != chain[len(chain)-1].NumberU64() {
+			continue
 		}
 		// Retrieve the parent block and it's state to execute on top
 		start := time.Now()

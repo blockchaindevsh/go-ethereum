@@ -481,11 +481,7 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 }
 
 func (s *StateDB) GetCodeSize(addr common.Address) int {
-	stateObject := s.getStateObject(addr)
-	if stateObject != nil {
-		return stateObject.CodeSize(s.db)
-	}
-	return 0
+	return len(s.GetCode(addr))
 }
 
 func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
@@ -832,8 +828,8 @@ func (s *StateDB) createObject(addr common.Address, contraction bool) (newobj, p
 //   2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
-func (s *StateDB) CreateAccount(addr common.Address) {
-	newObj, prev := s.createObject(addr, true)
+func (s *StateDB) CreateAccount(addr common.Address, contract bool) {
+	newObj, prev := s.createObject(addr, contract)
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
 	}

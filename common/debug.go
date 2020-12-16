@@ -54,7 +54,6 @@ func PrintDepricationWarning(str string) {
 `, line, emptyLine, str, emptyLine, line)
 }
 
-
 type DebugTime struct {
 	ExecuteTx     time.Duration
 	ValidateBlock time.Duration
