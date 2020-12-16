@@ -168,11 +168,23 @@ func (m *mergedStatus) GetAccountData(addr common.Address) (*Account, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if r := m.writeCachedStateObjects[addr]; r != nil {
-		return r.data.copy(), true
+		return &Account{
+			Nonce:       r.data.Nonce,
+			Balance:     new(big.Int).Set(r.data.Balance),
+			CodeHash:    r.data.CodeHash,
+			Incarnation: r.data.Incarnation,
+			Deleted:     r.data.Deleted,
+		}, true
 	}
 
-	if data, ok := m.originAccountMap[addr]; ok {
-		return data.copy(), true
+	if r, ok := m.originAccountMap[addr]; ok {
+		return &Account{
+			Nonce:       r.Nonce,
+			Balance:     new(big.Int).Set(r.Balance),
+			CodeHash:    r.CodeHash,
+			Incarnation: r.Incarnation,
+			Deleted:     r.Deleted,
+		}, true
 	}
 	return nil, false
 }
@@ -451,16 +463,13 @@ func (s *StateDB) GetCode(addr common.Address) []byte {
 	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist {
 		if bytes.Equal(data.data.CodeHash, emptyCodeHash) {
-			//fmt.Println("??????-1", addr.String())
 			return nil
 		}
 		if data.code != nil && !data.data.Deleted {
-			//fmt.Println("???-2", addr.String(), hex.EncodeToString(data.data.CodeHash), data.data.Deleted)
 			return data.code
 		}
 	}
 	if data, exist := s.MergedSts.GetCode(addr); exist {
-		//fmt.Println(">?>??-3")
 		return data
 	}
 
@@ -493,7 +502,6 @@ func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	s.RWSet[addr] = false
 	if data, exist := s.stateObjects[addr]; exist {
 		if value, dirty := data.dirtyStorage[hash]; dirty {
-			//fmt.Println("529????", value.String())
 			return value
 		}
 	}
@@ -533,7 +541,6 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 		return stateObject.GetCommittedState(s.db, hash)
 	} else {
 		if data, exist := s.MergedSts.GetState(addr, hash); exist {
-			//fmt.Println("data???", data.String())
 			return data
 		}
 	}
@@ -861,61 +868,25 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 	return nil
 }
 
-func (s *StateDB) Print() string {
-	ss := ""
-	ss += fmt.Sprintf("len(sts) =%v", len(s.stateObjects))
-	return ss
-}
-
 // Copy creates a deep, independent copy of the state.
 // Snapshots of the copied state cannot be applied to the copy.
 func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	state := &StateDB{
-		db: s.db,
-		//trie:         s.db.CopyTrie(s.trie),
+		db:           s.db,
 		trie:         trie.NewFastDB(s.db.TrieDB()),
 		stateObjects: make(map[common.Address]*stateObject, len(s.journal.dirties)),
-		//refund:       s.refund,
-		logs: make(map[common.Hash][]*types.Log, 0),
-		//logSize:      s.logSize,
-		preimages: make(map[common.Hash][]byte, len(s.preimages)),
-		journal:   newJournal(),
-		RWSet:     make(map[common.Address]bool),
+		logs:         make(map[common.Hash][]*types.Log, 0),
+		preimages:    make(map[common.Hash][]byte, len(s.preimages)),
+		journal:      newJournal(),
+		RWSet:        make(map[common.Address]bool),
 	}
-	// Copy the dirty states, logs, and preimages
-	//for addr := range s.journal.dirties {
-	// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
-	// and in the Finalise-method, there is a case where an object is in the journal but not
-	// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
-	// nil
-	//if object, exist := s.stateObjects[addr]; exist {
-	// Even though the original object is dirty, we are not copying the journal,
-	// so we need to make sure that anyside effect the journal would have caused
-	// during a commit (or similar op) is already applied to the copy.
-	//state.stateObjects[addr] = object.deepCopy(state)
-	//}
-	//}
-	// Above, we don't copy the actual journal. This means that if the copy is copied, the
-	// loop above will be a no-op, since the copy's journal is empty.
-	// Thus, here we iterate over stateObjects, to enable copies of copies
+
 	for addr := range s.stateObjects {
 		if _, exist := state.stateObjects[addr]; !exist {
 			state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
 		}
 	}
-
-	//for hash, logs := range s.logs {
-	//	cpy := make([]*types.Log, len(logs))
-	//	for i, l := range logs {
-	//		cpy[i] = new(types.Log)
-	//		*cpy[i] = *l
-	//	}
-	//	state.logs[hash] = cpy
-	//}
-	//for hash, preimage := range s.preimages {
-	//	state.preimages[hash] = preimage
-	//}
 	return state
 }
 
@@ -931,7 +902,6 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 	for k, _ := range s.RWSet {
 		if miners[k] {
 			if useFake || s.MergedIndex+1 != s.IndexInAllBlock {
-				fmt.Println("chongtu-miner", k.String(), useFake, s.MergedIndex, s.IndexInAllBlock)
 				return true
 			} else {
 				continue
@@ -942,12 +912,10 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 		if preWrite != nil {
 			if indexToID[s.IndexInAllBlock] != indexToID[preWrite.lastWriteIndex] {
 				if useFake || s.MergedIndex != base.MergedIndex {
-					fmt.Println("chongtu-0", k.String(), useFake, s.IndexInAllBlock, indexToID[s.IndexInAllBlock], preWrite.lastWriteIndex, indexToID[preWrite.lastWriteIndex])
 					return true
 				}
 			} else {
 				if preWrite.lastWriteIndex > s.MergedIndex {
-					fmt.Println("chongtu-2", k.String(), preWrite.lastWriteIndex, s.MergedIndex)
 					return true
 				}
 			}
@@ -962,7 +930,6 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for _, newObj := range s.stateObjects {
 		s.MergedSts.MergeWriteObj(newObj, s.IndexInAllBlock)
-		//fmt.Println("mmmm", addr.String(), s.MergedSts.getWriteObj(addr).data.Balance, s.MergedSts.getWriteObj(addr).Nonce())
 	}
 
 	pre := base.MergedSts.getWriteObj(miner)
@@ -973,7 +940,6 @@ func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	} else {
 		pre.AddBalance(txFee)
 	}
-	//fmt.Println("mmmm", miner.String(), s.MergedSts.getWriteObj(miner).data.Balance, s.MergedSts.getWriteObj(miner).Nonce())
 }
 
 func (s *StateDB) MergeReward(txIndex int) {

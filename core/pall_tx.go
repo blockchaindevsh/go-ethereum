@@ -279,7 +279,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 		return true
 	} else {
 		fmt.Println("already have resulet", re.index)
-		return false
+		return true
 	}
 
 }

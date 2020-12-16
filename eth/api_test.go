@@ -18,9 +18,7 @@ package eth
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
 	"reflect"
 	"sort"
@@ -201,38 +199,5 @@ func TestStorageRangeAt(t *testing.T) {
 			t.Fatalf("wrong result for range 0x%x.., limit %d:\ngot %s\nwant %s",
 				test.start, test.limit, dumper.Sdump(result), dumper.Sdump(&test.want))
 		}
-	}
-}
-
-func TestAsd(t *testing.T) {
-	client, err := ethclient.Dial("https://mainnet.infura.io/v3/5f85acad140a4286858886f080177bc9")
-	//client, err := ethclient.Dial("https://ropsten.infura.io/v3/5f85acad140a4286858886f080177bc9")
-	if err != nil {
-		panic(err)
-	}
-
-	b, err := client.BlockByNumber(context.Background(), new(big.Int).SetUint64(9846094))
-	if err != nil {
-		panic(err)
-	}
-
-	//ans := ""
-	//rr := make(types.Receipts, 0)
-	for k, v := range b.Transactions() {
-		r, err := client.TransactionReceipt(context.Background(), v.Hash())
-		if err != nil {
-			panic(err)
-		}
-		//rr = append(rr, r)
-		//for _, v := range r.Logs {
-		//	ans += fmt.Sprintf("+%v", k)
-		//	ans += v.Address.String()
-		//	for _, v := range v.Topics {
-		//		ans += "-"
-		//		ans += v.String()
-		//		//fmt.Println("tt", v.String())
-		//	}
-		//}
-		fmt.Println("gasUsed", k, v.Hash().String(), r.CumulativeGasUsed, r.GasUsed)
 	}
 }

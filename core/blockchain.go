@@ -1567,26 +1567,26 @@ func (bc *BlockChain) writeBlockWithState(blocks types.Blocks, receipts []types.
 		bc.writeHeadBlock(blocks)
 
 	}
-	for _, block := range blocks {
+	for index, block := range blocks {
 		bc.futureBlocks.Remove(block.Hash())
+		if status == CanonStatTy {
+			bc.chainFeed.Send(ChainEvent{Block: block, Hash: block.Hash(), Logs: logs[index]})
+			if len(logs) > 0 {
+				bc.logsFeed.Send(logs)
+			}
+			// In theory we should fire a ChainHeadEvent when we inject
+			// a canonical block, but sometimes we can insert a batch of
+			// canonicial blocks. Avoid firing too much ChainHeadEvents,
+			// we will fire an accumulated ChainHeadEvent and disable fire
+			// event here.
+			if emitHeadEvent {
+				bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
+			}
+		} else {
+			bc.chainSideFeed.Send(ChainSideEvent{Block: block})
+		}
 	}
 
-	//if status == CanonStatTy {
-	//	bc.chainFeed.Send(ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
-	//	if len(logs) > 0 {
-	//		bc.logsFeed.Send(logs)
-	//	}
-	//	// In theory we should fire a ChainHeadEvent when we inject
-	//	// a canonical block, but sometimes we can insert a batch of
-	//	// canonicial blocks. Avoid firing too much ChainHeadEvents,
-	//	// we will fire an accumulated ChainHeadEvent and disable fire
-	//	// event here.
-	//	if emitHeadEvent {
-	//		bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
-	//	}
-	//} else {
-	//	bc.chainSideFeed.Send(ChainSideEvent{Block: block})
-	//}
 	common.DebugInfo.CommitTrie += time.Since(ts)
 	return status, nil
 }

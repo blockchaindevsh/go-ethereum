@@ -90,13 +90,6 @@ func (p *StateProcessor) PallProcess(blockList types.Blocks, statedb *state.Stat
 	return receipts, allLogs, usedGas, nil
 }
 
-var (
-	mp = map[string]bool{
-		"0xce19040629159b0ca82575c1f19797d1c5c43e5321e727837c5ad8d6ea19b1fa": true,
-		//"0x401531821c2bcc30db88057614d4c74aa9176cc96e1a64d9417d32e2048d6529 ": true,
-		//"": true,
-	}
-)
 
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
@@ -112,13 +105,6 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
-	//fmt.Println("Apply", tx.Hash().String(), msg.From().String(), mp[tx.Hash().String()], mp)
-	//if mp[tx.Hash().String()] {
-	//	fmt.Println("sssssssssssssssssss", tx.Hash().String(), msg.From().String(), msg.To().String())
-	//	vmenv.PrintLog = true
-	//}
-	//fmt.Println("85?????????????", tx.Hash().String(), statedb.GetLen())
-	//vmenv.PrintLog = true
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(vmenv, msg, gp)
 	if err != nil {

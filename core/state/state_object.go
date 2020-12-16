@@ -112,16 +112,6 @@ type Account struct {
 	Deleted     bool
 }
 
-func (a Account) copy() *Account {
-	return &Account{
-		Nonce:       a.Nonce,
-		Balance:     new(big.Int).Set(a.Balance),
-		CodeHash:    a.CodeHash,
-		Incarnation: a.Incarnation,
-		Deleted:     a.Deleted,
-	}
-}
-
 // newObject creates a state object.
 func newObject(db *StateDB, address common.Address, data Account) *stateObject {
 	if data.Balance == nil {
@@ -250,7 +240,6 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 	s.originStorage[key] = value
 	s.db.MergedSts.setStorage(dbKey, value)
-	//fmt.Println("252----", value.String())
 	return value
 }
 
@@ -451,8 +440,6 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 		stateObject.trie = trie.NewFastDB(db.db.TrieDB())
 	}
 	stateObject.code = s.code
-	//stateObject.dirtyStorage = s.dirtyStorage.Copy()
-	//stateObject.originStorage = s.originStorage.Copy()
 	s.pendingmu.Lock()
 	for k, v := range s.pendingStorage {
 		stateObject.pendingStorage[k] = v
@@ -461,10 +448,6 @@ func (s *stateObject) deepCopy(db *StateDB) *stateObject {
 		stateObject.pendingStorage[k] = v
 	}
 	s.pendingmu.Unlock()
-	//stateObject.pendingStorage = s.dirtyStorage.Copy()
-
-	//TODO copy pending?
-	//fmt.Println("458-----", s.address.String(), len(stateObject.pendingStorage))
 	stateObject.suicided = s.suicided
 	stateObject.dirtyCode = s.dirtyCode
 	stateObject.deleted = s.deleted
