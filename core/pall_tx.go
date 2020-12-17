@@ -304,7 +304,7 @@ func (p *pallTxManager) txLoop() {
 				p.push(nextTxIndex)
 				fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
 			}
-			if len(p.resultQueue) == 0 {
+			if len(p.resultQueue) == p.txLen {
 				p.resultQueue <- struct{}{}
 			}
 		} else {
