@@ -19,8 +19,10 @@ package state
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"math/big"
 	"sort"
 	"sync"
@@ -35,6 +37,10 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+)
+
+var (
+	AccessListDB, _ = leveldb.New("./accessList", 512, 512, "")
 )
 
 type revision struct {
@@ -67,6 +73,13 @@ type mergedStatus struct {
 	originCode       map[common.Hash]map[common.Hash]Code
 }
 
+func (m *mergedStatus) CalAccessList() [][]byte {
+	ans := make([][]byte, 0)
+	for k, _ := range m.originStorageMap {
+		ans = append(ans, []byte(k))
+	}
+	return ans
+}
 func NewMerged() *mergedStatus {
 	return &mergedStatus{
 		writeCachedStateObjects: make(map[common.Address]*stateObject),
@@ -146,7 +159,7 @@ func (m *mergedStatus) MergeWriteObj(newObj *stateObject, txIndex int) {
 
 }
 
-func (m *mergedStatus) setStorage(key []byte, value common.Hash) {
+func (m *mergedStatus) SetStorage(key []byte, value common.Hash) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.originStorageMap[string(key)] = value
@@ -945,10 +958,26 @@ func (s *StateDB) MergeReward(txIndex int) {
 	s.stateObjects = make(map[common.Address]*stateObject)
 }
 
-func (s *StateDB) FinalUpdateObjs() {
+func (s *StateDB) FinalUpdateObjs(number uint64) {
 	for addr, obj := range s.MergedSts.writeCachedStateObjects {
 		s.stateObjects[addr] = obj
 	}
+	if !common.NeedStore {
+		return
+	}
+
+	list := s.MergedSts.CalAccessList()
+	if len(list) == 0 {
+		return
+	}
+	data, err := json.Marshal(list)
+	if err != nil {
+		panic(err)
+	}
+	if err := AccessListDB.Put(uint64ToBytes(number), data); err != nil {
+		panic(err)
+	}
+	fmt.Println("Update list TO db", number, len(list))
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.

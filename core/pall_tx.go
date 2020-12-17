@@ -1,11 +1,15 @@
 package core
 
 import (
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"golang.org/x/sync/errgroup"
 	"math/big"
 	"sync/atomic"
 )
@@ -153,7 +157,56 @@ type indexInfo struct {
 	txIndex    int
 }
 
+func uint64ToBytes(u uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, u)
+	return b
+}
+
+func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
+	data, err := state.AccessListDB.Get(uint64ToBytes(number))
+	if len(data) == 0 || err != nil {
+		return
+	}
+
+	list := make([][]byte, 0)
+	if err := json.Unmarshal(data, &list); err != nil {
+		panic(err)
+	}
+
+	batch := 64
+	lenList := len(list)
+	if lenList == 0 {
+		return
+	}
+	var g errgroup.Group
+	for index := 0; index < batch; index++ {
+		start := index
+		g.Go(func() error {
+			for start < lenList {
+				key := list[start]
+				data, _ := bc.db.Get(key)
+				value := common.Hash{}
+				if len(data) != 0 {
+					value = common.BytesToHash(data)
+				}
+				fmt.Println("lllllllllll", hex.EncodeToString(key), value.String())
+				st.MergedSts.SetStorage(key, value)
+				start += batch
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		panic(err)
+	}
+	fmt.Println("Read list TO db", number, len(list))
+}
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
+	if blockList[0].NumberU64() >= 60000 {
+		panic("scf")
+	}
+	PreCache(bc, st, blockList[0].NumberU64())
 	fmt.Println("pall", "from", blockList[0].NumberU64(), "to", blockList[len(blockList)-1].NumberU64())
 	errCnt = 0
 	txLen := 0
@@ -224,7 +277,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	}
 
 	if txLen == 0 {
-		p.baseStateDB.FinalUpdateObjs()
+		p.baseStateDB.FinalUpdateObjs(blockList[0].NumberU64())
 		return p
 	}
 
@@ -349,7 +402,7 @@ func (p *pallTxManager) mergeLoop() {
 
 		if p.baseStateDB.MergedIndex+1 == p.txLen && !p.ended {
 			p.ended = true
-			p.baseStateDB.FinalUpdateObjs()
+			p.baseStateDB.FinalUpdateObjs(p.blocks[0].NumberU64())
 			close(p.txQueue)
 			//close(p.resultQueue)
 			p.ch <- struct{}{}

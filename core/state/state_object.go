@@ -19,6 +19,7 @@ package state
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/trie"
 	"io"
@@ -220,6 +221,10 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		return value
 	}
 
+	if !common.NeedStore {
+		panic(fmt.Errorf("?????? %v %v %v %v", s.address.String(), s.data.Incarnation, key.String(), hex.EncodeToString(dbKey)))
+	}
+
 	// If snapshot unavailable or reading from it failed, load from the database
 	if s.db.snap == nil || err != nil {
 		if metrics.EnabledExpensive {
@@ -239,7 +244,8 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	s.db.MergedSts.setStorage(dbKey, value)
+	fmt.Println("SetStorage", s.address.String(), s.data.Incarnation, key.String(), hex.EncodeToString(dbKey), value.String())
+	s.db.MergedSts.SetStorage(dbKey, value)
 	return value
 }
 

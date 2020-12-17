@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 
@@ -246,6 +247,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 
 	// Check clause 6
 	if msg.Value().Sign() > 0 && !st.evm.CanTransfer(st.state, msg.From(), msg.Value()) {
+		fmt.Println(">?????????????", st.state.GetBalance(msg.From()), msg.Value().String())
 		return nil, ErrInsufficientFundsForTransfer
 	}
 	var (

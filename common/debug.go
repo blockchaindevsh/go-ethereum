@@ -17,6 +17,7 @@
 package common
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
@@ -96,4 +97,11 @@ func (d *DebugTime) Print() {
 var (
 	DebugInfo         = NewDebugTime()
 	BlockExecuteBatch = int(1)
+	NeedStore         = false
 )
+
+func Uint64ToBytes(u uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, u)
+	return b
+}
