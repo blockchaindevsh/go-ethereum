@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"golang.org/x/sync/errgroup"
 	"math/big"
 	"sync/atomic"
@@ -185,10 +186,14 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
 		g.Go(func() error {
 			for start < lenList {
 				key := list[start]
-				data, _ := bc.db.Get(key)
-				value := common.Hash{}
-				if len(data) != 0 {
-					value = common.BytesToHash(data)
+				enc, _ := bc.db.Get(key)
+				var value common.Hash
+				if len(enc) > 0 {
+					_, content, _, err := rlp.Split(enc)
+					if err != nil {
+						panic(err)
+					}
+					value.SetBytes(content)
 				}
 				fmt.Println("lllllllllll", hex.EncodeToString(key), value.String())
 				st.MergedSts.SetStorage(key, value)
@@ -203,7 +208,7 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
 	fmt.Println("Read list TO db", number, len(list))
 }
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
-	if blockList[0].NumberU64() >= 60000 {
+	if blockList[0].NumberU64() >= 200000 {
 		panic("scf")
 	}
 	PreCache(bc, st, blockList[0].NumberU64())
@@ -395,7 +400,6 @@ func (p *pallTxManager) mergeLoop() {
 			if p.indexInfos[rr.index].txIndex == len(p.blocks[p.indexInfos[rr.index].blockIndex].Transactions())-1 {
 				p.calReward(p.indexInfos[rr.index].blockIndex, rr.index)
 			}
-
 			fmt.Println("MMMMMMMMMMM", nextTx)
 			p.baseStateDB.MergedIndex = nextTx
 			nextTx = p.baseStateDB.MergedIndex + 1
