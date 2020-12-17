@@ -97,7 +97,7 @@ func (d *DebugTime) Print() {
 var (
 	DebugInfo         = NewDebugTime()
 	BlockExecuteBatch = int(1)
-	NeedStore         = false
+	NeedStore         = true
 )
 
 func Uint64ToBytes(u uint64) []byte {

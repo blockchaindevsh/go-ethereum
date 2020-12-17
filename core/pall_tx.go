@@ -395,7 +395,8 @@ func (p *pallTxManager) mergeLoop() {
 			if p.indexInfos[rr.index].txIndex == len(p.blocks[p.indexInfos[rr.index].blockIndex].Transactions())-1 {
 				p.calReward(p.indexInfos[rr.index].blockIndex, rr.index)
 			}
-			fmt.Println("MMMMMMMMMMM", nextTx)
+
+			fmt.Println("MMMMMMMMMMM", nextTx, p.baseStateDB.GetBalance(common.HexToAddress("0xf88a65846C19D8fc76fFf545fEAa7bbc7114F667")))
 			p.baseStateDB.MergedIndex = nextTx
 			nextTx = p.baseStateDB.MergedIndex + 1
 		}
