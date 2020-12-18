@@ -267,6 +267,9 @@ func (p *pallTxManager) blockFinalize(blockIndex int, txIndex int) {
 }
 
 func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
+	if re == nil {
+		return false
+	}
 	if p.needFailed[re.index] {
 		p.needFailed[re.index] = false
 		fmt.Println("can not save", re.index)
@@ -275,17 +278,13 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 
 	if p.txResults[re.index] == nil {
 		re.ID = p.getResultID()
-		p.pending[re.index] = false
-		fmt.Println("set to txResult", re.index, len(p.resultQueue), p.txLen)
 		p.txResults[re.index] = re
-
 		if nextTxIndex, ok := p.groupInfo.nextTxInGroup[re.index]; ok {
 			fmt.Println("nexxxxxxxxxxxxxxxxx", nextTxIndex)
 			p.push(nextTxIndex)
 			fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
 		}
 		if len(p.resultQueue) != p.txLen {
-			fmt.Println("288----", re.index, len(p.resultQueue), p.txLen)
 			p.resultQueue <- struct{}{}
 		}
 		return true
@@ -307,8 +306,9 @@ func (p *pallTxManager) txLoop() {
 			p.pending[txIndex] = false
 			continue
 		}
-		stats := p.handleTx(txIndex)
+		re := p.handleTx(txIndex)
 		p.pending[txIndex] = false
+		stats := p.AddReceiptToQueue(re)
 		fmt.Println("handle tx end", stats, txIndex, p.baseStateDB.MergedIndex)
 		if stats {
 		} else {
@@ -410,7 +410,7 @@ var (
 	errCnt = 0
 )
 
-func (p *pallTxManager) handleTx(index int) bool {
+func (p *pallTxManager) handleTx(index int) *txResult {
 	block := p.blocks[p.indexInfos[index].blockIndex]
 	txRealIndex := p.indexInfos[index].txIndex
 	tx := block.Transactions()[txRealIndex]
@@ -438,7 +438,7 @@ func (p *pallTxManager) handleTx(index int) bool {
 	st.IndexInAllBlock = index
 	if p.txResults[index] != nil || index <= p.baseStateDB.MergedIndex {
 		fmt.Println("???????????-1", index, p.txResults[index] != nil, p.baseStateDB.MergedIndex)
-		return true
+		return nil
 	}
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
@@ -446,7 +446,7 @@ func (p *pallTxManager) handleTx(index int) bool {
 
 	if index <= p.baseStateDB.MergedIndex {
 		fmt.Println("???????????-2", index, p.baseStateDB.MergedIndex)
-		return true
+		return nil
 	}
 	if err != nil && st.MergedIndex+1 == index && st.MergedIndex == p.baseStateDB.MergedIndex && preResultID == -1 {
 		errCnt++
@@ -458,12 +458,12 @@ func (p *pallTxManager) handleTx(index int) bool {
 	}
 
 	p.markNextFailed(index)
-	return p.AddReceiptToQueue(&txResult{
+	return &txResult{
 		preID:   preResultID,
 		st:      st,
 		index:   index,
 		receipt: receipt,
-	})
+	}
 }
 
 func (p *pallTxManager) GetReceiptsAndLogs() ([]types.Receipts, [][]*types.Log, []uint64) {
