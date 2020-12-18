@@ -74,6 +74,8 @@ type mergedStatus struct {
 }
 
 func (m *mergedStatus) CalAccessList() [][]byte {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	ans := make([][]byte, 0)
 	for k, _ := range m.originStorageMap {
 		ans = append(ans, []byte(k))

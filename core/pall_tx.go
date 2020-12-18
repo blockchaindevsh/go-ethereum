@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
@@ -195,7 +194,7 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
 					}
 					value.SetBytes(content)
 				}
-				fmt.Println("lllllllllll", hex.EncodeToString(key), value.String())
+				//fmt.Println("lllllllllll", hex.EncodeToString(key), value.String())
 				st.MergedSts.SetStorage(key, value)
 				start += batch
 			}
@@ -208,9 +207,6 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
 	fmt.Println("Read list TO db", number, len(list))
 }
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
-	if blockList[0].NumberU64() >= 200000 {
-		panic("scf")
-	}
 	PreCache(bc, st, blockList[0].NumberU64())
 	fmt.Println("pall", "from", blockList[0].NumberU64(), "to", blockList[len(blockList)-1].NumberU64())
 	errCnt = 0
