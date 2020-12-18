@@ -276,7 +276,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	if p.txResults[re.index] == nil {
 		re.ID = p.getResultID()
 		p.pending[re.index] = false
-		fmt.Println("set to txResult", re.index)
+		fmt.Println("set to txResult", re.index, len(p.resultQueue), p.txLen)
 		p.txResults[re.index] = re
 
 		if nextTxIndex, ok := p.groupInfo.nextTxInGroup[re.index]; ok {
@@ -285,9 +285,9 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 			fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
 		}
 		if len(p.resultQueue) != p.txLen {
+			fmt.Println("288----", re.index, len(p.resultQueue), p.txLen)
 			p.resultQueue <- struct{}{}
 		}
-
 		return true
 	} else {
 		fmt.Println("already have resulet", re.index)
@@ -357,6 +357,7 @@ func (p *pallTxManager) mergeLoop() {
 			close(p.txQueue)
 			//close(p.resultQueue)
 			p.ch <- struct{}{}
+			fmt.Println("finial block")
 			return
 		}
 		if handled {
