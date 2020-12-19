@@ -105,7 +105,6 @@ func (s *pallTxManager) push(txIndex int) {
 	if !s.ended && s.txResults[txIndex] == nil {
 		fmt.Println("txIndex--", txIndex, len(s.txQueue), s.txLen)
 		s.txQueue <- txIndex
-
 		fmt.Println("txIndexend", txIndex)
 	} else {
 		s.pending[txIndex] = false
@@ -277,14 +276,16 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 	}
 
 	if p.txResults[re.index] == nil {
+		p.markNextFailed(re.index)
 		re.ID = p.getResultID()
 		p.txResults[re.index] = re
 		if nextTxIndex, ok := p.groupInfo.nextTxInGroup[re.index]; ok {
-			fmt.Println("nexxxxxxxxxxxxxxxxx", nextTxIndex)
+			fmt.Println("nexxxxxxxxxxxxxxxxx", re.index, nextTxIndex)
 			p.push(nextTxIndex)
-			fmt.Println("nexxxxxxxxxxxxxxxxx-end", nextTxIndex)
+			fmt.Println("nexxxxxxxxxxxxxxxxx-end", re.index, nextTxIndex)
 		}
 		if len(p.resultQueue) != p.txLen {
+			fmt.Println("set---", re.index)
 			p.resultQueue <- struct{}{}
 		}
 		return true
@@ -329,14 +330,14 @@ func (p *pallTxManager) mergeLoop() {
 		if !ok {
 			break
 		}
-		handled := false
+		//handled := false
 
 		nextTx := p.baseStateDB.MergedIndex + 1
 		for nextTx < p.txLen && p.txResults[nextTx] != nil {
 			rr := p.txResults[nextTx]
 			fmt.Println("处理收据", "fake", rr.preID, "index", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.indexInfos[rr.index].blockIndex].NumberU64(), "real tx", p.indexInfos[rr.index].txIndex, "seed", rr.ID)
 
-			handled = true
+			//handled = true
 			if succ := p.handleReceipt(rr); !succ {
 				p.markNextFailed(rr.index)
 				p.txResults[rr.index] = nil
@@ -360,11 +361,11 @@ func (p *pallTxManager) mergeLoop() {
 			fmt.Println("finial block")
 			return
 		}
-		if handled {
-			fmt.Println("====================================", p.baseStateDB.MergedIndex+1)
-			p.push(p.baseStateDB.MergedIndex + 1)
-			fmt.Println("====================================-end", p.baseStateDB.MergedIndex+1)
-		}
+		//if handled {
+		//fmt.Println("====================================", p.baseStateDB.MergedIndex+1)
+		p.push(p.baseStateDB.MergedIndex + 1)
+		//fmt.Println("====================================-end", p.baseStateDB.MergedIndex+1)
+		//}
 		fmt.Println("mergeLoop---end", p.baseStateDB.MergedIndex, "lenQueue", len(p.resultQueue))
 	}
 }
@@ -457,7 +458,6 @@ func (p *pallTxManager) handleTx(index int) *txResult {
 		}
 	}
 
-	p.markNextFailed(index)
 	return &txResult{
 		preID:   preResultID,
 		st:      st,
