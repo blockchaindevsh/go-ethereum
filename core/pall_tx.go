@@ -236,7 +236,22 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		go p.txLoop()
 	}
 	go p.mergeLoop()
+	go p.sbLoop()
 	return p
+}
+
+func (p *pallTxManager) sbLoop() {
+	start := -1
+	for !p.ended {
+		time.Sleep(500 * time.Millisecond)
+		if start == p.baseStateDB.MergedIndex {
+			fmt.Println("sb----", p.baseStateDB.MergedIndex+1)
+			p.txQueue <- p.baseStateDB.MergedIndex + 1
+			fmt.Println("sb----end", p.baseStateDB.MergedIndex+1)
+		} else {
+			start = p.baseStateDB.MergedIndex
+		}
+	}
 }
 
 func (p *pallTxManager) isPending(index int) bool {
@@ -318,6 +333,7 @@ func (p *pallTxManager) txLoop() {
 		}
 		//fmt.Println("txLoop", txIndex, p.pending[txIndex], p.txResults[txIndex] != nil)
 		if p.txResults[txIndex] != nil {
+			p.setPending(txIndex, false)
 			continue
 		}
 		re := p.handleTx(txIndex)
