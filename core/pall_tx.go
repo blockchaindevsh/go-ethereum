@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -166,16 +165,8 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}
 	defer func() {
 		ch <- struct{}{}
 	}()
-	data, err := state.AccessListDB.Get(uint64ToBytes(number))
-	if len(data) == 0 || err != nil {
-		return
-	}
 
-	list := make([][]byte, 0)
-	if err := json.Unmarshal(data, &list); err != nil {
-		panic(err)
-	}
-
+	list := state.PreCacheData[int(number)]
 	batch := 64
 	lenList := len(list)
 	if lenList == 0 {

@@ -41,7 +41,28 @@ import (
 
 var (
 	AccessListDB, _ = leveldb.New("./accessList", 512, 512, "")
+	PreCacheData    = make(map[int][][]byte, 0)
 )
+
+func init() {
+	ts := time.Now()
+	start := 8000000
+	end := 8200000
+	fmt.Println("statb init", start, end)
+	for index := start; index < end; index++ {
+		data, err := AccessListDB.Get(uint64ToBytes(uint64(index)))
+		list := make([][]byte, 0)
+		if len(data) == 0 || err != nil {
+
+		} else {
+			if err := json.Unmarshal(data, &list); err != nil {
+				panic(err)
+			}
+		}
+		PreCacheData[index] = list
+	}
+	fmt.Println("statedb init end", time.Now().Sub(ts).Seconds(), len(PreCacheData))
+}
 
 type revision struct {
 	id           int
