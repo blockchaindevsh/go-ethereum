@@ -176,7 +176,7 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}
 		panic(err)
 	}
 
-	batch := 1
+	batch := 64
 	lenList := len(list)
 	if lenList == 0 {
 		return
@@ -285,7 +285,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		p.calReward(0, 0)
 	}
 
-	//<-preCacheChan
+	<-preCacheChan
 	if txLen == 0 {
 		p.baseStateDB.FinalUpdateObjs(blockList[0].NumberU64())
 		return p
