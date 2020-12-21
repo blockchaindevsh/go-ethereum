@@ -206,7 +206,10 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
 	fmt.Println("Read list TO db", number, len(list))
 }
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
-	PreCache(bc, st, blockList[0].NumberU64())
+	if !common.NeedStore {
+		go PreCache(bc, st, blockList[0].NumberU64())
+	}
+
 	fmt.Println("pall", "from", blockList[0].NumberU64(), "to", blockList[len(blockList)-1].NumberU64())
 	errCnt = 0
 	txLen := 0
