@@ -176,7 +176,7 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}
 		panic(err)
 	}
 
-	batch := 64
+	batch := 1
 	lenList := len(list)
 	if lenList == 0 {
 		return
