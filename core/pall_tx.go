@@ -105,7 +105,7 @@ func (s *pallTxManager) push(txIndex int) {
 		return
 	}
 
-	fmt.Println("push", !s.ended, s.txResults[txIndex] == nil, txIndex)
+	//fmt.Println("push", !s.ended, s.txResults[txIndex] == nil, txIndex)
 	if !s.ended && s.txResults[txIndex] == nil {
 		//fmt.Println("txIndex--", txIndex, len(s.txQueue), s.txLen)
 		s.txQueue <- txIndex
@@ -364,7 +364,7 @@ func (p *pallTxManager) AddReceiptToQueue(re *txResult) bool {
 		p.markNextFailed(re.index)
 		re.ID = p.getResultID()
 		p.txResults[re.index] = re
-		fmt.Println("set---result", re.index, time.Now().String())
+		//fmt.Println("set---result", re.index, time.Now().String())
 		if nextTxIndex, ok := p.groupInfo.nextTxInGroup[re.index]; ok {
 			//fmt.Println("nexxxxxxxxxxxxxxxxx", re.index, nextTxIndex)
 			p.push(nextTxIndex)
@@ -415,16 +415,16 @@ func (p *pallTxManager) mergeLoop() {
 		if !ok {
 			break
 		}
-		handled := false
+		//handled := false
 
 		nextTx := p.baseStateDB.MergedIndex + 1
 		for nextTx < p.txLen && p.txResults[nextTx] != nil {
 			rr := p.txResults[nextTx]
-			fmt.Println("handle receipt", "fake", rr.preID, "index", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.indexInfos[rr.index].blockIndex].NumberU64(), "real tx", p.indexInfos[rr.index].txIndex, "seed", rr.ID, time.Now().String())
+			//fmt.Println("handle receipt", "fake", rr.preID, "index", rr.index, "当前base", p.baseStateDB.MergedIndex, "基于", rr.st.MergedIndex, "区块", p.blocks[p.indexInfos[rr.index].blockIndex].NumberU64(), "real tx", p.indexInfos[rr.index].txIndex, "seed", rr.ID, time.Now().String())
 
-			handled = true
+			//handled = true
 			if succ := p.handleReceipt(rr); !succ {
-				fmt.Println("handle receipt failed", rr.index, time.Now().String())
+				//fmt.Println("handle receipt failed", rr.index, time.Now().String())
 				p.markNextFailed(rr.index)
 				p.txResults[rr.index] = nil
 				break
@@ -433,7 +433,7 @@ func (p *pallTxManager) mergeLoop() {
 			if p.indexInfos[rr.index].txIndex == len(p.blocks[p.indexInfos[rr.index].blockIndex].Transactions())-1 {
 				p.calReward(p.indexInfos[rr.index].blockIndex, rr.index)
 			}
-			fmt.Println("MMMMMMMMMMM", nextTx, time.Now().String())
+			//fmt.Println("MMMMMMMMMMM", nextTx, time.Now().String())
 			p.baseStateDB.MergedIndex = nextTx
 			nextTx = p.baseStateDB.MergedIndex + 1
 		}
@@ -452,7 +452,7 @@ func (p *pallTxManager) mergeLoop() {
 		p.push(p.baseStateDB.MergedIndex + 1)
 		//fmt.Println("====================================-end", p.baseStateDB.MergedIndex+1)
 		//}
-		fmt.Println("mergeLoop---end", p.baseStateDB.MergedIndex, "lenQueue", len(p.resultQueue), handled, time.Now().String())
+		//fmt.Println("mergeLoop---end", p.baseStateDB.MergedIndex, "lenQueue", len(p.resultQueue), handled, time.Now().String())
 	}
 }
 
@@ -529,7 +529,7 @@ func (p *pallTxManager) handleTx(index int) *txResult {
 	}
 
 	receipt, err := ApplyTransaction(p.bc.chainConfig, p.bc, nil, new(GasPool).AddGas(gas), st, block.Header(), tx, nil, p.bc.vmConfig)
-	fmt.Println("end apply tx", "useFake", preResultID, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.indexInfos[index].blockIndex].NumberU64(), "realIndex", p.indexInfos[index].txIndex, err)
+	//fmt.Println("end apply tx", "useFake", preResultID, "执行", index, "基于", st.MergedIndex, "当前base", p.baseStateDB.MergedIndex, "blockIndex", p.blocks[p.indexInfos[index].blockIndex].NumberU64(), "realIndex", p.indexInfos[index].txIndex, err)
 
 	if index <= p.baseStateDB.MergedIndex {
 		//fmt.Println("???????????-2", index, p.baseStateDB.MergedIndex)
