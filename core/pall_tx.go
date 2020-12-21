@@ -162,7 +162,10 @@ func uint64ToBytes(u uint64) []byte {
 	return b
 }
 
-func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
+func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}) {
+	defer func() {
+		ch <- struct{}{}
+	}()
 	data, err := state.AccessListDB.Get(uint64ToBytes(number))
 	if len(data) == 0 || err != nil {
 		return
@@ -206,8 +209,11 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64) {
 	fmt.Println("Read list TO db", number, len(list))
 }
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
+	preCacheChan := make(chan struct{}, 0)
 	if !common.NeedStore {
-		go PreCache(bc, st, blockList[0].NumberU64())
+		go PreCache(bc, st, blockList[0].NumberU64(), preCacheChan)
+	} else {
+		preCacheChan <- struct{}{}
 	}
 
 	fmt.Println("pall", "from", blockList[0].NumberU64(), "to", blockList[len(blockList)-1].NumberU64())
@@ -279,6 +285,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		p.calReward(0, 0)
 	}
 
+	<-preCacheChan
 	if txLen == 0 {
 		p.baseStateDB.FinalUpdateObjs(blockList[0].NumberU64())
 		return p
