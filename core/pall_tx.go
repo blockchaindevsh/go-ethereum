@@ -209,7 +209,7 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}
 	fmt.Println("Read list TO db", number, len(list))
 }
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
-	preCacheChan := make(chan struct{}, 0)
+	preCacheChan := make(chan struct{}, 1)
 	if !common.NeedStore {
 		go PreCache(bc, st, blockList[0].NumberU64(), preCacheChan)
 	} else {
