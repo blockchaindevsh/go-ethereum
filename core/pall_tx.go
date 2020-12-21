@@ -285,7 +285,7 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 		p.calReward(0, 0)
 	}
 
-	<-preCacheChan
+	//<-preCacheChan
 	if txLen == 0 {
 		p.baseStateDB.FinalUpdateObjs(blockList[0].NumberU64())
 		return p
