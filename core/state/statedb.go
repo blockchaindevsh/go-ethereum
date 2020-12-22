@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -62,8 +63,11 @@ func (n *proofList) Delete(key []byte) error {
 // * Contracts
 // * Accounts
 type StateDB struct {
-	db   Database
-	trie Trie
+	canNotSetState  bool
+	Orig            *OriginStorage
+	OrigFromPreLoad *OriginStorageFromPreCache
+	db              Database
+	trie            Trie
 
 	snaps         *snapshot.Tree
 	snap          snapshot.Snapshot
@@ -120,6 +124,8 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		return nil, err
 	}
 	sdb := &StateDB{
+		Orig:                NewOriginStorage(),
+		OrigFromPreLoad:     NewStoragePreCache(),
 		db:                  db,
 		trie:                tr,
 		snaps:               snaps,
@@ -563,7 +569,36 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 }
 
 func (s *StateDB) setStateObject(object *stateObject) {
+	if s.canNotSetState {
+		return
+	}
+	s.Orig.SetAccount(object.address)
 	s.stateObjects[object.Address()] = object
+}
+
+func (s *StateDB) PreLoadAccount(addresses []common.Address) {
+	s.canNotSetState = true
+	ll := len(addresses)
+	var g sync.WaitGroup
+	res := make(chan *stateObject, ll)
+	g.Add(ll)
+	for _, addr := range addresses {
+		addr := addr
+		go func() {
+			defer g.Done()
+			res <- s.getDeletedStateObject(addr)
+		}()
+	}
+	g.Wait()
+	for index := 0; index < ll; index++ {
+		v := <-res
+		if v != nil {
+			s.stateObjects[v.address] = v
+			v.getTrie(s.db)
+		}
+	}
+	close(res)
+	s.canNotSetState = false
 }
 
 // GetOrNewStateObject retrieves a state object or create a new state object if nil.

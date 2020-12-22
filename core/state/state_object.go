@@ -33,18 +33,49 @@ import (
 )
 
 var (
-	AccessListDB, _ = leveldb.New("./accessList", 512, 512, "")
-	PreCacheData    = make(map[int][]common.AccountAndHash, 0)
+	AccessListDB, _ = leveldb.New("./accessList_eth", 512, 512, "")
+	PreCacheData    = make(map[int][]common.AccessList, 0)
 )
 
+type OriginStorageFromPreCache struct {
+	mu   sync.Mutex
+	Data map[common.Address]Storage
+}
+
+func NewStoragePreCache() *OriginStorageFromPreCache {
+	return &OriginStorageFromPreCache{
+		mu:   sync.Mutex{},
+		Data: make(map[common.Address]Storage),
+	}
+}
+
+func (o *OriginStorageFromPreCache) SetData(addr common.Address, hash common.Hash, value common.Hash) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if _, ok := o.Data[addr]; !ok {
+		o.Data[addr] = make(Storage)
+	}
+	o.Data[addr][hash] = value
+}
+
+func (o *OriginStorageFromPreCache) GetData(addr common.Address, hash common.Hash) common.Hash {
+	if _, ok := o.Data[addr]; !ok {
+		return common.Hash{}
+	}
+	return o.Data[addr][hash]
+}
+
 func init() {
+	if common.NeedStore {
+		return
+	}
 	ts := time.Now()
-	start := 0
-	end := 0
+	start := 8000000
+	end := 8200000
 	fmt.Println("statb init", start, end)
-	for index := start; index < end; index++ {
+	for index := start; index <= end; index++ {
 		data, err := AccessListDB.Get(common.Uint64ToBytes(uint64(index)))
-		list := make([]common.AccountAndHash, 0)
+		list := make([]common.AccessList, 0)
 		if len(data) == 0 || err != nil {
 
 		} else {
@@ -57,9 +88,40 @@ func init() {
 	fmt.Println("statedb init end", time.Now().Sub(ts).Seconds(), len(PreCacheData))
 }
 
-var (
-	OriginStorage = make(map[common.Address]map[common.Hash]struct{}, 0)
-)
+type OriginStorage struct {
+	Data map[common.Address]map[common.Hash]struct{}
+	mu   sync.Mutex
+}
+
+func NewOriginStorage() *OriginStorage {
+	return &OriginStorage{
+		Data: make(map[common.Address]map[common.Hash]struct{}, 0),
+	}
+}
+
+func (o *OriginStorage) SetAccount(addr common.Address) {
+	if !common.NeedStore {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if _, ok := o.Data[addr]; !ok {
+		o.Data[addr] = make(map[common.Hash]struct{})
+	}
+}
+
+func (o *OriginStorage) SetOrigin(addr common.Address, hash common.Hash) {
+	if !common.NeedStore {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if _, ok := o.Data[addr]; !ok {
+		o.Data[addr] = make(map[common.Hash]struct{})
+	}
+	o.Data[addr][hash] = struct{}{}
+}
+
 var emptyCodeHash = crypto.Keccak256(nil)
 
 type Code []byte
@@ -94,7 +156,6 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	mu       sync.Mutex
 	address  common.Address
 	addrHash common.Hash // hash of ethereum address of the account
 	data     Account
@@ -215,31 +276,15 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 }
 
 func (s *stateObject) GetCommittedStateWithMultiStore(db Database, key common.Hash) {
-	var (
-		enc []byte
-		err error
-	)
-
-	// If snapshot unavailable or reading from it failed, load from the database
-
-	if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
-		s.setError(err)
-		s.mu.Lock()
-		s.originStorage[key] = common.Hash{}
-		s.mu.Unlock()
-	}
-
+	t := s.getTrie(db)
+	enc, _ := t.TryGet(key.Bytes())
 	var value common.Hash
 	if len(enc) > 0 {
-		_, content, _, err := rlp.Split(enc)
-		if err != nil {
-			s.setError(err)
-		}
+		_, content, _, _ := rlp.Split(enc)
 		value.SetBytes(content)
 	}
-	s.mu.Lock()
-	s.originStorage[key] = common.Hash{}
-	s.mu.Unlock()
+
+	s.db.OrigFromPreLoad.SetData(s.address, key, value)
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.
@@ -255,6 +300,13 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if value, cached := s.originStorage[key]; cached {
 		return value
 	}
+
+	if !common.NeedStore {
+		load := s.db.OrigFromPreLoad.GetData(s.address, key)
+		s.originStorage[key] = load
+		return load
+	}
+
 	// If no live objects are available, attempt to use snapshots
 	var (
 		enc []byte
@@ -282,11 +334,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
 			s.setError(err)
-
-			if _, ok := OriginStorage[s.address]; !ok {
-				OriginStorage[s.address] = make(map[common.Hash]struct{})
-			}
-			OriginStorage[s.address][common.BytesToHash(key.Bytes())] = struct{}{}
+			s.db.Orig.SetOrigin(s.address, key)
 			return common.Hash{}
 		}
 	}
@@ -299,10 +347,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	if _, ok := OriginStorage[s.address]; !ok {
-		OriginStorage[s.address] = make(map[common.Hash]struct{})
-	}
-	OriginStorage[s.address][common.BytesToHash(key.Bytes())] = struct{}{}
+	s.db.Orig.SetOrigin(s.address, key)
 	return value
 }
 

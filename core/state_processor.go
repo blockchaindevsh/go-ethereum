@@ -27,7 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"golang.org/x/sync/errgroup"
+	"sync"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -68,25 +68,41 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	state.OriginStorage = make(map[common.Address]map[common.Hash]struct{})
 	if !common.NeedStore {
 		list := state.PreCacheData[int(block.NumberU64())]
-		lenTask := len(list)
-		var g errgroup.Group
-		batch := 64
-		for index := 0; index < batch; index++ {
-			start := index
-			g.Go(func() error {
-				for i := start; i < lenTask; i += batch {
-					statedb.GetCommittedStateWithOutStore(list[i].Addr, list[i].Hash)
+		if len(list) != 0 {
+			storagePair := make([]common.AccountAndHash, 0)
+			accountExist := make([]common.Address, 0)
+			for _, v := range list {
+				accountExist = append(accountExist, v.Address)
+				for _, hash := range v.Hashs {
+					storagePair = append(storagePair, common.AccountAndHash{
+						Addr: v.Address,
+						Hash: hash,
+					})
 				}
-				return nil
-			})
+			}
+			lenStorage := len(storagePair)
+			fmt.Println("preload", block.NumberU64(), "accountList", len(list), "storageList", len(storagePair))
+			statedb.PreLoadAccount(accountExist)
+			var g sync.WaitGroup
+
+			g.Add(lenStorage)
+			batch := 64
+			if lenStorage < batch {
+				batch = lenStorage
+			}
+			for index := 0; index < batch; index++ {
+				start := index
+				go func() {
+					for i := start; i < lenStorage; i += batch {
+						statedb.GetCommittedStateWithOutStore(storagePair[i].Addr, storagePair[i].Hash)
+						g.Done()
+					}
+				}()
+			}
+			g.Wait()
 		}
-		if err := g.Wait(); err != nil {
-			panic(err)
-		}
-		fmt.Println("preload", block.NumberU64(), len(list))
 
 	}
 	// Iterate over and process the individual transactions
@@ -103,23 +119,33 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	if common.NeedStore {
-		list := make([]common.AccountAndHash, 0)
-		for addr, sts := range state.OriginStorage {
+		addrCnt := 0
+		storageCnt := 0
+		list := make([]common.AccessList, 0)
+		for addr, sts := range statedb.Orig.Data {
+			t := common.AccessList{
+				Address: addr,
+				Hashs:   make([]common.Hash, 0),
+			}
 			for key, _ := range sts {
-				t := common.AccountAndHash{Addr: addr, Hash: key}
-				list = append(list, t)
+				t.Hashs = append(t.Hashs, key)
+				storageCnt++
+			}
+			list = append(list, t)
+			addrCnt++
+		}
+		if len(list) != 0 {
+			data, err := json.Marshal(list)
+			if err != nil {
+				panic(err)
+			}
+			if err := state.AccessListDB.Put(common.Uint64ToBytes(block.NumberU64()), data); err != nil {
+				panic(err)
 			}
 		}
-		data, err := json.Marshal(list)
-		if err != nil {
-			panic(err)
-		}
-		if err := state.AccessListDB.Put(common.Uint64ToBytes(block.NumberU64()), data); err != nil {
-			panic(err)
-		}
-		fmt.Println("store", block.NumberU64(), len(list))
-	}
 
+		fmt.Println("store", "blockNumber", block.Number(), "accountList", addrCnt, "storageList", storageCnt)
+	}
 	return receipts, allLogs, *usedGas, nil
 }
 

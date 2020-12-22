@@ -368,8 +368,3 @@ func (ma *MixedcaseAddress) ValidChecksum() bool {
 func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
-
-type AccountAndHash struct {
-	Addr Address
-	Hash Hash
-}

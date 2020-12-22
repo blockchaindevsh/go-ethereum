@@ -169,3 +169,12 @@ func Uint64ToBytes(n uint64) []byte {
 var (
 	NeedStore = true
 )
+
+type AccessList struct {
+	Address Address
+	Hashs   []Hash
+}
+type AccountAndHash struct {
+	Addr Address
+	Hash Hash
+}
