@@ -18,6 +18,7 @@ package core
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -26,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"golang.org/x/sync/errgroup"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -66,11 +68,26 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+	state.OriginStorage = make(map[common.Address]map[common.Hash]struct{})
 	if !common.NeedStore {
 		list := state.PreCacheData[int(block.NumberU64())]
-		for _, key := range list {
-			state.OriginStorage
+		lenTask := len(list)
+		var g errgroup.Group
+		batch := 64
+		for index := 0; index < batch; index++ {
+			start := index
+			g.Go(func() error {
+				for i := start; i < lenTask; i += batch {
+					statedb.GetCommittedStateWithOutStore(list[i].Addr, list[i].Hash)
+				}
+				return nil
+			})
 		}
+		if err := g.Wait(); err != nil {
+			panic(err)
+		}
+		fmt.Println("preload", block.NumberU64(), len(list))
+
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
@@ -86,9 +103,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	if common.NeedStore {
-		list := make([]common.Hash, 0)
-		for k, _ := range state.OriginStorage {
-			list = append(list, k)
+		list := make([]common.AccountAndHash, 0)
+		for addr, sts := range state.OriginStorage {
+			for key, _ := range sts {
+				t := common.AccountAndHash{Addr: addr, Hash: key}
+				list = append(list, t)
+			}
 		}
 		data, err := json.Marshal(list)
 		if err != nil {
@@ -97,6 +117,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if err := state.AccessListDB.Put(common.Uint64ToBytes(block.NumberU64()), data); err != nil {
 			panic(err)
 		}
+		fmt.Println("store", block.NumberU64(), len(list))
 	}
 
 	return receipts, allLogs, *usedGas, nil

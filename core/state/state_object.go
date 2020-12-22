@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"io"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,7 +34,7 @@ import (
 
 var (
 	AccessListDB, _ = leveldb.New("./accessList", 512, 512, "")
-	PreCacheData    = make(map[int][]common.Hash, 0)
+	PreCacheData    = make(map[int][]common.AccountAndHash, 0)
 )
 
 func init() {
@@ -43,7 +44,7 @@ func init() {
 	fmt.Println("statb init", start, end)
 	for index := start; index < end; index++ {
 		data, err := AccessListDB.Get(common.Uint64ToBytes(uint64(index)))
-		list := make([]common.Hash, 0)
+		list := make([]common.AccountAndHash, 0)
 		if len(data) == 0 || err != nil {
 
 		} else {
@@ -57,7 +58,7 @@ func init() {
 }
 
 var (
-	OriginStorage = make(map[common.Hash]common.Hash, 0)
+	OriginStorage = make(map[common.Address]map[common.Hash]struct{}, 0)
 )
 var emptyCodeHash = crypto.Keccak256(nil)
 
@@ -93,6 +94,7 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
+	mu       sync.Mutex
 	address  common.Address
 	addrHash common.Hash // hash of ethereum address of the account
 	data     Account
@@ -212,6 +214,34 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	return s.GetCommittedState(db, key)
 }
 
+func (s *stateObject) GetCommittedStateWithMultiStore(db Database, key common.Hash) {
+	var (
+		enc []byte
+		err error
+	)
+
+	// If snapshot unavailable or reading from it failed, load from the database
+
+	if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
+		s.setError(err)
+		s.mu.Lock()
+		s.originStorage[key] = common.Hash{}
+		s.mu.Unlock()
+	}
+
+	var value common.Hash
+	if len(enc) > 0 {
+		_, content, _, err := rlp.Split(enc)
+		if err != nil {
+			s.setError(err)
+		}
+		value.SetBytes(content)
+	}
+	s.mu.Lock()
+	s.originStorage[key] = common.Hash{}
+	s.mu.Unlock()
+}
+
 // GetCommittedState retrieves a value from the committed account storage trie.
 func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
@@ -252,7 +282,11 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
 			s.setError(err)
-			OriginStorage[common.BytesToHash(key.Bytes())] = common.Hash{}
+
+			if _, ok := OriginStorage[s.address]; !ok {
+				OriginStorage[s.address] = make(map[common.Hash]struct{})
+			}
+			OriginStorage[s.address][common.BytesToHash(key.Bytes())] = struct{}{}
 			return common.Hash{}
 		}
 	}
@@ -265,7 +299,10 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	OriginStorage[common.BytesToHash(key.Bytes())] = common.Hash{}
+	if _, ok := OriginStorage[s.address]; !ok {
+		OriginStorage[s.address] = make(map[common.Hash]struct{})
+	}
+	OriginStorage[s.address][common.BytesToHash(key.Bytes())] = struct{}{}
 	return value
 }
 
