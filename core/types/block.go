@@ -20,7 +20,6 @@ package types
 import (
 	"encoding/binary"
 	"fmt"
-	lru "github.com/hashicorp/golang-lru"
 	"io"
 	"math/big"
 	"reflect"
@@ -416,18 +415,3 @@ func (b *Block) Hash() common.Hash {
 }
 
 type Blocks []*Block
-
-var (
-	BlockAndHash, _ = lru.New(common.BlockExecuteBatch)
-)
-
-func AddCacheHeader(header *Header) {
-	BlockAndHash.Add(header.Number, header)
-}
-func GetCacheBlock(number uint64) *Header {
-	if cached, ok := BlockAndHash.Get(number); ok {
-		body := cached.(*Header)
-		return body
-	}
-	return nil
-}

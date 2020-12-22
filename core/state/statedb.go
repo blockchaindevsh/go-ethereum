@@ -276,10 +276,9 @@ type StateDB struct {
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
 
-	IndexInAllBlock int
-	MergedSts       *mergedStatus
-	MergedIndex     int
-	RWSet           map[common.Address]bool // true dirty ; false only read
+	MergedSts   *mergedStatus
+	MergedIndex int
+	RWSet       map[common.Address]bool // true dirty ; false only read
 }
 
 // New creates a new state from a given trie.
@@ -894,10 +893,10 @@ func (s *StateDB) Snapshot() int {
 	return id
 }
 
-func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFake bool, indexToID map[int]int) bool {
+func (s *StateDB) Conflict(base *StateDB, miners common.Address, useFake bool, indexToID map[int]int) bool {
 	for k, _ := range s.RWSet {
-		if miners[k] {
-			if useFake || s.MergedIndex+1 != s.IndexInAllBlock {
+		if miners == k {
+			if useFake || s.MergedIndex+1 != s.txIndex {
 				return true
 			} else {
 				continue
@@ -906,7 +905,7 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 
 		preWrite := s.MergedSts.getWriteObj(k)
 		if preWrite != nil {
-			if indexToID[s.IndexInAllBlock] != indexToID[preWrite.lastWriteIndex] {
+			if indexToID[s.txIndex] != indexToID[preWrite.lastWriteIndex] {
 				if useFake || s.MergedIndex != base.MergedIndex {
 					return true
 				}
@@ -925,13 +924,13 @@ func (s *StateDB) Conflict(base *StateDB, miners map[common.Address]bool, useFak
 
 func (s *StateDB) Merge(base *StateDB, miner common.Address, txFee *big.Int) {
 	for _, newObj := range s.stateObjects {
-		s.MergedSts.MergeWriteObj(newObj, s.IndexInAllBlock)
+		s.MergedSts.MergeWriteObj(newObj, s.txIndex)
 	}
 
 	pre := base.MergedSts.getWriteObj(miner)
 	if pre == nil {
 		base.AddBalance(miner, txFee)
-		base.MergedSts.setWriteObj(miner, base.getStateObject(miner), s.IndexInAllBlock)
+		base.MergedSts.setWriteObj(miner, base.getStateObject(miner), s.txIndex)
 		base.stateObjects = make(map[common.Address]*stateObject)
 	} else {
 		pre.AddBalance(txFee)

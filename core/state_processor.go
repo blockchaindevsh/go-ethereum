@@ -81,7 +81,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	return receipts, allLogs, *usedGas, nil
 }
 
-func (p *StateProcessor) PallProcess(blockList types.Blocks, statedb *state.StateDB, cfg vm.Config) ([]types.Receipts, [][]*types.Log, []uint64, error) {
+func (p *StateProcessor) PallProcess(blockList *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	pm := NewPallTxManage(blockList, statedb, p.bc)
 	if pm.txLen != 0 {
 		<-pm.ch
@@ -89,7 +89,6 @@ func (p *StateProcessor) PallProcess(blockList types.Blocks, statedb *state.Stat
 	receipts, allLogs, usedGas := pm.GetReceiptsAndLogs()
 	return receipts, allLogs, usedGas, nil
 }
-
 
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
