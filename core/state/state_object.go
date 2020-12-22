@@ -18,7 +18,9 @@ package state
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"io"
 	"math/big"
 	"time"
@@ -29,6 +31,34 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+var (
+	AccessListDB, _ = leveldb.New("./accessList", 512, 512, "")
+	PreCacheData    = make(map[int][]common.Hash, 0)
+)
+
+func init() {
+	ts := time.Now()
+	start := 0
+	end := 0
+	fmt.Println("statb init", start, end)
+	for index := start; index < end; index++ {
+		data, err := AccessListDB.Get(common.Uint64ToBytes(uint64(index)))
+		list := make([]common.Hash, 0)
+		if len(data) == 0 || err != nil {
+
+		} else {
+			if err := json.Unmarshal(data, &list); err != nil {
+				panic(err)
+			}
+		}
+		PreCacheData[index] = list
+	}
+	fmt.Println("statedb init end", time.Now().Sub(ts).Seconds(), len(PreCacheData))
+}
+
+var (
+	OriginStorage = make(map[common.Hash]common.Hash, 0)
+)
 var emptyCodeHash = crypto.Keccak256(nil)
 
 type Code []byte
@@ -222,6 +252,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
 			s.setError(err)
+			OriginStorage[common.BytesToHash(key.Bytes())] = common.Hash{}
 			return common.Hash{}
 		}
 	}
@@ -234,6 +265,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
+	OriginStorage[common.BytesToHash(key.Bytes())] = common.Hash{}
 	return value
 }
 

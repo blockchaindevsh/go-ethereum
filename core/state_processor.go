@@ -17,6 +17,7 @@
 package core
 
 import (
+	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -65,6 +66,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+	if !common.NeedStore {
+		list := state.PreCacheData[int(block.NumberU64())]
+		for _, key := range list {
+			state.OriginStorage
+		}
+	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
@@ -77,6 +84,20 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
+
+	if common.NeedStore {
+		list := make([]common.Hash, 0)
+		for k, _ := range state.OriginStorage {
+			list = append(list, k)
+		}
+		data, err := json.Marshal(list)
+		if err != nil {
+			panic(err)
+		}
+		if err := state.AccessListDB.Put(common.Uint64ToBytes(block.NumberU64()), data); err != nil {
+			panic(err)
+		}
+	}
 
 	return receipts, allLogs, *usedGas, nil
 }
