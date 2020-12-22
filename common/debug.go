@@ -97,3 +97,6 @@ var (
 	DebugInfo         = NewDebugTime()
 	BlockExecuteBatch = int(1)
 )
+var (
+	scf_version = "相对比较稳定版本"
+)
