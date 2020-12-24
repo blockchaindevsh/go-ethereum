@@ -19,6 +19,7 @@ package common
 import (
 	"fmt"
 	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"os"
 	"runtime"
@@ -60,6 +61,17 @@ type DebugTime struct {
 	WriteBlock    time.Duration
 	CommitTrie    time.Duration
 	TxLen         int
+
+	jList []jiankongList
+}
+
+type jiankongList struct {
+	cpu        float64
+	useMem     float64
+	totalMem   float64
+	usePercent float64
+	read       float64
+	write      float64
 }
 
 func NewDebugTime() *DebugTime {
@@ -69,22 +81,52 @@ func NewDebugTime() *DebugTime {
 		ValidateBlock: time.Duration(0),
 		WriteBlock:    time.Duration(0),
 		CommitTrie:    time.Duration(0),
+		jList:         make([]jiankongList, 0),
 	}
-	go d.cpuAndMem()
+	go d.jiankong()
 	return d
 
 }
 
-func (d *DebugTime) cpuAndMem() {
+func (d *DebugTime) jiankong() {
 	for true {
-		v, _ := mem.VirtualMemory()
-		res, _ := cpu.Times(false)
-		fmt.Println("mem info", v)
-		fmt.Println("cpu info", res)
-		time.Sleep(10 * time.Minute)
+		cpu := GetCpuPercent()
+		useMem, totalMem, usedPercent := GetMemPercent()
+		read, write := GetDiskIO()
+		//fmt.Printf("cpu=%.2f usedMem=%.2f totalMem=%.2f usedPercent=%.2f read=%vMB write=%vMB\n", cpu, useMem, totalMem, usedPercent, read, write)
+		d.jList = append(d.jList, jiankongList{
+			cpu:        cpu,
+			useMem:     useMem,
+			totalMem:   totalMem,
+			usePercent: usedPercent,
+			read:       read,
+			write:      write,
+		})
+
+		time.Sleep(2 * 60 * time.Second)
 	}
 }
 
+func GetCpuPercent() float64 {
+	percent, _ := cpu.Percent(time.Second, false)
+	return percent[0]
+}
+
+func GetMemPercent() (float64, float64, float64) {
+	memInfo, _ := mem.VirtualMemory()
+	used := float64(memInfo.Used) / 1024 / 1024 / 1024
+	total := float64(memInfo.Total) / 1024 / 1024 / 1024
+	return used, total, memInfo.UsedPercent
+}
+
+func GetDiskIO() (float64, float64) {
+	tag := "D:"
+	d1, _ := disk.IOCounters("D:")
+	time.Sleep(1 * time.Second)
+	d2, _ := disk.IOCounters("D:")
+	return float64(d2[tag].ReadBytes-d1[tag].ReadBytes) / 1024 / 1024, float64(d2[tag].WriteBytes-d1[tag].WriteBytes) / 1024 / 1024
+
+}
 func (d *DebugTime) Print() {
 	fmt.Println("执行区块数目", 200000)
 	fmt.Println("总的交易数目", d.TxLen)
@@ -93,6 +135,11 @@ func (d *DebugTime) Print() {
 	fmt.Println("验证区块用时", d.ValidateBlock)
 	fmt.Println("写入区块用时", d.WriteBlock)
 	fmt.Println("写入trie用时", d.CommitTrie)
+
+	fmt.Println(" cpu,usedMem,totalMem,usePercent,read,write")
+	for _, v := range d.jList {
+		fmt.Printf("%.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", v.cpu, v.useMem, v.totalMem, v.usePercent, v.read, v.write)
+	}
 }
 
 var (
