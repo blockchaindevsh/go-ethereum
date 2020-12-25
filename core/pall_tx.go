@@ -44,7 +44,7 @@ func grouping(from []common.Address, to []*common.Address) (map[int][]int, map[i
 	for index, sender := range from {
 		Union(sender, to[index])
 	}
-	f
+
 	groupList := make(map[int][]int, 0)
 	addrToID := make(map[common.Address]int, 0)
 	indexToID := make(map[int]int, 0)
