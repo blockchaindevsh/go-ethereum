@@ -167,6 +167,9 @@ func Uint64ToBytes(n uint64) []byte {
 }
 
 var (
+	// CalAccessList
+	//		true:generate access list
+	//		false: use access list
 	CalAccessList = true
 )
 

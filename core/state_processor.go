@@ -68,7 +68,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 	if !common.CalAccessList {
-		accessList := state.AccessListToBlock[int(block.NumberU64())]
+		accessList := state.BlockNumToAccessList[int(block.NumberU64())]
 		if len(accessList) != 0 {
 			storagePairAddr := make([]common.Address, 0)
 			storagePairHash := make([]common.Hash, 0)
@@ -78,14 +78,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 				for _, hash := range v.Hashs {
 					storagePairAddr = append(storagePairAddr, v.Address)
 					storagePairHash = append(storagePairHash, hash)
-
 				}
 			}
 			statedb.PreLoadAccount(addresses)
 			statedb.PreLoadStorage(storagePairAddr, storagePairHash)
-			log.Info("preload access list", "blockNumber", block.NumberU64(), "account", len(accessList), "storageList", len(storagePairAddr))
 		}
-
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {

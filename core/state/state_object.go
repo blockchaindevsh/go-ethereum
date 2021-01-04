@@ -20,25 +20,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/rlp"
 	"io"
 	"math/big"
 	"sync"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (
 	// AccessListDB: store generated data(key:blockNumber  value:access list)
 	AccessListDB, _ = leveldb.New("./accessList_eth", 512, 512, "")
 
-	// AccessListToBlock: Preprocess the access list corresponding to the block
-	AccessListToBlock = make(map[int][]common.AccessList, 0)
+	// BlockNumToAccessList: Preprocess the access list corresponding to the block
+	BlockNumToAccessList = make(map[int][]common.AccessList, 0)
 )
 
 func init() {
@@ -61,9 +60,9 @@ func init() {
 				panic(err)
 			}
 		}
-		AccessListToBlock[index] = list
+		BlockNumToAccessList[index] = list
 	}
-	log.Info("preLoad access list", "size", len(AccessListToBlock))
+	log.Info("preLoad access list", "size", len(BlockNumToAccessList))
 }
 
 type OriginStorage struct {
@@ -99,6 +98,7 @@ func (o *OriginStorage) SetOrigin(addr common.Address, hash common.Hash) {
 	}
 	o.Data[addr][hash] = common.Hash{}
 }
+
 func (o *OriginStorage) GetData(addr common.Address, hash common.Hash) common.Hash {
 	if _, ok := o.Data[addr]; !ok {
 		return common.Hash{}

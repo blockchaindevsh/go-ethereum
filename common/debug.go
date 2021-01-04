@@ -69,8 +69,8 @@ func NewDebugTime() *DebugTime {
 		CommitTrie:    time.Duration(0),
 	}
 	return d
-
 }
+
 func (d *DebugTime) Print() {
 	fmt.Println("tx len", d.TxLen)
 	fmt.Println("process block time", d.ExecuteTx)
