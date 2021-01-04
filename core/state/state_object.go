@@ -33,40 +33,15 @@ import (
 )
 
 var (
+	// AccessListDB: store generated data(key:blockNumber  value:access list)
 	AccessListDB, _ = leveldb.New("./accessList_eth", 512, 512, "")
-	PreCacheData    = make(map[int][]common.AccessList, 0)
+
+	// AccessListToBlock: Preprocess the access list corresponding to the block
+	AccessListToBlock = make(map[int][]common.AccessList, 0)
 )
 
-type OriginStorageFromPreCache struct {
-	mu   sync.Mutex
-	Data map[common.Address]Storage
-}
-
-func NewStoragePreCache() *OriginStorageFromPreCache {
-	return &OriginStorageFromPreCache{
-		mu:   sync.Mutex{},
-		Data: make(map[common.Address]Storage),
-	}
-}
-
-func (o *OriginStorageFromPreCache) SetData(addr common.Address, hash common.Hash, value common.Hash) {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if _, ok := o.Data[addr]; !ok {
-		o.Data[addr] = make(Storage)
-	}
-	o.Data[addr][hash] = value
-}
-
-func (o *OriginStorageFromPreCache) GetData(addr common.Address, hash common.Hash) common.Hash {
-	if _, ok := o.Data[addr]; !ok {
-		return common.Hash{}
-	}
-	return o.Data[addr][hash]
-}
-
 func init() {
-	if common.NeedStore {
+	if common.CalAccesList {
 		return
 	}
 	ts := time.Now()
@@ -83,43 +58,49 @@ func init() {
 				panic(err)
 			}
 		}
-		PreCacheData[index] = list
+		AccessListToBlock[index] = list
 	}
-	fmt.Println("statedb init end", time.Now().Sub(ts).Seconds(), len(PreCacheData))
+	fmt.Println("statedb init end", time.Now().Sub(ts).Seconds(), len(AccessListToBlock))
 }
 
 type OriginStorage struct {
-	Data map[common.Address]map[common.Hash]struct{}
+	Data map[common.Address]Storage
 	mu   sync.Mutex
 }
 
 func NewOriginStorage() *OriginStorage {
 	return &OriginStorage{
-		Data: make(map[common.Address]map[common.Hash]struct{}, 0),
+		Data: make(map[common.Address]Storage, 0),
 	}
 }
 
 func (o *OriginStorage) SetAccount(addr common.Address) {
-	if !common.NeedStore {
+	if !common.CalAccesList {
 		return
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if _, ok := o.Data[addr]; !ok {
-		o.Data[addr] = make(map[common.Hash]struct{})
+		o.Data[addr] = make(Storage)
 	}
 }
 
 func (o *OriginStorage) SetOrigin(addr common.Address, hash common.Hash) {
-	if !common.NeedStore {
+	if !common.CalAccesList {
 		return
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if _, ok := o.Data[addr]; !ok {
-		o.Data[addr] = make(map[common.Hash]struct{})
+		o.Data[addr] = make(Storage)
 	}
-	o.Data[addr][hash] = struct{}{}
+	o.Data[addr][hash] = common.Hash{}
+}
+func (o *OriginStorage) GetData(addr common.Address, hash common.Hash) common.Hash {
+	if _, ok := o.Data[addr]; !ok {
+		return common.Hash{}
+	}
+	return o.Data[addr][hash]
 }
 
 var emptyCodeHash = crypto.Keccak256(nil)
@@ -284,7 +265,7 @@ func (s *stateObject) GetCommittedStateWithMultiStore(db Database, key common.Ha
 		value.SetBytes(content)
 	}
 
-	s.db.OrigFromPreLoad.SetData(s.address, key, value)
+	s.db.OrigForPreLoad.SetOrigin(s.address, key)
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.
@@ -301,8 +282,8 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		return value
 	}
 
-	if !common.NeedStore {
-		load := s.db.OrigFromPreLoad.GetData(s.address, key)
+	if !common.CalAccesList {
+		load := s.db.OrigForPreLoad.GetData(s.address, key)
 		s.originStorage[key] = load
 		return load
 	}
@@ -334,7 +315,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
 			s.setError(err)
-			s.db.Orig.SetOrigin(s.address, key)
+			s.db.OrigForCalAccessList.SetOrigin(s.address, key)
 			return common.Hash{}
 		}
 	}
@@ -347,7 +328,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	s.db.Orig.SetOrigin(s.address, key)
+	s.db.OrigForCalAccessList.SetOrigin(s.address, key)
 	return value
 }
 

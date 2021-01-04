@@ -49,6 +49,11 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
+type preLoadStoragePair struct {
+	Addr common.Address
+	Hash common.Hash
+}
+
 // Process processes the state changes according to the Ethereum rules by running
 // the transaction messages using the statedb and applying any rewards to both
 // the processor (coinbase) and any included uncles.
@@ -68,15 +73,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	if !common.NeedStore {
-		list := state.PreCacheData[int(block.NumberU64())]
+	if !common.CalAccesList {
+		list := state.AccessListToBlock[int(block.NumberU64())]
 		if len(list) != 0 {
-			storagePair := make([]common.AccountAndHash, 0)
+			storagePair := make([]preLoadStoragePair, 0)
 			accountExist := make([]common.Address, 0)
 			for _, v := range list {
 				accountExist = append(accountExist, v.Address)
 				for _, hash := range v.Hashs {
-					storagePair = append(storagePair, common.AccountAndHash{
+					storagePair = append(storagePair, preLoadStoragePair{
 						Addr: v.Address,
 						Hash: hash,
 					})
@@ -118,11 +123,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
-	if common.NeedStore {
+	if common.CalAccesList {
 		addrCnt := 0
 		storageCnt := 0
 		list := make([]common.AccessList, 0)
-		for addr, sts := range statedb.Orig.Data {
+		for addr, sts := range statedb.OrigForCalAccessList.Data {
 			t := common.AccessList{
 				Address: addr,
 				Hashs:   make([]common.Hash, 0),
