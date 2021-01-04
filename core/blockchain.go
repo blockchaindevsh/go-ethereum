@@ -677,8 +677,6 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 	bc.chainmu.RLock()
 	defer bc.chainmu.RUnlock()
 
-	fmt.Println("export", bc.CurrentBlock().NumberU64(), first, last)
-
 	if first > last {
 		return fmt.Errorf("export failed: first (%d) is greater than last (%d)", first, last)
 	}
@@ -688,10 +686,8 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 	for nr := first; nr <= last; nr++ {
 		block := bc.GetBlockByNumber(nr)
 		if block == nil {
-			panic("sb")
 			return fmt.Errorf("export failed on #%d: not found", nr)
 		}
-		//fmt.Println("block", block.NumberU64(), block.Hash().String())
 		if err := block.EncodeRLP(w); err != nil {
 			return err
 		}
