@@ -259,7 +259,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	return s.GetCommittedState(db, key)
 }
 
-func (s *stateObject) GetCommittedStateFromDB(db Database, key common.Hash) {
+func (s *stateObject) getCommittedStateFromDB(db Database, key common.Hash) {
 	t := s.getTrie(db)
 	enc, _ := t.TryGet(key.Bytes())
 	var value common.Hash
@@ -267,8 +267,6 @@ func (s *stateObject) GetCommittedStateFromDB(db Database, key common.Hash) {
 		_, content, _, _ := rlp.Split(enc)
 		value.SetBytes(content)
 	}
-
-	s.db.OrigForPreLoad.SetOrigin(s.address, key)
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.

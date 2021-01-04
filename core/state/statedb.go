@@ -624,7 +624,7 @@ func (s *StateDB) PreLoadStorage(addrs []common.Address, hashes []common.Hash) {
 		start := index
 		go func() {
 			for i := start; i < lenStorage; i += batch {
-				s.getStateObject(addrs[i]).GetCommittedStateFromDB(s.db, hashes[i])
+				s.getStateObject(addrs[i]).getCommittedStateFromDB(s.db, hashes[i])
 				g.Done()
 			}
 		}()
