@@ -164,6 +164,10 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
+		// only test 800w to 820w
+		if chain.CurrentBlock().NumberU64() >= 8200000 {
+			break
+		}
 	}
 	return nil
 }
