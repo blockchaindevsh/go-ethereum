@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
+	"github.com/ethereum/go-ethereum/log"
 	"io"
 	"math/big"
 	"sync"
@@ -41,13 +42,15 @@ var (
 )
 
 func init() {
-	if common.CalAccesList {
+	if common.CalAccessList {
 		return
 	}
-	ts := time.Now()
+
+	// import block from 800w to 820w
 	start := 8000000
 	end := 8200000
-	fmt.Println("statb init", start, end)
+
+	log.Info("preLoad access list", "from", start, "to", end)
 	for index := start; index <= end; index++ {
 		data, err := AccessListDB.Get(common.Uint64ToBytes(uint64(index)))
 		list := make([]common.AccessList, 0)
@@ -60,7 +63,7 @@ func init() {
 		}
 		AccessListToBlock[index] = list
 	}
-	fmt.Println("statedb init end", time.Now().Sub(ts).Seconds(), len(AccessListToBlock))
+	log.Info("preLoad access list", "size", len(AccessListToBlock))
 }
 
 type OriginStorage struct {
@@ -75,7 +78,7 @@ func NewOriginStorage() *OriginStorage {
 }
 
 func (o *OriginStorage) SetAccount(addr common.Address) {
-	if !common.CalAccesList {
+	if !common.CalAccessList {
 		return
 	}
 	o.mu.Lock()
@@ -86,7 +89,7 @@ func (o *OriginStorage) SetAccount(addr common.Address) {
 }
 
 func (o *OriginStorage) SetOrigin(addr common.Address, hash common.Hash) {
-	if !common.CalAccesList {
+	if !common.CalAccessList {
 		return
 	}
 	o.mu.Lock()
@@ -256,7 +259,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	return s.GetCommittedState(db, key)
 }
 
-func (s *stateObject) GetCommittedStateWithMultiStore(db Database, key common.Hash) {
+func (s *stateObject) GetCommittedStateFromDB(db Database, key common.Hash) {
 	t := s.getTrie(db)
 	enc, _ := t.TryGet(key.Bytes())
 	var value common.Hash
@@ -282,7 +285,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		return value
 	}
 
-	if !common.CalAccesList {
+	if !common.CalAccessList {
 		load := s.db.OrigForPreLoad.GetData(s.address, key)
 		s.originStorage[key] = load
 		return load

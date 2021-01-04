@@ -341,14 +341,6 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 	return common.Hash{}
 }
 
-// GetCommittedState retrieves a value from the given account's committed storage trie.
-func (s *StateDB) GetCommittedStateWithOutStore(addr common.Address, hash common.Hash) {
-	stateObject := s.getStateObject(addr)
-	if stateObject != nil {
-		stateObject.GetCommittedStateWithMultiStore(s.db, hash)
-	}
-}
-
 // Database retrieves the low level database supporting the lower level trie ops.
 func (s *StateDB) Database() Database {
 	return s.db
@@ -594,6 +586,7 @@ func (s *StateDB) setStateObject(object *stateObject) {
 	s.stateObjects[object.Address()] = object
 }
 
+// PreLoadAccount: preload account from access list
 func (s *StateDB) PreLoadAccount(addresses []common.Address) {
 	ll := len(addresses)
 	var g sync.WaitGroup
@@ -615,6 +608,29 @@ func (s *StateDB) PreLoadAccount(addresses []common.Address) {
 		}
 	}
 	close(res)
+}
+
+// PreLoadStorage:preLoad storage from access list
+func (s *StateDB) PreLoadStorage(addrs []common.Address, hashes []common.Hash) {
+	lenStorage := len(addrs)
+	var g sync.WaitGroup
+
+	g.Add(lenStorage)
+	batch := 64
+	if lenStorage < batch {
+		batch = lenStorage
+	}
+	for index := 0; index < batch; index++ {
+		start := index
+		go func() {
+			for i := start; i < lenStorage; i += batch {
+				s.getStateObject(addrs[i]).GetCommittedStateFromDB(s.db, hashes[i])
+				g.Done()
+			}
+		}()
+	}
+	g.Wait()
+
 }
 
 // GetOrNewStateObject retrieves a state object or create a new state object if nil.

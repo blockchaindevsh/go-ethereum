@@ -18,7 +18,6 @@ package core
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -26,8 +25,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"sync"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -49,11 +48,6 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 	}
 }
 
-type preLoadStoragePair struct {
-	Addr common.Address
-	Hash common.Hash
-}
-
 // Process processes the state changes according to the Ethereum rules by running
 // the transaction messages using the statedb and applying any rewards to both
 // the processor (coinbase) and any included uncles.
@@ -73,40 +67,23 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	if !common.CalAccesList {
-		list := state.AccessListToBlock[int(block.NumberU64())]
-		if len(list) != 0 {
-			storagePair := make([]preLoadStoragePair, 0)
-			accountExist := make([]common.Address, 0)
-			for _, v := range list {
-				accountExist = append(accountExist, v.Address)
+	if !common.CalAccessList {
+		accessList := state.AccessListToBlock[int(block.NumberU64())]
+		if len(accessList) != 0 {
+			storagePairAddr := make([]common.Address, 0)
+			storagePairHash := make([]common.Hash, 0)
+			addresses := make([]common.Address, 0)
+			for _, v := range accessList {
+				addresses = append(addresses, v.Address)
 				for _, hash := range v.Hashs {
-					storagePair = append(storagePair, preLoadStoragePair{
-						Addr: v.Address,
-						Hash: hash,
-					})
+					storagePairAddr = append(storagePairAddr, v.Address)
+					storagePairHash = append(storagePairHash, hash)
+
 				}
 			}
-			lenStorage := len(storagePair)
-			fmt.Println("preload", block.NumberU64(), "accountList", len(list), "storageList", len(storagePair))
-			statedb.PreLoadAccount(accountExist)
-			var g sync.WaitGroup
-
-			g.Add(lenStorage)
-			batch := 64
-			if lenStorage < batch {
-				batch = lenStorage
-			}
-			for index := 0; index < batch; index++ {
-				start := index
-				go func() {
-					for i := start; i < lenStorage; i += batch {
-						statedb.GetCommittedStateWithOutStore(storagePair[i].Addr, storagePair[i].Hash)
-						g.Done()
-					}
-				}()
-			}
-			g.Wait()
+			statedb.PreLoadAccount(addresses)
+			statedb.PreLoadStorage(storagePairAddr, storagePairHash)
+			log.Info("preload access list", "blockNumber", block.NumberU64(), "account", len(accessList), "storageList", len(storagePairAddr))
 		}
 
 	}
@@ -123,10 +100,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
-	if common.CalAccesList {
-		addrCnt := 0
-		storageCnt := 0
-		list := make([]common.AccessList, 0)
+	if common.CalAccessList {
+		accessList := make([]common.AccessList, 0)
 		for addr, sts := range statedb.OrigForCalAccessList.Data {
 			t := common.AccessList{
 				Address: addr,
@@ -134,13 +109,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			}
 			for key, _ := range sts {
 				t.Hashs = append(t.Hashs, key)
-				storageCnt++
 			}
-			list = append(list, t)
-			addrCnt++
+			accessList = append(accessList, t)
 		}
-		if len(list) != 0 {
-			data, err := json.Marshal(list)
+		if len(accessList) != 0 {
+			data, err := json.Marshal(accessList)
 			if err != nil {
 				panic(err)
 			}
@@ -149,7 +122,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			}
 		}
 
-		fmt.Println("store", "blockNumber", block.Number(), "accountList", addrCnt, "storageList", storageCnt)
+		log.Info("store access list", "blockNumber", block.Number(), "accountList", len(accessList))
 	}
 	return receipts, allLogs, *usedGas, nil
 }
