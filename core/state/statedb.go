@@ -40,18 +40,26 @@ import (
 )
 
 var (
-	AccessListDB, _ = leveldb.New("./accessList", 512, 512, "")
-	PreCacheData    = make(map[int][][]byte, 0)
+	// AccessListDB: store generated data(key:blockNumber  value:access list)
+	AccessListDB, _ = leveldb.New("./accessList_pall", 512, 512, "")
+
+	// BlockNumToAccessList: Preprocess the access list corresponding to the block
+	BlockNumToAccessList = make(map[int][]common.AccessList, 0)
 )
 
 func init() {
-	ts := time.Now()
-	start := 8000000
-	end := 8200000
-	fmt.Println("statb init", start, end)
-	for index := start; index < end; index++ {
-		data, err := AccessListDB.Get(uint64ToBytes(uint64(index)))
-		list := make([][]byte, 0)
+	if common.CalAccessList {
+		return
+	}
+
+	// import block from 800w to 820w
+	start := 0
+	end := 100000
+
+	fmt.Println("preLoad access list", "from", start, "to", end)
+	for index := start; index <= end; index++ {
+		data, err := AccessListDB.Get(common.Uint64ToBytes(uint64(index)))
+		list := make([]common.AccessList, 0)
 		if len(data) == 0 || err != nil {
 
 		} else {
@@ -59,9 +67,9 @@ func init() {
 				panic(err)
 			}
 		}
-		PreCacheData[index] = list
+		BlockNumToAccessList[index] = list
 	}
-	fmt.Println("statedb init end", time.Now().Sub(ts).Seconds(), len(PreCacheData))
+	fmt.Println("preLoad access list", "size", len(BlockNumToAccessList))
 }
 
 type revision struct {
@@ -94,12 +102,18 @@ type mergedStatus struct {
 	originCode       map[common.Hash]map[common.Hash]Code
 }
 
-func (m *mergedStatus) CalAccessList() [][]byte {
+func (m *mergedStatus) CalAccessList() []common.AccessList {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ans := make([][]byte, 0)
+	ans := make([]common.AccessList, 0)
+	for k, _ := range m.originAccountMap {
+		ans = append(ans, common.AccessList{
+			Address: k,
+			Hashs:   make([]common.Hash, 0),
+		})
+	}
 	for k, _ := range m.originStorageMap {
-		ans = append(ans, []byte(k))
+		ans[0].Hashs = append(ans[0].Hashs, common.BytesToHash([]byte(k)))
 	}
 	return ans
 }
@@ -363,6 +377,84 @@ func (s *StateDB) CalReadAndWrite() {
 	for addr, _ := range s.stateObjects {
 		s.RWSet[addr] = true
 	}
+}
+
+func (s *StateDB) getStateObjectFromDB(addr common.Address) *stateObject {
+	var (
+		data *Account
+		err  error
+	)
+
+	enc, err := s.trie.TryGet(addr.Bytes())
+	if err != nil {
+		s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
+		return nil
+	}
+	if len(enc) == 0 {
+		return nil
+	}
+	data = new(Account)
+	if err := rlp.DecodeBytes(enc, data); err != nil {
+		log.Error("Failed to decode state object", "addr", addr, "err", err)
+		return nil
+	}
+	return newObject(s, addr, *data)
+}
+
+// PreLoadAccount: preload account from access list
+func (s *StateDB) PreLoadAccount(addresses []common.Address) {
+	ll := len(addresses)
+	var g sync.WaitGroup
+	res := make(chan *stateObject, ll)
+	g.Add(ll)
+	for _, addr := range addresses {
+		addr := addr
+		go func() {
+			defer g.Done()
+			res <- s.getStateObjectFromDB(addr)
+		}()
+	}
+	g.Wait()
+	for index := 0; index < ll; index++ {
+		v := <-res
+		if v != nil {
+			s.MergedSts.setOriginAccount(v.address, v.data)
+			//fmt.Println("PPPPPPPPPPPPP", v.address.String(), v.data.Nonce)
+			v.getTrie(s.db)
+		}
+	}
+	close(res)
+}
+
+// PreLoadStorage:preLoad storage from access list
+func (s *StateDB) PreLoadStorage(keys []common.Hash) {
+	lenStorage := len(keys)
+	var g sync.WaitGroup
+
+	g.Add(lenStorage)
+	batch := 64
+	if lenStorage < batch {
+		batch = lenStorage
+	}
+	for index := 0; index < batch; index++ {
+		start := index
+		go func() {
+			for i := start; i < lenStorage; i += batch {
+				enc, _ := s.db.TrieDB().DiskDB().Get(keys[i].Bytes())
+				var value common.Hash
+				if len(enc) > 0 {
+					_, content, _, err := rlp.Split(enc)
+					if err != nil {
+						panic(err)
+					}
+					value.SetBytes(content)
+				}
+				s.MergedSts.SetStorage(keys[i].Bytes(), value)
+				g.Done()
+			}
+		}()
+	}
+	g.Wait()
 }
 
 // Reset clears out all ephemeral state objects from the state db, but keeps
@@ -985,7 +1077,7 @@ func (s *StateDB) FinalUpdateObjs(number uint64) {
 	for addr, obj := range s.MergedSts.writeCachedStateObjects {
 		s.stateObjects[addr] = obj
 	}
-	if !common.NeedStore {
+	if !common.CalAccessList {
 		return
 	}
 
@@ -1000,7 +1092,7 @@ func (s *StateDB) FinalUpdateObjs(number uint64) {
 	if err := AccessListDB.Put(uint64ToBytes(number), data); err != nil {
 		panic(err)
 	}
-	fmt.Println("Update list TO db", number, len(list))
+	fmt.Println("Update list TO db", number, number, "account", len(list), "storage", len(list[0].Hashs))
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.

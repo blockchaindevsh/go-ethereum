@@ -7,8 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
-	"golang.org/x/sync/errgroup"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -166,48 +164,32 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}
 		ch <- struct{}{}
 	}()
 
-	list := state.PreCacheData[int(number)]
-	batch := 64
-	lenList := len(list)
-	if lenList == 0 {
-		return
-	}
-	var g errgroup.Group
-	for index := 0; index < batch; index++ {
-		start := index
-		g.Go(func() error {
-			for start < lenList {
-				key := list[start]
-				enc, _ := bc.db.Get(key)
-				var value common.Hash
-				if len(enc) > 0 {
-					_, content, _, err := rlp.Split(enc)
-					if err != nil {
-						panic(err)
-					}
-					value.SetBytes(content)
-				}
-				//fmt.Println("lllllllllll", hex.EncodeToString(key), value.String())
-				st.MergedSts.SetStorage(key, value)
-				start += batch
+	accessList := state.BlockNumToAccessList[int(number)]
+	if len(accessList) != 0 {
+		storagePairHash := make([]common.Hash, 0)
+		addresses := make([]common.Address, 0)
+		for _, v := range accessList {
+			addresses = append(addresses, v.Address)
+			for _, hash := range v.Hashs {
+				storagePairHash = append(storagePairHash, hash)
 			}
-			return nil
-		})
+		}
+		st.PreLoadAccount(addresses)
+		st.PreLoadStorage(storagePairHash)
+		fmt.Println("PreCache", number, len(accessList), len(storagePairHash))
 	}
-	if err := g.Wait(); err != nil {
-		panic(err)
-	}
-	fmt.Println("Read list TO db", number, len(list))
+
 }
+
 func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) *pallTxManager {
 	preCacheChan := make(chan struct{}, 1)
-	if !common.NeedStore {
+	if !common.CalAccessList {
 		go PreCache(bc, st, blockList[0].NumberU64(), preCacheChan)
 	} else {
 		preCacheChan <- struct{}{}
 	}
 
-	fmt.Println("pall", "from", blockList[0].NumberU64(), "to", blockList[len(blockList)-1].NumberU64())
+	//fmt.Println("pall", "from", blockList[0].NumberU64(), "to", blockList[len(blockList)-1].NumberU64())
 	errCnt = 0
 	txLen := 0
 	gp := uint64(0)
@@ -271,12 +253,11 @@ func NewPallTxManage(blockList types.Blocks, st *state.StateDB, bc *BlockChain) 
 	for _, txIndex := range headTxInGroup {
 		p.txQueue <- txIndex
 	}
-
+	<-preCacheChan
 	if len(blockList[0].Transactions()) == 0 {
 		p.calReward(0, 0)
 	}
 
-	<-preCacheChan
 	if txLen == 0 {
 		p.baseStateDB.FinalUpdateObjs(blockList[0].NumberU64())
 		return p

@@ -145,5 +145,4 @@ func (d *DebugTime) Print() {
 var (
 	DebugInfo         = NewDebugTime()
 	BlockExecuteBatch = int(1)
-	NeedStore         = false
 )
