@@ -53,8 +53,8 @@ func init() {
 	}
 
 	// import block from 800w to 820w
-	start := 0
-	end := 100000
+	start := 8000000
+	end := 8200000
 
 	fmt.Println("preLoad access list", "from", start, "to", end)
 	for index := start; index <= end; index++ {
@@ -102,20 +102,14 @@ type mergedStatus struct {
 	originCode       map[common.Hash]map[common.Hash]Code
 }
 
-func (m *mergedStatus) CalAccessList() []common.AccessList {
+func (m *mergedStatus) CalAccessList() []common.Hash {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ans := make([]common.AccessList, 0)
-	for k, _ := range m.originAccountMap {
-		ans = append(ans, common.AccessList{
-			Address: k,
-			Hashs:   make([]common.Hash, 0),
-		})
-	}
+	hashes := make([]common.Hash, 0)
 	for k, _ := range m.originStorageMap {
-		ans[0].Hashs = append(ans[0].Hashs, common.BytesToHash([]byte(k)))
+		hashes = append(hashes, common.BytesToHash([]byte(k)))
 	}
-	return ans
+	return hashes
 }
 func NewMerged() *mergedStatus {
 	return &mergedStatus{
@@ -1081,18 +1075,28 @@ func (s *StateDB) FinalUpdateObjs(number uint64) {
 		return
 	}
 
-	list := s.MergedSts.CalAccessList()
-	if len(list) == 0 {
+	ans := make([]common.AccessList, 0)
+	for k, _ := range s.stateObjects {
+		ans = append(ans, common.AccessList{
+			Address: k,
+			Hashs:   make([]common.Hash, 0),
+		})
+	}
+
+	hashes := s.MergedSts.CalAccessList()
+	ans[0].Hashs = hashes
+
+	if len(ans) == 0 {
 		return
 	}
-	data, err := json.Marshal(list)
+	data, err := json.Marshal(ans)
 	if err != nil {
 		panic(err)
 	}
 	if err := AccessListDB.Put(uint64ToBytes(number), data); err != nil {
 		panic(err)
 	}
-	fmt.Println("Update list TO db", number, number, "account", len(list), "storage", len(list[0].Hashs))
+	fmt.Println("PreCache", number, len(ans), len(ans[0].Hashs))
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
