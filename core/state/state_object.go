@@ -259,7 +259,7 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	return s.GetCommittedState(db, key)
 }
 
-func (s *stateObject) getCommittedStateFromDB(db Database, key common.Hash) {
+func (s *stateObject) preLoadCommittedStateFromDB(db Database, key common.Hash) {
 	t := s.getTrie(db)
 	enc, _ := t.TryGet(key.Bytes())
 	var value common.Hash
