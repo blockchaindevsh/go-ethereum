@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"io"
@@ -49,7 +48,7 @@ func init() {
 	start := 8000000
 	end := 8200000
 
-	log.Info("preLoad access list", "from", start, "to", end)
+	fmt.Println("preLoad access list", "from", start, "to", end)
 	for index := start; index <= end; index++ {
 		data, err := AccessListDB.Get(common.Uint64ToBytes(uint64(index)))
 		list := make([]common.AccessList, 0)
@@ -62,7 +61,7 @@ func init() {
 		}
 		BlockNumToAccessList[index] = list
 	}
-	log.Info("preLoad access list", "size", len(BlockNumToAccessList))
+	fmt.Println("preLoad access list", "size", len(BlockNumToAccessList))
 }
 
 type OriginStorage struct {
@@ -77,9 +76,6 @@ func NewOriginStorage() *OriginStorage {
 }
 
 func (o *OriginStorage) SetAccount(addr common.Address) {
-	if !common.CalAccessList {
-		return
-	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if _, ok := o.Data[addr]; !ok {
@@ -87,16 +83,13 @@ func (o *OriginStorage) SetAccount(addr common.Address) {
 	}
 }
 
-func (o *OriginStorage) SetOrigin(addr common.Address, hash common.Hash) {
-	if !common.CalAccessList {
-		return
-	}
+func (o *OriginStorage) SetOrigin(addr common.Address, key, value common.Hash) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if _, ok := o.Data[addr]; !ok {
 		o.Data[addr] = make(Storage)
 	}
-	o.Data[addr][hash] = common.Hash{}
+	o.Data[addr][key] = value
 }
 
 func (o *OriginStorage) GetData(addr common.Address, hash common.Hash) common.Hash {
@@ -267,6 +260,7 @@ func (s *stateObject) preLoadCommittedStateFromDB(db Database, key common.Hash) 
 		_, content, _, _ := rlp.Split(enc)
 		value.SetBytes(content)
 	}
+	s.db.OrigForCalAccessList.SetOrigin(s.address, key, value)
 }
 
 // GetCommittedState retrieves a value from the committed account storage trie.
@@ -284,7 +278,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	}
 
 	if !common.CalAccessList {
-		load := s.db.OrigForPreLoad.GetData(s.address, key)
+		load := s.db.OrigForCalAccessList.GetData(s.address, key)
 		s.originStorage[key] = load
 		return load
 	}
@@ -316,7 +310,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		}
 		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
 			s.setError(err)
-			s.db.OrigForCalAccessList.SetOrigin(s.address, key)
+			s.db.OrigForCalAccessList.SetOrigin(s.address, key, common.Hash{})
 			return common.Hash{}
 		}
 	}
@@ -329,7 +323,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		value.SetBytes(content)
 	}
 	s.originStorage[key] = value
-	s.db.OrigForCalAccessList.SetOrigin(s.address, key)
+	s.db.OrigForCalAccessList.SetOrigin(s.address, key, common.Hash{})
 	return value
 }
 

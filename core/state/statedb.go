@@ -64,7 +64,6 @@ func (n *proofList) Delete(key []byte) error {
 // * Accounts
 type StateDB struct {
 	OrigForCalAccessList *OriginStorage
-	OrigForPreLoad       *OriginStorage
 	db                   Database
 	trie                 Trie
 
@@ -124,7 +123,6 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 	}
 	sdb := &StateDB{
 		OrigForCalAccessList: NewOriginStorage(),
-		OrigForPreLoad:       NewOriginStorage(),
 		db:                   db,
 		trie:                 tr,
 		snaps:                snaps,
