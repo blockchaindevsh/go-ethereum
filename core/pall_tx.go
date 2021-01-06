@@ -163,6 +163,7 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}
 	defer func() {
 		ch <- struct{}{}
 	}()
+	return
 
 	accessList := state.BlockNumToAccessList[int(number)]
 	if len(accessList) != 0 {
