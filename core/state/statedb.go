@@ -55,6 +55,7 @@ func init() {
 	// import block from 800w to 820w
 	start := 8000000
 	end := 8200000
+	ts := time.Now()
 
 	fmt.Println("preLoad access list", "from", start, "to", end)
 	for index := start; index <= end; index++ {
@@ -69,7 +70,7 @@ func init() {
 		}
 		BlockNumToAccessList[index] = list
 	}
-	fmt.Println("preLoad access list", "size", len(BlockNumToAccessList))
+	fmt.Println("preLoad access list", "size", len(BlockNumToAccessList), time.Now().Sub(ts).Seconds())
 }
 
 type revision struct {

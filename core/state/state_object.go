@@ -225,6 +225,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		if metrics.EnabledExpensive {
 			defer func(start time.Time) { s.db.StorageReads += time.Since(start) }(time.Now())
 		}
+		fmt.Println("228--------", s.address.String(), s.data.Incarnation, key)
 		if enc, err = s.getTrie(db).TryGet(dbKey); err != nil {
 			s.setError(err)
 			return common.Hash{}
