@@ -103,12 +103,12 @@ type mergedStatus struct {
 	originCode       map[common.Hash]map[common.Hash]Code
 }
 
-func (m *mergedStatus) CalAccessList() []common.Hash {
+func (m *mergedStatus) CalAccessList() [][]byte {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	hashes := make([]common.Hash, 0)
+	hashes := make([][]byte, 0)
 	for k, _ := range m.originStorageMap {
-		hashes = append(hashes, common.BytesToHash([]byte(k)))
+		hashes = append(hashes, []byte(k))
 	}
 	return hashes
 }
@@ -414,7 +414,6 @@ func (s *StateDB) PreLoadAccount(addresses []common.Address) {
 		v := <-res
 		if v != nil {
 			s.MergedSts.setOriginAccount(v.address, v.data)
-			//fmt.Println("PPPPPPPPPPPPP", v.address.String(), v.data.Nonce)
 			v.getTrie(s.db)
 		}
 	}
@@ -422,7 +421,7 @@ func (s *StateDB) PreLoadAccount(addresses []common.Address) {
 }
 
 // PreLoadStorage:preLoad storage from access list
-func (s *StateDB) PreLoadStorage(keys []common.Hash) {
+func (s *StateDB) PreLoadStorage(keys [][]byte) {
 	lenStorage := len(keys)
 	var g sync.WaitGroup
 
@@ -435,7 +434,7 @@ func (s *StateDB) PreLoadStorage(keys []common.Hash) {
 		start := index
 		go func() {
 			for i := start; i < lenStorage; i += batch {
-				enc, _ := s.db.TrieDB().DiskDB().Get(keys[i].Bytes())
+				enc, _ := s.db.TrieDB().DiskDB().Get(keys[i])
 				var value common.Hash
 				if len(enc) > 0 {
 					_, content, _, err := rlp.Split(enc)
@@ -444,7 +443,7 @@ func (s *StateDB) PreLoadStorage(keys []common.Hash) {
 					}
 					value.SetBytes(content)
 				}
-				s.MergedSts.SetStorage(keys[i].Bytes(), value)
+				s.MergedSts.SetStorage(keys[i], value)
 				g.Done()
 			}
 		}()
@@ -870,7 +869,6 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 		var exist bool
 		data, exist = s.MergedSts.GetAccountData(addr)
 		if !exist {
-			fmt.Println("874----", addr.String())
 			enc, err := s.trie.TryGet(addr.Bytes())
 			if err != nil {
 				s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
@@ -1081,13 +1079,12 @@ func (s *StateDB) FinalUpdateObjs(number uint64) {
 	for k, _ := range s.stateObjects {
 		ans = append(ans, common.AccessList{
 			Address: k,
-			Hashs:   make([]common.Hash, 0),
+			Hashs:   make([][]byte, 0),
 		})
 	}
 
 	hashes := s.MergedSts.CalAccessList()
 	ans[0].Hashs = hashes
-
 	if len(ans) == 0 {
 		return
 	}
@@ -1098,7 +1095,7 @@ func (s *StateDB) FinalUpdateObjs(number uint64) {
 	if err := AccessListDB.Put(uint64ToBytes(number), data); err != nil {
 		panic(err)
 	}
-	fmt.Println("PreCache", number, len(ans), len(ans[0].Hashs))
+	fmt.Println("PreCache-Store", number, len(ans), len(ans[0].Hashs))
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.

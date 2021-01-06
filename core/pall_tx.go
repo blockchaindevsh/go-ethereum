@@ -166,7 +166,7 @@ func PreCache(bc *BlockChain, st *state.StateDB, number uint64, ch chan struct{}
 
 	accessList := state.BlockNumToAccessList[int(number)]
 	if len(accessList) != 0 {
-		storagePairHash := make([]common.Hash, 0)
+		storagePairHash := make([][]byte, 0)
 		addresses := make([]common.Address, 0)
 		for _, v := range accessList {
 			addresses = append(addresses, v.Address)
