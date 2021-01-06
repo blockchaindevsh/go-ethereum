@@ -870,6 +870,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 		var exist bool
 		data, exist = s.MergedSts.GetAccountData(addr)
 		if !exist {
+			fmt.Println("874----", addr.String())
 			enc, err := s.trie.TryGet(addr.Bytes())
 			if err != nil {
 				s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
