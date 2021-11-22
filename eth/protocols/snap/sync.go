@@ -1760,26 +1760,26 @@ func (s *Syncer) processAccountResponse(res *accountResponse) {
 			}
 		}
 		// Check if the account is a contract with an unknown storage trie
-		if account.Root != emptyRoot {
-			if node, err := s.db.Get(account.Root[:]); err != nil || node == nil {
-				// If there was a previous large state retrieval in progress,
-				// don't restart it from scratch. This happens if a sync cycle
-				// is interrupted and resumed later. However, *do* update the
-				// previous root hash.
-				if subtasks, ok := res.task.SubTasks[res.hashes[i]]; ok {
-					log.Debug("Resuming large storage retrieval", "account", res.hashes[i], "root", account.Root)
-					for _, subtask := range subtasks {
-						subtask.root = account.Root
-					}
-					res.task.needHeal[i] = true
-					resumed[res.hashes[i]] = struct{}{}
-				} else {
-					res.task.stateTasks[res.hashes[i]] = account.Root
-				}
-				res.task.needState[i] = true
-				res.task.pend++
-			}
-		}
+		// if account.Root != emptyRoot {
+		// 	if node, err := s.db.Get(account.Root[:]); err != nil || node == nil {
+		// 		// If there was a previous large state retrieval in progress,
+		// 		// don't restart it from scratch. This happens if a sync cycle
+		// 		// is interrupted and resumed later. However, *do* update the
+		// 		// previous root hash.
+		// 		if subtasks, ok := res.task.SubTasks[res.hashes[i]]; ok {
+		// 			log.Debug("Resuming large storage retrieval", "account", res.hashes[i], "root", account.Root)
+		// 			for _, subtask := range subtasks {
+		// 				subtask.root = account.Root
+		// 			}
+		// 			res.task.needHeal[i] = true
+		// 			resumed[res.hashes[i]] = struct{}{}
+		// 		} else {
+		// 			res.task.stateTasks[res.hashes[i]] = account.Root
+		// 		}
+		// 		res.task.needState[i] = true
+		// 		res.task.pend++
+		// 	}
+		// }
 	}
 	// Delete any subtasks that have been aborted but not resumed. This may undo
 	// some progress if a new peer gives us less accounts than an old one, but for
@@ -1877,7 +1877,7 @@ func (s *Syncer) processStorageResponse(res *storageResponse) {
 			if account != hash {
 				continue
 			}
-			acc := res.mainTask.res.accounts[j]
+			// acc := res.mainTask.res.accounts[j]
 
 			// If the packet contains multiple contract storage slots, all
 			// but the last are surely complete. The last contract may be
@@ -1929,9 +1929,9 @@ func (s *Syncer) processStorageResponse(res *storageResponse) {
 						},
 					}
 					tasks = append(tasks, &storageTask{
-						Next:     common.Hash{},
-						Last:     r.End(),
-						root:     acc.Root,
+						Next: common.Hash{},
+						Last: r.End(),
+						// root:     acc.Root,
 						genBatch: batch,
 						genTrie:  trie.NewStackTrie(batch),
 					})
@@ -1943,15 +1943,15 @@ func (s *Syncer) processStorageResponse(res *storageResponse) {
 							},
 						}
 						tasks = append(tasks, &storageTask{
-							Next:     r.Start(),
-							Last:     r.End(),
-							root:     acc.Root,
+							Next: r.Start(),
+							Last: r.End(),
+							// root:     acc.Root,
 							genBatch: batch,
 							genTrie:  trie.NewStackTrie(batch),
 						})
 					}
 					for _, task := range tasks {
-						log.Debug("Created storage sync task", "account", account, "root", acc.Root, "from", task.Next, "last", task.Last)
+						log.Debug("Created storage sync task", "account", account, "root", common.Hash{}, "from", task.Next, "last", task.Last)
 					}
 					res.mainTask.SubTasks[account] = tasks
 
@@ -2148,7 +2148,8 @@ func (s *Syncer) forwardAccountTask(task *accountTask) {
 		if task.needCode[i] || task.needState[i] {
 			break
 		}
-		slim := snapshot.SlimAccountRLP(res.accounts[i].Nonce, res.accounts[i].Balance, res.accounts[i].Root, res.accounts[i].CodeHash)
+		// TODO: root hash
+		slim := snapshot.SlimAccountRLP(res.accounts[i].Nonce, res.accounts[i].Balance, common.Hash{}, res.accounts[i].CodeHash)
 		rawdb.WriteAccountSnapshot(batch, hash, slim)
 
 		// If the task is complete, drop it into the stack trie to generate
@@ -2745,7 +2746,7 @@ func (s *Syncer) onHealState(paths [][]byte, value []byte) error {
 		if err := rlp.DecodeBytes(value, &account); err != nil {
 			return nil
 		}
-		blob := snapshot.SlimAccountRLP(account.Nonce, account.Balance, account.Root, account.CodeHash)
+		blob := snapshot.SlimAccountRLP(account.Nonce, account.Balance, common.Hash{}, account.CodeHash)
 		rawdb.WriteAccountSnapshot(s.stateWriter, common.BytesToHash(paths[0]), blob)
 		s.accountHealed += 1
 		s.accountHealedBytes += common.StorageSize(1 + common.HashLength + len(blob))

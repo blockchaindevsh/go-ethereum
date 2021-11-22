@@ -146,9 +146,9 @@ func (s *StateDB) DumpToCollector(c DumpCollector, conf *DumpConfig) (nextKey []
 			panic(err)
 		}
 		account := DumpAccount{
-			Balance:   data.Balance.String(),
-			Nonce:     data.Nonce,
-			Root:      data.Root[:],
+			Balance: data.Balance.String(),
+			Nonce:   data.Nonce,
+			// Root:      data.Root[:],
 			CodeHash:  data.CodeHash,
 			SecureKey: it.Key,
 		}

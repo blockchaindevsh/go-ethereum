@@ -422,15 +422,16 @@ func handleGetProofs(msg Decoder) (serveRequestFn, uint64, uint64, error) {
 				}
 			default:
 				// Account key specified, open a storage trie
-				account, err := getAccount(statedb.TrieDB(), root, common.BytesToHash(request.AccKey))
-				if err != nil {
-					p.Log().Warn("Failed to retrieve account for proof", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "err", err)
-					p.bumpInvalid()
-					continue
-				}
-				trie, err = statedb.OpenStorageTrie(common.BytesToHash(request.AccKey), account.Root)
+				// account, err := getAccount(statedb.TrieDB(), root, common.BytesToHash(request.AccKey))
+				// if err != nil {
+				// 	p.Log().Warn("Failed to retrieve account for proof", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "err", err)
+				// 	p.bumpInvalid()
+				// 	continue
+				// }
+				// TODO: root hash
+				trie, err = statedb.OpenStorageTrie(common.BytesToHash(request.AccKey), common.Hash{})
 				if trie == nil || err != nil {
-					p.Log().Warn("Failed to open storage trie for proof", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "root", account.Root, "err", err)
+					p.Log().Warn("Failed to open storage trie for proof", "block", header.Number, "hash", header.Hash(), "account", common.BytesToHash(request.AccKey), "root", common.Hash{}, "err", err)
 					continue
 				}
 			}

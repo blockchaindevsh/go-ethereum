@@ -106,9 +106,9 @@ func newObject(db *StateDB, address common.Address, data types.StateAccount) *st
 	if data.CodeHash == nil {
 		data.CodeHash = emptyCodeHash
 	}
-	if data.Root == (common.Hash{}) {
-		data.Root = emptyRoot
-	}
+	//if data.Root == (common.Hash{}) {
+	//	data.Root = emptyRoot
+	//}
 	return &stateObject{
 		db:             db,
 		address:        address,
@@ -149,20 +149,10 @@ func (s *stateObject) touch() {
 
 func (s *stateObject) getTrie(db Database) Trie {
 	if s.trie == nil {
-		// Try fetching from prefetcher first
-		// We don't prefetch empty tries
-		if s.data.Root != emptyRoot && s.db.prefetcher != nil {
-			// When the miner is creating the pending state, there is no
-			// prefetcher
-			s.trie = s.db.prefetcher.trie(s.data.Root)
-		}
-		if s.trie == nil {
-			var err error
-			s.trie, err = db.OpenStorageTrie(s.addrHash, s.data.Root)
-			if err != nil {
-				s.trie, _ = db.OpenStorageTrie(s.addrHash, common.Hash{})
-				s.setError(fmt.Errorf("can't create storage trie: %v", err))
-			}
+		var err error
+		s.trie, err = db.OpenStorageTrieNew(s.address, s.data.Incarnation)
+		if err != nil {
+			s.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
 	}
 	return s.trie
@@ -203,6 +193,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 		meter *time.Duration
 	)
 	readStart := time.Now()
+
 	if metrics.EnabledExpensive {
 		// If the snap is 'under construction', the first lookup may fail. If that
 		// happens, we don't want to double-count the time elapsed. Thus this
@@ -213,37 +204,20 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 			}
 		}()
 	}
-	if s.db.snap != nil {
-		if metrics.EnabledExpensive {
-			meter = &s.db.SnapshotStorageReads
-		}
-		// If the object was destructed in *this* block (and potentially resurrected),
-		// the storage has been cleared out, and we should *not* consult the previous
-		// snapshot about any storage values. The only possible alternatives are:
-		//   1) resurrect happened, and new slot values were set -- those should
-		//      have been handles via pendingStorage above.
-		//   2) we don't have new values, and can deliver empty response back
-		if _, destructed := s.db.snapDestructs[s.addrHash]; destructed {
-			return common.Hash{}
-		}
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.Keccak256Hash(key.Bytes()))
+	if meter != nil {
+		// If we already spent time checking the snapshot, account for it
+		// and reset the readStart
+		*meter += time.Since(readStart)
+		readStart = time.Now()
 	}
-	// If the snapshot is unavailable or reading from it fails, load from the database.
-	if s.db.snap == nil || err != nil {
-		if meter != nil {
-			// If we already spent time checking the snapshot, account for it
-			// and reset the readStart
-			*meter += time.Since(readStart)
-			readStart = time.Now()
-		}
-		if metrics.EnabledExpensive {
-			meter = &s.db.StorageReads
-		}
-		if enc, err = s.getTrie(db).TryGet(key.Bytes()); err != nil {
-			s.setError(err)
-			return common.Hash{}
-		}
+	if metrics.EnabledExpensive {
+		meter = &s.db.StorageReads
 	}
+	if enc, err = s.getTrie(db).TryGet(key[:]); err != nil {
+		s.setError(err)
+		return common.Hash{}
+	}
+
 	var value common.Hash
 	if len(enc) > 0 {
 		_, content, _, err := rlp.Split(enc)
@@ -302,15 +276,8 @@ func (s *stateObject) setState(key, value common.Hash) {
 // finalise moves all dirty storage slots into the pending area to be hashed or
 // committed later. It is invoked at the end of every transaction.
 func (s *stateObject) finalise(prefetch bool) {
-	slotsToPrefetch := make([][]byte, 0, len(s.dirtyStorage))
 	for key, value := range s.dirtyStorage {
 		s.pendingStorage[key] = value
-		if value != s.originStorage[key] {
-			slotsToPrefetch = append(slotsToPrefetch, common.CopyBytes(key[:])) // Copy needed for closure
-		}
-	}
-	if s.db.prefetcher != nil && prefetch && len(slotsToPrefetch) > 0 && s.data.Root != emptyRoot {
-		s.db.prefetcher.prefetch(s.data.Root, slotsToPrefetch)
 	}
 	if len(s.dirtyStorage) > 0 {
 		s.dirtyStorage = make(Storage)
@@ -320,22 +287,20 @@ func (s *stateObject) finalise(prefetch bool) {
 // updateTrie writes cached storage modifications into the object's storage trie.
 // It will return nil if the trie has not been loaded and no changes have been made
 func (s *stateObject) updateTrie(db Database) Trie {
+	if s.data.Deleted {
+		return nil
+	}
 	// Make sure all dirty slots are finalized into the pending storage area
-	s.finalise(false) // Don't prefetch anymore, pull directly if need be
+	s.finalise(false)
 	if len(s.pendingStorage) == 0 {
 		return s.trie
 	}
-	// Track the amount of time wasted on updating the storage trie
+	// Track the amount of time wasted on updating the storge trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
 	}
-	// The snapshot storage map for the object
-	var storage map[common.Hash][]byte
 	// Insert all the pending updates into the trie
 	tr := s.getTrie(db)
-	hasher := s.db.hasher
-
-	usedStorage := make([][]byte, 0, len(s.pendingStorage))
 	for key, value := range s.pendingStorage {
 		// Skip noop changes, persist actual changes
 		if value == s.originStorage[key] {
@@ -353,21 +318,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 			s.setError(tr.TryUpdate(key[:], v))
 			s.db.StorageUpdated += 1
 		}
-		// If state snapshotting is active, cache the data til commit
-		if s.db.snap != nil {
-			if storage == nil {
-				// Retrieve the old storage map, if available, create a new one otherwise
-				if storage = s.db.snapStorage[s.addrHash]; storage == nil {
-					storage = make(map[common.Hash][]byte)
-					s.db.snapStorage[s.addrHash] = storage
-				}
-			}
-			storage[crypto.HashData(hasher, key[:])] = v // v will be nil if it's deleted
-		}
-		usedStorage = append(usedStorage, common.CopyBytes(key[:])) // Copy needed for closure
-	}
-	if s.db.prefetcher != nil {
-		s.db.prefetcher.used(s.data.Root, usedStorage)
+
 	}
 	if len(s.pendingStorage) > 0 {
 		s.pendingStorage = make(Storage)
@@ -385,7 +336,7 @@ func (s *stateObject) updateRoot(db Database) {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageHashes += time.Since(start) }(time.Now())
 	}
-	s.data.Root = s.trie.Hash()
+	//s.data.Root = s.trie.Hash()
 }
 
 // CommitTrie the storage trie of the object to db.
@@ -398,14 +349,11 @@ func (s *stateObject) CommitTrie(db Database) (int, error) {
 	if s.dbErr != nil {
 		return 0, s.dbErr
 	}
-	// Track the amount of time wasted on committing the storage trie
+	// Track the amount of time wasted on committing the storge trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
-	root, committed, err := s.trie.Commit(nil)
-	if err == nil {
-		s.data.Root = root
-	}
+	_, committed, err := s.trie.Commit(nil)
 	return committed, err
 }
 

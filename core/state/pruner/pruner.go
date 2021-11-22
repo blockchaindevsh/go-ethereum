@@ -429,22 +429,22 @@ func extractGenesis(db ethdb.Database, stateBloom *stateBloom) error {
 			if err := rlp.DecodeBytes(accIter.LeafBlob(), &acc); err != nil {
 				return err
 			}
-			if acc.Root != emptyRoot {
-				storageTrie, err := trie.NewSecure(acc.Root, trie.NewDatabase(db))
-				if err != nil {
-					return err
-				}
-				storageIter := storageTrie.NodeIterator(nil)
-				for storageIter.Next(true) {
-					hash := storageIter.Hash()
-					if hash != (common.Hash{}) {
-						stateBloom.Put(hash.Bytes(), nil)
-					}
-				}
-				if storageIter.Error() != nil {
-					return storageIter.Error()
-				}
-			}
+			// if acc.Root != emptyRoot {
+			// 	storageTrie, err := trie.NewSecure(acc.Root, trie.NewDatabase(db))
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	storageIter := storageTrie.NodeIterator(nil)
+			// 	for storageIter.Next(true) {
+			// 		hash := storageIter.Hash()
+			// 		if hash != (common.Hash{}) {
+			// 			stateBloom.Put(hash.Bytes(), nil)
+			// 		}
+			// 	}
+			// 	if storageIter.Error() != nil {
+			// 		return storageIter.Error()
+			// 	}
+			// }
 			if !bytes.Equal(acc.CodeHash, emptyCode) {
 				stateBloom.Put(acc.CodeHash, nil)
 			}
