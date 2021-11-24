@@ -458,106 +458,12 @@ func (db *Database) Nodes() []common.Hash {
 // and external node(e.g. storage trie root), all internal trie nodes
 // are referenced together by database itself.
 func (db *Database) Reference(child common.Hash, parent common.Hash) {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
-	db.reference(child, parent)
-}
-
-// reference is the private locked version of Reference.
-func (db *Database) reference(child common.Hash, parent common.Hash) {
-	// If the node does not exist, it's a node pulled from disk, skip
-	node, ok := db.dirties[child]
-	if !ok {
-		return
-	}
-	// If the reference already exists, only duplicate for roots
-	if db.dirties[parent].children == nil {
-		db.dirties[parent].children = make(map[common.Hash]uint16)
-		db.childrenSize += cachedNodeChildrenSize
-	} else if _, ok = db.dirties[parent].children[child]; ok && parent != (common.Hash{}) {
-		return
-	}
-	node.parents++
-	db.dirties[parent].children[child]++
-	if db.dirties[parent].children[child] == 1 {
-		db.childrenSize += common.HashLength + 2 // uint16 counter
-	}
+	panic("not supported")
 }
 
 // Dereference removes an existing reference from a root node.
 func (db *Database) Dereference(root common.Hash) {
-	// Sanity check to ensure that the meta-root is not removed
-	if root == (common.Hash{}) {
-		log.Error("Attempted to dereference the trie cache meta root")
-		return
-	}
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
-	nodes, storage, start := len(db.dirties), db.dirtiesSize, time.Now()
-	db.dereference(root, common.Hash{})
-
-	db.gcnodes += uint64(nodes - len(db.dirties))
-	db.gcsize += storage - db.dirtiesSize
-	db.gctime += time.Since(start)
-
-	memcacheGCTimeTimer.Update(time.Since(start))
-	memcacheGCSizeMeter.Mark(int64(storage - db.dirtiesSize))
-	memcacheGCNodesMeter.Mark(int64(nodes - len(db.dirties)))
-
-	log.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.dirties), "size", storage-db.dirtiesSize, "time", time.Since(start),
-		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.dirties), "livesize", db.dirtiesSize)
-}
-
-// dereference is the private locked version of Dereference.
-func (db *Database) dereference(child common.Hash, parent common.Hash) {
-	// Dereference the parent-child
-	node := db.dirties[parent]
-
-	if node.children != nil && node.children[child] > 0 {
-		node.children[child]--
-		if node.children[child] == 0 {
-			delete(node.children, child)
-			db.childrenSize -= (common.HashLength + 2) // uint16 counter
-		}
-	}
-	// If the child does not exist, it's a previously committed node.
-	node, ok := db.dirties[child]
-	if !ok {
-		return
-	}
-	// If there are no more references to the child, delete it and cascade
-	if node.parents > 0 {
-		// This is a special cornercase where a node loaded from disk (i.e. not in the
-		// memcache any more) gets reinjected as a new node (short node split into full,
-		// then reverted into short), causing a cached node to have no parents. That is
-		// no problem in itself, but don't make maxint parents out of it.
-		node.parents--
-	}
-	if node.parents == 0 {
-		// Remove the node from the flush-list
-		switch child {
-		case db.oldest:
-			db.oldest = node.flushNext
-			db.dirties[node.flushNext].flushPrev = common.Hash{}
-		case db.newest:
-			db.newest = node.flushPrev
-			db.dirties[node.flushPrev].flushNext = common.Hash{}
-		default:
-			db.dirties[node.flushPrev].flushNext = node.flushNext
-			db.dirties[node.flushNext].flushPrev = node.flushPrev
-		}
-		// Dereference all children and delete the node
-		node.forChilds(func(hash common.Hash) {
-			db.dereference(hash, child)
-		})
-		delete(db.dirties, child)
-		db.dirtiesSize -= common.StorageSize(common.HashLength + int(node.size))
-		if node.children != nil {
-			db.childrenSize -= cachedNodeChildrenSize
-		}
-	}
+	panic("not supported")
 }
 
 // Cap iteratively flushes old but still referenced trie nodes until the total
