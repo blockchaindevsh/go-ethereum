@@ -20,6 +20,13 @@ package utils
 import (
 	"compress/gzip"
 	"fmt"
+	"io"
+	"os"
+	"os/signal"
+	"runtime"
+	"strings"
+	"syscall"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -30,12 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rlp"
-	"io"
-	"os"
-	"os/signal"
-	"runtime"
-	"strings"
-	"syscall"
 )
 
 const (

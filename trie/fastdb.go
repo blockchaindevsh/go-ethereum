@@ -11,8 +11,9 @@ import (
 )
 
 type fastDB struct {
-	db    *Database
-	cache map[string]*[]byte // nil if it is removed
+	db     *Database
+	cache  map[string]*[]byte // nil if it is removed
+	prefix []byte
 }
 
 func NewFastDB(db *Database) *fastDB {
@@ -20,6 +21,21 @@ func NewFastDB(db *Database) *fastDB {
 		db:    db,
 		cache: make(map[string]*[]byte),
 	}
+}
+
+func NewFastDBWithPrefix(db *Database, prefix []byte) *fastDB {
+	return &fastDB{
+		db:     db,
+		cache:  make(map[string]*[]byte),
+		prefix: prefix,
+	}
+}
+
+func (f *fastDB) makeDbKey(key []byte) []byte {
+	dbKey := make([]byte, 0)
+	dbKey = append(dbKey, f.prefix...)
+	dbKey = append(dbKey, key...)
+	return dbKey
 }
 
 func (f *fastDB) GetKey(key []byte) []byte {
@@ -31,19 +47,11 @@ func (f *fastDB) GetKey(key []byte) []byte {
 }
 
 func (f *fastDB) TryGet(key []byte) ([]byte, error) {
-	if v, ok := f.cache[string(key)]; ok {
-		if v == nil {
-			return nil, fmt.Errorf("not found")
-		}
-		return *v, nil
-	}
-	data, _ := f.db.diskdb.Get(key)
-	return data, nil
+	return f.db.Get(f.makeDbKey(key))
 }
 
 func (f *fastDB) TryUpdate(key, value []byte) error {
-	f.cache[string(key)] = &value
-	return nil
+	return f.db.Put(f.makeDbKey(key), value)
 }
 
 func (f *fastDB) Update(key, value []byte) {
@@ -61,8 +69,7 @@ func (f *fastDB) Update(key, value []byte) {
 // }
 
 func (f *fastDB) TryDelete(key []byte) error {
-	f.cache[string(key)] = nil
-	return nil
+	return f.db.Delete(f.makeDbKey(key))
 }
 
 // Return rawdb CRUD operation hash
@@ -93,18 +100,19 @@ func (f *fastDB) Hash() common.Hash {
 }
 
 func (f *fastDB) Commit(onleaf LeafCallback) (common.Hash, error) {
-	batch := f.db.diskdb.NewBatch()
-	for k, v := range f.cache {
-		if v == nil {
-			batch.Delete([]byte(k))
-		} else if err := batch.Put([]byte(k), *v); err != nil {
-			return common.Hash{}, nil
-		}
-	}
-	err := batch.Write()
-	hash := f.Hash()
-	f.cache = make(map[string]*[]byte)
-	return hash, err
+	// batch := f.db.diskdb.NewBatch()
+	// for k, v := range f.cache {
+	// 	if v == nil {
+	// 		batch.Delete([]byte(k))
+	// 	} else if err := batch.Put([]byte(k), *v); err != nil {
+	// 		return common.Hash{}, nil
+	// 	}
+	// }
+	// err := batch.Write()
+	// hash := f.Hash()
+	// f.cache = make(map[string]*[]byte)
+	// return hash, err
+	return common.Hash{}, nil
 }
 func (f *fastDB) NodeIterator(startKey []byte) NodeIterator {
 	panic("fastdb NodeIterator not implement")

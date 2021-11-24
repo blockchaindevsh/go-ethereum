@@ -228,6 +228,7 @@ func (s *StateDB) Empty(addr common.Address) bool {
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 	stateObject := s.getStateObject(addr)
+
 	if stateObject != nil {
 		return stateObject.Balance()
 	}
@@ -325,9 +326,8 @@ func (s *StateDB) StorageTrie(addr common.Address) Trie {
 	if stateObject == nil {
 		return nil
 	}
-	cpy := stateObject.deepCopy(s)
-	cpy.updateTrie(s.db)
-	return cpy.getTrie(s.db)
+
+	return stateObject.trie
 }
 
 func (s *StateDB) HasSuicided(addr common.Address) bool {
@@ -479,11 +479,13 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.AccountReads += time.Since(start) }(time.Now())
 	}
+
 	enc, err := s.trie.TryGet(addr.Bytes())
 	if err != nil {
 		s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
 		return nil
 	}
+
 	if len(enc) == 0 {
 		return nil
 	}
@@ -591,62 +593,63 @@ func (db *StateDB) ForEachStorage(addr common.Address, cb func(key, value common
 // Copy creates a deep, independent copy of the state.
 // Snapshots of the copied state cannot be applied to the copy.
 func (s *StateDB) Copy() *StateDB {
+	panic("unsupported")
 	// Copy all the basic fields, initialize the memory ones
-	state := &StateDB{
-		db:                  s.db,
-		trie:                s.db.CopyTrie(s.trie),
-		stateObjects:        make(map[common.Address]*stateObject, len(s.journal.dirties)),
-		stateObjectsPending: make(map[common.Address]struct{}, len(s.stateObjectsPending)),
-		stateObjectsDirty:   make(map[common.Address]struct{}, len(s.journal.dirties)),
-		refund:              s.refund,
-		logs:                make(map[common.Hash][]*types.Log, len(s.logs)),
-		logSize:             s.logSize,
-		preimages:           make(map[common.Hash][]byte, len(s.preimages)),
-		journal:             newJournal(),
-	}
-	// Copy the dirty states, logs, and preimages
-	for addr := range s.journal.dirties {
-		// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
-		// and in the Finalise-method, there is a case where an object is in the journal but not
-		// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
-		// nil
-		if object, exist := s.stateObjects[addr]; exist {
-			// Even though the original object is dirty, we are not copying the journal,
-			// so we need to make sure that anyside effect the journal would have caused
-			// during a commit (or similar op) is already applied to the copy.
-			state.stateObjects[addr] = object.deepCopy(state)
+	// state := &StateDB{
+	// 	db:                  s.db,
+	// 	trie:                s.db.CopyTrie(s.trie),
+	// 	stateObjects:        make(map[common.Address]*stateObject, len(s.journal.dirties)),
+	// 	stateObjectsPending: make(map[common.Address]struct{}, len(s.stateObjectsPending)),
+	// 	stateObjectsDirty:   make(map[common.Address]struct{}, len(s.journal.dirties)),
+	// 	refund:              s.refund,
+	// 	logs:                make(map[common.Hash][]*types.Log, len(s.logs)),
+	// 	logSize:             s.logSize,
+	// 	preimages:           make(map[common.Hash][]byte, len(s.preimages)),
+	// 	journal:             newJournal(),
+	// }
+	// // Copy the dirty states, logs, and preimages
+	// for addr := range s.journal.dirties {
+	// 	// As documented [here](https://github.com/ethereum/go-ethereum/pull/16485#issuecomment-380438527),
+	// 	// and in the Finalise-method, there is a case where an object is in the journal but not
+	// 	// in the stateObjects: OOG after touch on ripeMD prior to Byzantium. Thus, we need to check for
+	// 	// nil
+	// 	if object, exist := s.stateObjects[addr]; exist {
+	// 		// Even though the original object is dirty, we are not copying the journal,
+	// 		// so we need to make sure that anyside effect the journal would have caused
+	// 		// during a commit (or similar op) is already applied to the copy.
+	// 		state.stateObjects[addr] = object.deepCopy(state)
 
-			state.stateObjectsDirty[addr] = struct{}{}   // Mark the copy dirty to force internal (code/state) commits
-			state.stateObjectsPending[addr] = struct{}{} // Mark the copy pending to force external (account) commits
-		}
-	}
-	// Above, we don't copy the actual journal. This means that if the copy is copied, the
-	// loop above will be a no-op, since the copy's journal is empty.
-	// Thus, here we iterate over stateObjects, to enable copies of copies
-	for addr := range s.stateObjectsPending {
-		if _, exist := state.stateObjects[addr]; !exist {
-			state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
-		}
-		state.stateObjectsPending[addr] = struct{}{}
-	}
-	for addr := range s.stateObjectsDirty {
-		if _, exist := state.stateObjects[addr]; !exist {
-			state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
-		}
-		state.stateObjectsDirty[addr] = struct{}{}
-	}
-	for hash, logs := range s.logs {
-		cpy := make([]*types.Log, len(logs))
-		for i, l := range logs {
-			cpy[i] = new(types.Log)
-			*cpy[i] = *l
-		}
-		state.logs[hash] = cpy
-	}
-	for hash, preimage := range s.preimages {
-		state.preimages[hash] = preimage
-	}
-	return state
+	// 		state.stateObjectsDirty[addr] = struct{}{}   // Mark the copy dirty to force internal (code/state) commits
+	// 		state.stateObjectsPending[addr] = struct{}{} // Mark the copy pending to force external (account) commits
+	// 	}
+	// }
+	// // Above, we don't copy the actual journal. This means that if the copy is copied, the
+	// // loop above will be a no-op, since the copy's journal is empty.
+	// // Thus, here we iterate over stateObjects, to enable copies of copies
+	// for addr := range s.stateObjectsPending {
+	// 	if _, exist := state.stateObjects[addr]; !exist {
+	// 		state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
+	// 	}
+	// 	state.stateObjectsPending[addr] = struct{}{}
+	// }
+	// for addr := range s.stateObjectsDirty {
+	// 	if _, exist := state.stateObjects[addr]; !exist {
+	// 		state.stateObjects[addr] = s.stateObjects[addr].deepCopy(state)
+	// 	}
+	// 	state.stateObjectsDirty[addr] = struct{}{}
+	// }
+	// for hash, logs := range s.logs {
+	// 	cpy := make([]*types.Log, len(logs))
+	// 	for i, l := range logs {
+	// 		cpy[i] = new(types.Log)
+	// 		*cpy[i] = *l
+	// 	}
+	// 	state.logs[hash] = cpy
+	// }
+	// for hash, preimage := range s.preimages {
+	// 	state.preimages[hash] = preimage
+	// }
+	// return state
 }
 
 // Snapshot returns an identifier for the current revision of the state.
@@ -720,7 +723,6 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 		}
 		obj.updateRoot(s.db)
 		s.updateStateObject(obj)
-
 	}
 	if len(s.stateObjectsPending) > 0 {
 		s.stateObjectsPending = make(map[common.Address]struct{})

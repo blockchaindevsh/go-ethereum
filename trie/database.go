@@ -89,6 +89,9 @@ type Database struct {
 	preimagesSize common.StorageSize // Storage size of the preimages cache
 
 	lock sync.RWMutex
+
+	dirtyKVs    map[string]*[]byte // nil is deletec
+	dirtyKVSize common.StorageSize
 }
 
 // rawNode is a simple binary blob used to differentiate between collapsed trie
@@ -286,6 +289,7 @@ func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, cache int, journal string)
 			cleans = fastcache.LoadFromFileOrNew(journal, cache*1024*1024)
 		}
 	}
+
 	return &Database{
 		diskdb: diskdb,
 		cleans: cleans,
@@ -293,6 +297,7 @@ func NewDatabaseWithCache(diskdb ethdb.KeyValueStore, cache int, journal string)
 			children: make(map[common.Hash]uint16),
 		}},
 		preimages: make(map[common.Hash][]byte),
+		dirtyKVs:  make(map[string]*[]byte),
 	}
 }
 
@@ -630,14 +635,55 @@ func (db *Database) Commit(node common.Hash, report bool, callback func(common.H
 	return nil
 }
 
+func (db *Database) Get(key []byte) ([]byte, error) {
+	if v, ok := db.dirtyKVs[string(key)]; ok {
+		if v == nil {
+			return nil, nil
+		}
+		return *v, nil
+	}
+	// TODO: explictly check non-existence
+	data, _ := db.diskdb.Get(key)
+	return data, nil
+}
+
+func (db *Database) Put(key, value []byte) error {
+	db.dirtyKVs[string(key)] = &value
+	return nil
+}
+
+func (db *Database) Delete(key []byte) error {
+	db.dirtyKVs[string(key)] = nil
+	return nil
+}
+
 // commit is the private locked version of Commit.
 func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleaner, callback func(common.Hash)) error {
+	var err error
+
+	kvBatch := db.diskdb.NewBatch()
+	fmt.Printf("writing %d entries\n", len(db.dirtyKVs))
+	for k, v := range db.dirtyKVs {
+		if v == nil {
+			err = kvBatch.Delete([]byte(k))
+		} else {
+			err = kvBatch.Put([]byte(k), *v)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if err := kvBatch.Write(); err != nil {
+		return err
+	}
+
+	db.dirtyKVs = make(map[string]*[]byte)
 	// If the node does not exist, it's a previously committed node
 	node, ok := db.dirties[hash]
 	if !ok {
 		return nil
 	}
-	var err error
+
 	node.forChilds(func(child common.Hash) {
 		if err == nil {
 			err = db.commit(child, batch, uncacher, callback)
@@ -649,6 +695,7 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleane
 	if !common.FastDBMode {
 		rawdb.WriteTrieNode(batch, hash, node.rlp())
 	}
+
 	// If we've reached an optimal batch size, commit and start over
 
 	if callback != nil {

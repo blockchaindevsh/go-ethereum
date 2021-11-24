@@ -18,7 +18,6 @@ package state
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"math/big"
@@ -160,9 +159,8 @@ func (s *stateObject) touch() {
 func (s *stateObject) getTrie(db Database) Trie {
 	if s.trie == nil {
 		var err error
-		s.trie, err = db.OpenStorageTrie(s.addrHash, common.Hash{})
+		s.trie, err = db.OpenStorageTrieNew(s.address, s.data.Incarnation)
 		if err != nil {
-			s.trie, _ = db.OpenStorageTrie(s.addrHash, common.Hash{})
 			s.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
 	}
@@ -206,7 +204,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageReads += time.Since(start) }(time.Now())
 	}
-	if enc, err = s.getTrie(db).TryGet(makeFastDbKey(s.address, s.data.Incarnation, key)); err != nil {
+	if enc, err = s.getTrie(db).TryGet(key[:]); err != nil {
 		s.setError(err)
 		return common.Hash{}
 	}
@@ -277,23 +275,6 @@ func (s *stateObject) finalise() {
 	}
 }
 
-func uint64ToBytes(u uint64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, u)
-	return b
-}
-
-func makeFastDbKey(addr common.Address, index uint64, key common.Hash) []byte {
-	if !common.FastDBMode {
-		return key.Bytes()
-	}
-	data := make([]byte, 0)
-	data = append(data, addr.Bytes()...)
-	data = append(data, uint64ToBytes(index)...)
-	data = append(data, key.Bytes()...)
-	return data
-}
-
 // updateTrie writes cached storage modifications into the object's storage trie.
 // It will return nil if the trie has not been loaded and no changes have been made
 func (s *stateObject) updateTrie(db Database) Trie {
@@ -320,11 +301,11 @@ func (s *stateObject) updateTrie(db Database) Trie {
 
 		var v []byte
 		if (value == common.Hash{}) {
-			s.setError(tr.TryDelete(makeFastDbKey(s.address, s.data.Incarnation, key)))
+			s.setError(tr.TryDelete(key[:]))
 		} else {
 			// Encoding []byte cannot fail, ok to ignore the error.
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-			s.setError(tr.TryUpdate(makeFastDbKey(s.address, s.data.Incarnation, key), v))
+			s.setError(tr.TryUpdate(key[:], v))
 		}
 
 	}
@@ -362,9 +343,6 @@ func (s *stateObject) CommitTrie(db Database) error {
 		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
 	_, err := s.trie.Commit(nil)
-	if err == nil {
-		//s.data.Root = root
-	}
 	return err
 }
 
