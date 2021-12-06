@@ -49,11 +49,18 @@ func (f *fastDB) GetKey(key []byte) []byte {
 }
 
 func (f *fastDB) TryGet(key []byte) ([]byte, error) {
+	if data, ok := f.cache[string(key)]; ok {
+		if data == nil {
+			return nil, fmt.Errorf("not found")
+		}
+		return *data, nil
+	}
 	return f.db.Get(f.makeDbKey(key))
 }
 
 func (f *fastDB) TryUpdate(key, value []byte) error {
-	return f.db.Put(f.makeDbKey(key), value)
+	f.cache[string(key)] = &value
+	return nil
 }
 
 func (f *fastDB) Update(key, value []byte) {
@@ -71,7 +78,8 @@ func (f *fastDB) TryUpdateAccount(key []byte, acc *types.StateAccount) error {
 }
 
 func (f *fastDB) TryDelete(key []byte) error {
-	return f.db.Delete(f.makeDbKey(key))
+	f.cache[string(key)] = nil
+	return nil
 }
 
 // Return rawdb CRUD operation hash
@@ -87,7 +95,7 @@ func (f *fastDB) Hash() common.Hash {
 
 	// TODO: May replace with a Merkle tree
 	seed := make([]byte, 0)
-	sort.Strings(keyList) // make sure hash calculation is deterministic
+	sort.Strings(keyList) // make sure the hash calculation is deterministic
 	for _, k := range keyList {
 		seed = append(seed, []byte(k)...)
 		value := f.cache[k]
@@ -102,19 +110,19 @@ func (f *fastDB) Hash() common.Hash {
 }
 
 func (f *fastDB) Commit(onleaf LeafCallback) (common.Hash, int, error) {
-	// batch := f.db.diskdb.NewBatch()
-	// for k, v := range f.cache {
-	// 	if v == nil {
-	// 		batch.Delete([]byte(k))
-	// 	} else if err := batch.Put([]byte(k), *v); err != nil {
-	// 		return common.Hash{}, nil
-	// 	}
-	// }
-	// err := batch.Write()
-	// hash := f.Hash()
-	// f.cache = make(map[string]*[]byte)
-	// return hash, err
-	return common.Hash{}, 0, nil
+	h := f.Hash()
+	for k, v := range f.cache {
+		if v == nil {
+			if err := f.db.Delete([]byte(k)); err != nil {
+				return common.Hash{}, 0, nil
+			}
+		} else if err := f.db.Put([]byte(k), *v); err != nil {
+			return common.Hash{}, 0, nil
+		}
+	}
+
+	f.cache = make(map[string]*[]byte)
+	return h, 0, nil
 }
 func (f *fastDB) NodeIterator(startKey []byte) NodeIterator {
 	panic("fastdb NodeIterator not implement")

@@ -78,10 +78,10 @@ type StateDB struct {
 	// The refund counter, also used by state transitioning.
 	refund uint64
 
-	thash, bhash common.Hash
-	txIndex      int
-	logs         map[common.Hash][]*types.Log
-	logSize      uint
+	thash   common.Hash
+	txIndex int
+	logs    map[common.Hash][]*types.Log
+	logSize uint
 
 	preimages map[common.Hash][]byte
 
@@ -472,7 +472,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 		return nil
 	}
 	// Insert into the live set
-	obj := newObject(s, addr, *data)
+	obj := newObject(s, addr, *data, s.trie)
 	s.setStateObject(obj)
 	return obj
 }
@@ -497,7 +497,7 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 
 	var prevdestruct bool
 
-	newobj = newObject(s, addr, types.StateAccount{})
+	newobj = newObject(s, addr, types.StateAccount{}, s.trie)
 	if prev == nil {
 		s.journal.append(createObjectChange{account: &addr})
 		newobj.data.Incarnation = 0
@@ -642,19 +642,11 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		if obj.suicided || (deleteEmptyObjects && obj.empty()) {
 			obj.deleted = true
 		} else {
-			obj.finalise(true) // Prefetch slots in the background
+			obj.finalise(true)
 		}
 		s.stateObjectsPending[addr] = struct{}{}
 		s.stateObjectsDirty[addr] = struct{}{}
-
-		// At this point, also ship the address off to the precacher. The precacher
-		// will start loading tries, and when the change is eventually committed,
-		// the commit-phase will be a lot faster
-		// addressesToPrefetch = append(addressesToPrefetch, common.CopyBytes(addr[:])) // Copy needed for closure
 	}
-	// if s.prefetcher != nil && len(addressesToPrefetch) > 0 {
-	// 	s.prefetcher.prefetch(s.originalRoot, addressesToPrefetch)
-	// }
 	// Invalidate journal because reverting across transactions is not allowed.
 	s.clearJournalAndRefund()
 }

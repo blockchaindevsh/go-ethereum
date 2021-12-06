@@ -18,6 +18,7 @@ package state
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math/big"
@@ -77,7 +78,7 @@ type stateObject struct {
 	dbErr error
 
 	// Write caches.
-	trie Trie // storage trie, which becomes non-nil on first access
+	trie Trie // KV trie
 	code Code // contract bytecode, which gets set when code is loaded
 
 	originStorage  Storage // Storage cache of original entries to dedup rewrites, reset for every transaction
@@ -99,7 +100,7 @@ func (s *stateObject) empty() bool {
 }
 
 // newObject creates a state object.
-func newObject(db *StateDB, address common.Address, data types.StateAccount) *stateObject {
+func newObject(db *StateDB, address common.Address, data types.StateAccount, trie Trie) *stateObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
@@ -117,6 +118,7 @@ func newObject(db *StateDB, address common.Address, data types.StateAccount) *st
 		originStorage:  make(Storage),
 		pendingStorage: make(Storage),
 		dirtyStorage:   make(Storage),
+		trie:           trie,
 	}
 }
 
@@ -147,17 +149,6 @@ func (s *stateObject) touch() {
 	}
 }
 
-func (s *stateObject) getTrie(db Database) Trie {
-	if s.trie == nil {
-		var err error
-		s.trie, err = db.OpenStorageTrieNew(s.address, s.data.Incarnation)
-		if err != nil {
-			s.setError(fmt.Errorf("can't create storage trie: %v", err))
-		}
-	}
-	return s.trie
-}
-
 // GetState retrieves a value from the account storage trie.
 func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
@@ -173,6 +164,17 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 	return s.GetCommittedState(db, key)
 }
 
+func (s *stateObject) storageKey(key []byte) []byte {
+	newKey := make([]byte, len(s.address)+1+8+1)
+	copy(newKey, s.address[:])
+	newKey[len(s.address)] = '/'
+	binary.PutUvarint(newKey[len(s.address)+1:], s.data.Incarnation)
+	newKey[len(newKey)-1] = '/'
+
+	newKey = append(newKey, key...)
+	return newKey
+}
+
 // GetCommittedState retrieves a value from the committed account storage trie.
 func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Hash {
 	// If the fake storage is set, only lookup the state here(in the debugging mode)
@@ -186,7 +188,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if value, cached := s.originStorage[key]; cached {
 		return value
 	}
-	// If no live objects are available, attempt to use snapshots
+	// If no live objects are available, attempt to use db
 	var (
 		enc   []byte
 		err   error
@@ -213,7 +215,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	if metrics.EnabledExpensive {
 		meter = &s.db.StorageReads
 	}
-	if enc, err = s.getTrie(db).TryGet(key[:]); err != nil {
+	if enc, err = s.trie.TryGet(s.storageKey(key[:])); err != nil {
 		s.setError(err)
 		return common.Hash{}
 	}
@@ -300,7 +302,7 @@ func (s *stateObject) updateTrie(db Database) Trie {
 		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
 	}
 	// Insert all the pending updates into the trie
-	tr := s.getTrie(db)
+	tr := s.trie
 	for key, value := range s.pendingStorage {
 		// Skip noop changes, persist actual changes
 		if value == s.originStorage[key] {
@@ -310,12 +312,12 @@ func (s *stateObject) updateTrie(db Database) Trie {
 
 		var v []byte
 		if (value == common.Hash{}) {
-			s.setError(tr.TryDelete(key[:]))
+			s.setError(tr.TryDelete(s.storageKey(key[:])))
 			s.db.StorageDeleted += 1
 		} else {
 			// Encoding []byte cannot fail, ok to ignore the error.
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-			s.setError(tr.TryUpdate(key[:], v))
+			s.setError(tr.TryUpdate(s.storageKey(key[:]), v))
 			s.db.StorageUpdated += 1
 		}
 
@@ -390,21 +392,6 @@ func (s *stateObject) SetBalance(amount *big.Int) {
 
 func (s *stateObject) setBalance(amount *big.Int) {
 	s.data.Balance = amount
-}
-
-func (s *stateObject) deepCopy(db *StateDB) *stateObject {
-	stateObject := newObject(db, s.address, s.data)
-	if s.trie != nil {
-		stateObject.trie = db.db.CopyTrie(s.trie)
-	}
-	stateObject.code = s.code
-	stateObject.dirtyStorage = s.dirtyStorage.Copy()
-	stateObject.originStorage = s.originStorage.Copy()
-	stateObject.pendingStorage = s.pendingStorage.Copy()
-	stateObject.suicided = s.suicided
-	stateObject.dirtyCode = s.dirtyCode
-	stateObject.deleted = s.deleted
-	return stateObject
 }
 
 //

@@ -90,7 +90,7 @@ type Database struct {
 
 	lock sync.RWMutex
 
-	dirtyKVs    map[string]*[]byte // nil is deletec
+	dirtyKVs    map[string]*[]byte // nil is delete
 	dirtyKVSize common.StorageSize
 }
 
