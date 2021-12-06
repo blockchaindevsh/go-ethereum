@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -123,10 +122,4 @@ func (f *fastDB) Commit(onleaf LeafCallback) (common.Hash, int, error) {
 
 	f.cache = make(map[string]*[]byte)
 	return h, 0, nil
-}
-func (f *fastDB) NodeIterator(startKey []byte) NodeIterator {
-	panic("fastdb NodeIterator not implement")
-}
-func (f *fastDB) Prove(key []byte, fromLevel uint, proofDb ethdb.KeyValueWriter) error {
-	panic("fastdb Prove not implement")
 }
