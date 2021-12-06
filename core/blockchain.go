@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/state/snapshot"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -163,7 +162,6 @@ type BlockChain struct {
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
 	db     ethdb.Database // Low level persistent database to store final content in
-	snaps  *snapshot.Tree // Snapshot tree for fast trie leaf access
 	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
@@ -364,22 +362,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		}
 	}
 
-	// Load any existing snapshot, regenerating it if loading failed
-	if bc.cacheConfig.SnapshotLimit > 0 {
-		// If the chain was rewound past the snapshot persistent layer (causing
-		// a recovery block number to be persisted to disk), check if we're still
-		// in recovery mode and in that case, don't invalidate the snapshot on a
-		// head mismatch.
-		var recover bool
-
-		head := bc.CurrentBlock()
-		if layer := rawdb.ReadSnapshotRecoveryNumber(bc.db); layer != nil && *layer > head.NumberU64() {
-			log.Warn("Enabling snapshot recovery", "chainhead", head.NumberU64(), "diskbase", *layer)
-			recover = true
-		}
-		bc.snaps, _ = snapshot.New(bc.db, bc.stateCache.TrieDB(), bc.cacheConfig.SnapshotLimit, head.Root(), !bc.cacheConfig.SnapshotWait, true, recover)
-	}
-
 	// Start future block processor.
 	bc.wg.Add(1)
 	go bc.futureBlocksLoop()
@@ -392,19 +374,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		go bc.maintainTxIndex(txIndexBlock)
 	}
 
-	// If periodic cache journal is required, spin it up.
-	if bc.cacheConfig.TrieCleanRejournal > 0 {
-		if bc.cacheConfig.TrieCleanRejournal < time.Minute {
-			log.Warn("Sanitizing invalid trie cache journal time", "provided", bc.cacheConfig.TrieCleanRejournal, "updated", time.Minute)
-			bc.cacheConfig.TrieCleanRejournal = time.Minute
-		}
-		triedb := bc.stateCache.TrieDB()
-		bc.wg.Add(1)
-		go func() {
-			defer bc.wg.Done()
-			triedb.SaveCachePeriodically(bc.cacheConfig.TrieCleanJournal, bc.cacheConfig.TrieCleanRejournal, bc.quit)
-		}()
-	}
 	return bc, nil
 }
 
@@ -651,11 +620,6 @@ func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
 	headBlockGauge.Update(int64(block.NumberU64()))
 	bc.chainmu.Unlock()
 
-	// Destroy any existing state snapshot and regenerate it in the background,
-	// also resuming the normal maintenance of any previously paused snapshot.
-	if bc.snaps != nil {
-		bc.snaps.Rebuild(block.Root())
-	}
 	log.Info("Committed new head block", "number", block.Number(), "hash", hash)
 	return nil
 }
@@ -1948,36 +1912,8 @@ func (bc *BlockChain) skipBlock(err error, it *insertIterator) bool {
 	if !errors.Is(err, ErrKnownBlock) {
 		return false
 	}
-	// If we're not using snapshots, we can skip this, since we have both block
-	// and (trie-) state
-	if bc.snaps == nil {
-		return true
-	}
-	var (
-		header     = it.current() // header can't be nil
-		parentRoot common.Hash
-	)
-	// If we also have the snapshot-state, we can skip the processing.
-	if bc.snaps.Snapshot(header.Root) != nil {
-		return true
-	}
-	// In this case, we have the trie-state but not snapshot-state. If the parent
-	// snapshot-state exists, we need to process this in order to not get a gap
-	// in the snapshot layers.
-	// Resolve parent block
-	if parent := it.previous(); parent != nil {
-		parentRoot = parent.Root
-	} else if parent = bc.GetHeaderByHash(header.ParentHash); parent != nil {
-		parentRoot = parent.Root
-	}
-	if parentRoot == (common.Hash{}) {
-		return false // Theoretically impossible case
-	}
-	// Parent is also missing snapshot: we can skip this. Otherwise process.
-	if bc.snaps.Snapshot(parentRoot) == nil {
-		return true
-	}
-	return false
+
+	return true
 }
 
 // maintainTxIndex is responsible for the construction and deletion of the

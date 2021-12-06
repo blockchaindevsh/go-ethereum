@@ -315,7 +315,7 @@ func newStateSync(d *Downloader, root common.Hash) *stateSync {
 func (s *stateSync) run() {
 	close(s.started)
 	if s.d.snapSync {
-		s.err = s.d.SnapSyncer.Sync(s.root, s.cancel)
+		s.err = fmt.Errorf("unsupported")
 	} else {
 		s.err = s.loop()
 	}
