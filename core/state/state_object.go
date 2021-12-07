@@ -341,8 +341,7 @@ func (s *stateObject) updateRoot(db Database) {
 	//s.data.Root = s.trie.Hash()
 }
 
-// CommitTrie the storage trie of the object to db.
-// This updates the trie root.
+// CommitTrie the dirty key-value pairs to storage trie of the object to db.
 func (s *stateObject) CommitTrie(db Database) (int, error) {
 	// If nothing changed, don't bother with hashing anything
 	if s.updateTrie(db) == nil {
@@ -355,8 +354,7 @@ func (s *stateObject) CommitTrie(db Database) (int, error) {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
-	_, committed, err := s.trie.Commit(nil)
-	return committed, err
+	return 0, nil
 }
 
 // AddBalance adds amount to s's balance.
