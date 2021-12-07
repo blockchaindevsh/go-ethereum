@@ -17,7 +17,6 @@
 package state
 
 import (
-	"encoding/binary"
 	"errors"
 
 	"github.com/VictoriaMetrics/fastcache"
@@ -45,8 +44,6 @@ type Database interface {
 	// OpenStorageTrie opens the storage trie of an account.
 	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 
-	OpenStorageTrieNew(address common.Address, incarnation uint64) (Trie, error)
-
 	// ContractCode retrieves a particular contract's code.
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
 
@@ -59,12 +56,6 @@ type Database interface {
 
 // Trie is a Ethereum Merkle Patricia trie.
 type Trie interface {
-	// GetKey returns the sha3 preimage of a hashed key that was previously used
-	// to store a value.
-	//
-	// TODO(fjl): remove this when SecureTrie is removed
-	GetKey([]byte) []byte
-
 	// TryGet returns the value for key stored in the trie. The value bytes must
 	// not be modified by the caller. If a node was not found in the database, a
 	// trie.MissingNodeError is returned.
@@ -127,21 +118,12 @@ func (db *cachingDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
 	return trie.NewFastDB(db.db), nil
 }
 
-func (db *cachingDB) OpenStorageTrieNew(address common.Address, incarnation uint64) (Trie, error) {
-	prefix := make([]byte, len(address)+1+8+1)
-	copy(prefix, address[:])
-	prefix[len(address)] = '/'
-	binary.PutUvarint(prefix[len(address)+1:], incarnation)
-	prefix[len(prefix)-1] = '/'
-	return trie.NewFastDBWithPrefix(db.db, prefix), nil
-}
-
 // ContractCode retrieves a particular contract's code.
 func (db *cachingDB) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
 	if code := db.codeCache.Get(nil, codeHash.Bytes()); len(code) > 0 {
 		return code, nil
 	}
-	code := rawdb.ReadCode(db.db.DiskDB(), codeHash)
+	code := rawdb.ReadCode(db.db, codeHash)
 	if len(code) > 0 {
 		db.codeCache.Set(codeHash.Bytes(), code)
 		db.codeSizeCache.Add(codeHash, len(code))
@@ -157,7 +139,7 @@ func (db *cachingDB) ContractCodeWithPrefix(addrHash, codeHash common.Hash) ([]b
 	if code := db.codeCache.Get(nil, codeHash.Bytes()); len(code) > 0 {
 		return code, nil
 	}
-	code := rawdb.ReadCodeWithPrefix(db.db.DiskDB(), codeHash)
+	code := rawdb.ReadCodeWithPrefix(db.db, codeHash)
 	if len(code) > 0 {
 		db.codeCache.Set(codeHash.Bytes(), code)
 		db.codeSizeCache.Add(codeHash, len(code))

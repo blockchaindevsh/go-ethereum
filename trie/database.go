@@ -218,6 +218,16 @@ func (db *Database) CommitWithForce(force bool) error {
 	return nil
 }
 
+func (db *Database) Has(key []byte) (bool, error) {
+	if v, ok := db.dirtyKVs[string(key)]; ok {
+		if v == nil {
+			return false, nil
+		}
+		return true, nil
+	}
+	return db.diskdb.Has(key)
+}
+
 func (db *Database) Get(key []byte) ([]byte, error) {
 	if v, ok := db.dirtyKVs[string(key)]; ok {
 		if v == nil {
