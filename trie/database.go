@@ -231,8 +231,14 @@ func (db *Database) Get(key []byte) ([]byte, error) {
 }
 
 func (db *Database) Put(key, value []byte) error {
+	// simple accounting only for put because delete is rare
+	if v, ok := db.dirtyKVs[string(key)]; ok {
+		db.dirtyKVSize -= len(key)
+		if v != nil {
+			db.dirtyKVSize -= len(*v)
+		}
+	}
 	db.dirtyKVs[string(key)] = &value
-	// simple accounting without checking existing value
 	db.dirtyKVSize += len(key) + len(value)
 	return nil
 }
