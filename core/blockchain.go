@@ -753,51 +753,6 @@ func (bc *BlockChain) Stop() {
 	bc.chainmu.Close()
 	bc.wg.Wait()
 
-	// Ensure that the entirety of the state snapshot is journalled to disk.
-	// var snapBase common.Hash
-	// if bc.snaps != nil {
-	// 	var err error
-	// 	if snapBase, err = bc.snaps.Journal(bc.CurrentBlock().Root()); err != nil {
-	// 		log.Error("Failed to journal state snapshot", "err", err)
-	// 	}
-	// }
-	// Ensure the state of a recent block is also stored to disk before exiting.
-	// We're writing three different states to catch different restart scenarios:
-	//  - HEAD:     So we don't need to reprocess any blocks in the general case
-	//  - HEAD-1:   So we don't do large reorgs if our HEAD becomes an uncle
-	//  - HEAD-127: So we have a hard limit on the number of blocks reexecuted
-	// if !bc.cacheConfig.TrieDirtyDisabled {
-	// 	triedb := bc.stateCache.TrieDB()
-
-	// 	for _, offset := range []uint64{0, 1, TriesInMemory - 1} {
-	// 		if number := bc.CurrentBlock().NumberU64(); number > offset {
-	// 			recent := bc.GetBlockByNumber(number - offset)
-
-	// 			log.Info("Writing cached state to disk", "block", recent.Number(), "hash", recent.Hash(), "root", recent.Root())
-	// 			if err := triedb.Commit(recent.Root(), true, nil); err != nil {
-	// 				log.Error("Failed to commit recent state trie", "err", err)
-	// 			}
-	// 		}
-	// 	}
-	// 	if snapBase != (common.Hash{}) {
-	// 		log.Info("Writing snapshot state to disk", "root", snapBase)
-	// 		if err := triedb.Commit(snapBase, true, nil); err != nil {
-	// 			log.Error("Failed to commit recent state trie", "err", err)
-	// 		}
-	// 	}
-	// for !bc.triegc.Empty() {
-	// 	triedb.Dereference(bc.triegc.PopItem().(common.Hash))
-	// }
-	// 	if size, _ := triedb.Size(); size != 0 {
-	// 		log.Error("Dangling trie nodes after full cleanup")
-	// 	}
-	// }
-	// Ensure all live cached entries be saved into disk, so that we can skip
-	// cache warmup when node restarts.
-	if bc.cacheConfig.TrieCleanJournal != "" {
-		triedb := bc.stateCache.TrieDB()
-		triedb.SaveCache(bc.cacheConfig.TrieCleanJournal)
-	}
 	log.Info("Blockchain stopped")
 }
 
@@ -1183,21 +1138,17 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		log.Crit("Failed to write block into disk", "err", err)
 	}
 	// Commit all cached state changes into underlying memory database.
-	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
+	_, err = state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
 		return NonStatTy, err
 	}
 	triedb := bc.stateCache.TrieDB()
 
-	// If we're running an archive node, always flush
-	if bc.cacheConfig.TrieDirtyDisabled {
-		if err := triedb.Commit(root, false, nil); err != nil {
-			return NonStatTy, err
-		}
-	} else {
-		// Full but not archive node, do proper garbage collection
-		// fastdb would just do nothing
+	// Commit block, which will only write db if the cache size is large
+	if err := triedb.CommitWithForce(false); err != nil {
+		return NonStatTy, err
 	}
+
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
 	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
