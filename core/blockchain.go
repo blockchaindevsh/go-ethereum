@@ -603,25 +603,7 @@ func (bc *BlockChain) SetHeadBeyondRoot(head uint64, root common.Hash) (uint64, 
 // FastSyncCommitHead sets the current head block to the one defined by the hash
 // irrelevant what the chain contents were prior.
 func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
-	// Make sure that both the block as well at its state trie exists
-	block := bc.GetBlockByHash(hash)
-	if block == nil {
-		return fmt.Errorf("non existent block [%x..]", hash[:4])
-	}
-	if _, err := trie.NewSecure(block.Root(), bc.stateCache.TrieDB()); err != nil {
-		return err
-	}
-
-	// If all checks out, manually set the head block.
-	if !bc.chainmu.TryLock() {
-		return errChainStopped
-	}
-	bc.currentBlock.Store(block)
-	headBlockGauge.Update(int64(block.NumberU64()))
-	bc.chainmu.Unlock()
-
-	log.Info("Committed new head block", "number", block.Number(), "hash", hash)
-	return nil
+	return fmt.Errorf("unsupported")
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.

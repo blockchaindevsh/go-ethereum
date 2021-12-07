@@ -19,7 +19,6 @@ package state
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/VictoriaMetrics/fastcache"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,9 +46,6 @@ type Database interface {
 	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 
 	OpenStorageTrieNew(address common.Address, incarnation uint64) (Trie, error)
-
-	// CopyTrie returns an independent copy of the given trie.
-	CopyTrie(Trie) Trie
 
 	// ContractCode retrieves a particular contract's code.
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
@@ -138,16 +134,6 @@ func (db *cachingDB) OpenStorageTrieNew(address common.Address, incarnation uint
 	binary.PutUvarint(prefix[len(address)+1:], incarnation)
 	prefix[len(prefix)-1] = '/'
 	return trie.NewFastDBWithPrefix(db.db, prefix), nil
-}
-
-// CopyTrie returns an independent copy of the given trie.
-func (db *cachingDB) CopyTrie(t Trie) Trie {
-	switch t := t.(type) {
-	case *trie.SecureTrie:
-		return t.Copy()
-	default:
-		panic(fmt.Errorf("unknown trie type %T", t))
-	}
 }
 
 // ContractCode retrieves a particular contract's code.
