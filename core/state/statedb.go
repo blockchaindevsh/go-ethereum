@@ -111,6 +111,7 @@ type StateDB struct {
 }
 
 // New creates a new state from a given trie.
+// TODO(metahub): rename root to block number
 func New(root common.Hash, db Database, snaps *interface{}) (*StateDB, error) {
 	if snaps != nil {
 		panic("snaps is not supported")
