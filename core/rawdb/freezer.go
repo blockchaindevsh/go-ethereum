@@ -360,6 +360,8 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 				return
 			}
 		}
+		backoff = true
+		continue
 		// Retrieve the freezing threshold.
 		hash := ReadHeadBlockHash(nfdb)
 		if hash == (common.Hash{}) {
