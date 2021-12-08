@@ -23,7 +23,9 @@ import (
 	"io"
 	"math/big"
 	mrand "math/rand"
+	"os"
 	"sort"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1230,9 +1232,17 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	bc.blockProcFeed.Send(true)
 	defer bc.blockProcFeed.Send(false)
 
+	number, _ := strconv.ParseUint(os.Getenv("IMPORT_BN"), 10, 64)
+
 	// Do a sanity check that the provided chain is actually ordered and linked.
 	for i := 1; i < len(chain); i++ {
 		block, prev := chain[i], chain[i-1]
+		if block.NumberU64() == number {
+			log.Info("Reach import end", "number", number)
+			bc.stateCache.TrieDB().CommitWithForce(true)
+			return 0, fmt.Errorf("done")
+		}
+
 		if block.NumberU64() != prev.NumberU64()+1 || block.ParentHash() != prev.Hash() {
 			log.Error("Non contiguous block insert",
 				"number", block.Number(),
