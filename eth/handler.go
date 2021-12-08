@@ -90,8 +90,6 @@ type handler struct {
 	networkID  uint64
 	forkFilter forkid.Filter // Fork ID filter, constant across the lifetime of the node
 
-	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	snapSync  uint32 // Flag whether fast sync should operate on top of the snap protocol
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
 
 	checkpointNumber uint64      // Block number for the sync progress validator to cross reference
@@ -141,30 +139,9 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		quitSync:   make(chan struct{}),
 	}
 	if config.Sync == downloader.FullSync {
-		// The database seems empty as the current block is the genesis. Yet the fast
-		// block is ahead, so fast sync was enabled for this node at a certain point.
-		// The scenarios where this can happen is
-		// * if the user manually (or via a bad block) rolled back a fast sync node
-		//   below the sync point.
-		// * the last fast sync is not finished while user specifies a full sync this
-		//   time. But we don't have any recent state for full sync.
-		// In these cases however it's safe to reenable fast sync.
-		fullBlock, fastBlock := h.chain.CurrentBlock(), h.chain.CurrentFastBlock()
-		if fullBlock.NumberU64() == 0 && fastBlock.NumberU64() > 0 {
-			h.fastSync = uint32(1)
-			log.Warn("Switch sync mode from full sync to fast sync")
-		}
+
 	} else {
-		if h.chain.CurrentBlock().NumberU64() > 0 {
-			// Print warning log if database is not empty to run fast sync.
-			log.Warn("Switch sync mode from fast sync to full sync")
-		} else {
-			// If fast sync was requested and our database is empty, grant it
-			h.fastSync = uint32(1)
-			if config.Sync == downloader.SnapSync {
-				h.snapSync = uint32(1)
-			}
-		}
+		panic("syncmode other than fullsync unsupported")
 	}
 	// If we have trusted checkpoints, enforce them on the chain
 	if config.Checkpoint != nil {
@@ -178,9 +155,9 @@ func newHandler(config *handlerConfig) (*handler, error) {
 	// and the heal-portion of the snap sync is much lighter than fast. What we particularly
 	// want to avoid, is a 90%-finished (but restarted) snap-sync to begin
 	// indexing the entire trie
-	if atomic.LoadUint32(&h.fastSync) == 1 && atomic.LoadUint32(&h.snapSync) == 0 {
-		h.stateBloom = trie.NewSyncBloom(config.BloomCache, config.Database)
-	}
+	// if atomic.LoadUint32(&h.fastSync) == 1 && atomic.LoadUint32(&h.snapSync) == 0 {
+	// 	h.stateBloom = trie.NewSyncBloom(config.BloomCache, config.Database)
+	// }
 	h.downloader = downloader.New(h.checkpointNumber, config.Database, h.stateBloom, h.eventMux, h.chain, nil, h.removePeer)
 
 	// Construct the fetcher (short sync)
@@ -199,15 +176,6 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		// which would prevent full nodes from accepting it.
 		if h.chain.CurrentBlock().NumberU64() < h.checkpointNumber {
 			log.Warn("Unsynced yet, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
-			return 0, nil
-		}
-		// If fast sync is running, deny importing weird blocks. This is a problematic
-		// clause when starting up a new network, because fast-syncing miners might not
-		// accept each others' blocks until a restart. Unfortunately we haven't figured
-		// out a way yet where nodes can decide unilaterally whether the network is new
-		// or not. This should be fixed if we figure out a solution.
-		if atomic.LoadUint32(&h.fastSync) == 1 {
-			log.Warn("Fast syncing, discarded propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
 		n, err := h.chain.InsertChain(blocks)

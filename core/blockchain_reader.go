@@ -42,12 +42,6 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 	return bc.currentBlock.Load().(*types.Block)
 }
 
-// CurrentFastBlock retrieves the current fast-sync head block of the canonical
-// chain. The block is retrieved from the blockchain's internal cache.
-func (bc *BlockChain) CurrentFastBlock() *types.Block {
-	return bc.currentFastBlock.Load().(*types.Block)
-}
-
 // HasHeader checks if a block header is present in the database or not, caching
 // it if present.
 func (bc *BlockChain) HasHeader(hash common.Hash, number uint64) bool {
@@ -119,17 +113,6 @@ func (bc *BlockChain) HasBlock(hash common.Hash, number uint64) bool {
 		return true
 	}
 	return rawdb.HasBody(bc.db, hash, number)
-}
-
-// HasFastBlock checks if a fast block is fully present in the database or not.
-func (bc *BlockChain) HasFastBlock(hash common.Hash, number uint64) bool {
-	if !bc.HasBlock(hash, number) {
-		return false
-	}
-	if bc.receiptsCache.Contains(hash) {
-		return true
-	}
-	return rawdb.HasReceipts(bc.db, hash, number)
 }
 
 // GetBlock retrieves a block from the database by hash and number,
