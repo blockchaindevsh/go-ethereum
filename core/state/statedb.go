@@ -670,13 +670,14 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	}
 
 	for addr := range s.stateObjectsPending {
-		if obj := s.stateObjects[addr]; obj.deleted {
-			s.deleteStateObject(obj)
+		obj := s.stateObjects[addr]
+		if obj.deleted {
+			obj.data.Deleted = true
 			s.AccountDeleted += 1
 		} else {
-			s.updateStateObject(obj)
 			s.AccountUpdated += 1
 		}
+		s.updateStateObject(obj)
 	}
 
 	if len(s.stateObjectsPending) > 0 {

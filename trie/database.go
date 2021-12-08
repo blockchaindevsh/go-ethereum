@@ -246,8 +246,8 @@ func (db *Database) Delete(key []byte) error {
 func (db *Database) commit(force bool) error {
 	var err error
 
-	if force || db.dirtyKVSize > 1024*1024*1024 {
-		// TODO(metahub): parameterize 1G
+	if force || db.dirtyKVSize > 256*1024*1024 {
+		// TODO(metahub): parameterize dirty KV limit
 		log.Info("Committing state db", "size", db.dirtyKVSize, "entries", len(db.dirtyKVs))
 
 		kvBatch := db.diskdb.NewBatch()
