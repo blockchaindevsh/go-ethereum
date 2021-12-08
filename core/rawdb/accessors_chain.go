@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -296,6 +295,20 @@ func WriteFastTxLookupLimit(db ethdb.KeyValueWriter, number uint64) {
 	if err := db.Put(fastTxLookupLimitKey, encodeBlockNumber(number)); err != nil {
 		log.Crit("Failed to store transaction lookup limit for fast sync", "err", err)
 	}
+}
+
+func ReadHeaderFromDb(db ethdb.KeyValueReader, hash common.Hash, number uint64) *types.Header {
+	// If not, try reading from leveldb
+	data, _ := db.Get(headerKey(number, hash))
+	if len(data) == 0 {
+		return nil
+	}
+	header := new(types.Header)
+	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
+		log.Error("Invalid block header RLP", "hash", hash, "err", err)
+		return nil
+	}
+	return header
 }
 
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
@@ -718,9 +731,6 @@ func ReadBlock(db ethdb.Reader, hash common.Hash, number uint64) *types.Block {
 
 // WriteBlock serializes a block into the database, header and body separately.
 func WriteBlock(db ethdb.KeyValueWriter, block *types.Block) {
-	if block.Number().Uint64()%10000 == 0 {
-		fmt.Println("handle block", block.Number().Uint64(), time.Now().String())
-	}
 	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 	WriteHeader(db, block.Header())
 }

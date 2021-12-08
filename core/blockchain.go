@@ -254,6 +254,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.insertStopped)
+	bc.hc.cachedKV = bc.stateCache.TrieDB()
 	if err != nil {
 		return nil, err
 	}
@@ -1130,14 +1131,17 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	//
 	// Note all the components of block(td, hash->number map, header, body, receipts)
 	// should be written atomically. BlockBatch is used for containing all components.
-	blockBatch := bc.db.NewBatch()
 	// rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
-	rawdb.WriteBlock(blockBatch, block)
+	// rawdb.WriteBlock(blockBatch, block)
+	if block.Number().Uint64()%10000 == 0 {
+		fmt.Println("handle block", block.Number().Uint64(), time.Now().String())
+	}
+	rawdb.WriteHeader(bc.stateCache.TrieDB(), block.Header())
 	// rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
 	// rawdb.WritePreimages(blockBatch, state.Preimages())
-	if err := blockBatch.Write(); err != nil {
-		log.Crit("Failed to write block into disk", "err", err)
-	}
+	// if err := blockBatch.Write(); err != nil {
+	// 	log.Crit("Failed to write block into disk", "err", err)
+	// }
 	// Commit all cached state changes into underlying memory database.
 	_, err = state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
@@ -1310,51 +1314,51 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	block, err := it.next()
 
 	// Left-trim all the known blocks that don't need to build snapshot
-	if bc.skipBlock(err, it) {
-		// First block (and state) is known
-		//   1. We did a roll-back, and should now do a re-import
-		//   2. The block is stored as a sidechain, and is lying about it's stateroot, and passes a stateroot
-		//      from the canonical chain, which has not been verified.
-		// Skip all known blocks that are behind us.
-		var (
-			current  = bc.CurrentBlock()
-			localTd  = bc.GetTd(current.Hash(), current.NumberU64())
-			externTd = bc.GetTd(block.ParentHash(), block.NumberU64()-1) // The first block can't be nil
-		)
-		for block != nil && bc.skipBlock(err, it) {
-			externTd = new(big.Int).Add(externTd, block.Difficulty())
-			if localTd.Cmp(externTd) < 0 {
-				break
-			}
-			log.Debug("Ignoring already known block", "number", block.Number(), "hash", block.Hash())
-			stats.ignored++
+	// if bc.skipBlock(err, it) {
+	// 	// First block (and state) is known
+	// 	//   1. We did a roll-back, and should now do a re-import
+	// 	//   2. The block is stored as a sidechain, and is lying about it's stateroot, and passes a stateroot
+	// 	//      from the canonical chain, which has not been verified.
+	// 	// Skip all known blocks that are behind us.
+	// 	var (
+	// 		current  = bc.CurrentBlock()
+	// 		localTd  = bc.GetTd(current.Hash(), current.NumberU64())
+	// 		externTd = bc.GetTd(block.ParentHash(), block.NumberU64()-1) // The first block can't be nil
+	// 	)
+	// 	for block != nil && bc.skipBlock(err, it) {
+	// 		externTd = new(big.Int).Add(externTd, block.Difficulty())
+	// 		if localTd.Cmp(externTd) < 0 {
+	// 			break
+	// 		}
+	// 		log.Debug("Ignoring already known block", "number", block.Number(), "hash", block.Hash())
+	// 		stats.ignored++
 
-			block, err = it.next()
-		}
-		// The remaining blocks are still known blocks, the only scenario here is:
-		// During the fast sync, the pivot point is already submitted but rollback
-		// happens. Then node resets the head full block to a lower height via `rollback`
-		// and leaves a few known blocks in the database.
-		//
-		// When node runs a fast sync again, it can re-import a batch of known blocks via
-		// `insertChain` while a part of them have higher total difficulty than current
-		// head full block(new pivot point).
-		for block != nil && bc.skipBlock(err, it) {
-			log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
-			if err := bc.writeKnownBlock(block); err != nil {
-				return it.index, err
-			}
-			lastCanon = block
+	// 		block, err = it.next()
+	// 	}
+	// 	// The remaining blocks are still known blocks, the only scenario here is:
+	// 	// During the fast sync, the pivot point is already submitted but rollback
+	// 	// happens. Then node resets the head full block to a lower height via `rollback`
+	// 	// and leaves a few known blocks in the database.
+	// 	//
+	// 	// When node runs a fast sync again, it can re-import a batch of known blocks via
+	// 	// `insertChain` while a part of them have higher total difficulty than current
+	// 	// head full block(new pivot point).
+	// 	for block != nil && bc.skipBlock(err, it) {
+	// 		log.Debug("Writing previously known block", "number", block.Number(), "hash", block.Hash())
+	// 		if err := bc.writeKnownBlock(block); err != nil {
+	// 			return it.index, err
+	// 		}
+	// 		lastCanon = block
 
-			block, err = it.next()
-		}
-		// Falls through to the block import
-	}
+	// 		block, err = it.next()
+	// 	}
+	// 	// Falls through to the block import
+	// }
 	switch {
 	// First block is pruned, insert as sidechain and reorg only if TD grows enough
-	case errors.Is(err, consensus.ErrPrunedAncestor):
-		log.Debug("Pruned ancestor, inserting as sidechain", "number", block.Number(), "hash", block.Hash())
-		return bc.insertSideChain(block, it)
+	// case errors.Is(err, consensus.ErrPrunedAncestor):
+	// 	log.Debug("Pruned ancestor, inserting as sidechain", "number", block.Number(), "hash", block.Hash())
+	// 	return bc.insertSideChain(block, it)
 
 	// First block is future, shove it (and all children) to the future queue (unknown ancestor)
 	case errors.Is(err, consensus.ErrFutureBlock) || (errors.Is(err, consensus.ErrUnknownAncestor) && bc.futureBlocks.Contains(it.first().ParentHash())):

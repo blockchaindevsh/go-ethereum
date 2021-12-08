@@ -218,6 +218,11 @@ func (db *Database) CommitWithForce(force bool) error {
 	return nil
 }
 
+func (db *Database) Has(key []byte) (bool, error) {
+	data, _ := db.Get(key)
+	return data != nil, nil
+}
+
 func (db *Database) Get(key []byte) ([]byte, error) {
 	if v, ok := db.dirtyKVs[string(key)]; ok {
 		if v == nil {
@@ -240,6 +245,10 @@ func (db *Database) Put(key, value []byte) error {
 func (db *Database) Delete(key []byte) error {
 	db.dirtyKVs[string(key)] = nil
 	return nil
+}
+
+func (db *Database) Close() error {
+	return db.CommitWithForce(true)
 }
 
 // commit is the private locked version of Commit.

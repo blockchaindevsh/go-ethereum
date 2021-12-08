@@ -61,6 +61,8 @@ type HeaderChain struct {
 	chainDb       ethdb.Database
 	genesisHeader *types.Header
 
+	cachedKV ethdb.KeyValueReader
+
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash  // Hash of the current head of the header chain (prevent recomputing all the time)
 
@@ -456,9 +458,15 @@ func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header 
 	if header, ok := hc.headerCache.Get(hash); ok {
 		return header.(*types.Header)
 	}
-	header := rawdb.ReadHeader(hc.chainDb, hash, number)
-	if header == nil {
-		return nil
+
+	var header *types.Header
+	if hc.cachedKV == nil {
+		header = rawdb.ReadHeader(hc.chainDb, hash, number)
+		if header == nil {
+			return nil
+		}
+	} else {
+		header = rawdb.ReadHeaderFromDb(hc.cachedKV, hash, number)
 	}
 	// Cache the found header for next time and return
 	hc.headerCache.Add(hash, header)
