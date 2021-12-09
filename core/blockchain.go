@@ -44,9 +44,8 @@ import (
 )
 
 var (
-	headBlockGauge     = metrics.NewRegisteredGauge("chain/head/block", nil)
-	headHeaderGauge    = metrics.NewRegisteredGauge("chain/head/header", nil)
-	headFastBlockGauge = metrics.NewRegisteredGauge("chain/head/receipt", nil)
+	headBlockGauge  = metrics.NewRegisteredGauge("chain/head/block", nil)
+	headHeaderGauge = metrics.NewRegisteredGauge("chain/head/header", nil)
 
 	accountReadTimer   = metrics.NewRegisteredTimer("chain/account/reads", nil)
 	accountHashTimer   = metrics.NewRegisteredTimer("chain/account/hashes", nil)
@@ -58,22 +57,12 @@ var (
 	storageUpdateTimer = metrics.NewRegisteredTimer("chain/storage/updates", nil)
 	storageCommitTimer = metrics.NewRegisteredTimer("chain/storage/commits", nil)
 
-	snapshotAccountReadTimer = metrics.NewRegisteredTimer("chain/snapshot/account/reads", nil)
-	snapshotStorageReadTimer = metrics.NewRegisteredTimer("chain/snapshot/storage/reads", nil)
-	snapshotCommitTimer      = metrics.NewRegisteredTimer("chain/snapshot/commits", nil)
-
 	blockInsertTimer     = metrics.NewRegisteredTimer("chain/inserts", nil)
 	blockValidationTimer = metrics.NewRegisteredTimer("chain/validation", nil)
 	blockExecutionTimer  = metrics.NewRegisteredTimer("chain/execution", nil)
 	blockWriteTimer      = metrics.NewRegisteredTimer("chain/write", nil)
 
-	blockReorgMeter         = metrics.NewRegisteredMeter("chain/reorg/executes", nil)
-	blockReorgAddMeter      = metrics.NewRegisteredMeter("chain/reorg/add", nil)
-	blockReorgDropMeter     = metrics.NewRegisteredMeter("chain/reorg/drop", nil)
 	blockReorgInvalidatedTx = metrics.NewRegisteredMeter("chain/reorg/invalidTx", nil)
-
-	blockPrefetchExecuteTimer   = metrics.NewRegisteredTimer("chain/prefetch/executes", nil)
-	blockPrefetchInterruptMeter = metrics.NewRegisteredMeter("chain/prefetch/interrupts", nil)
 
 	errInsertionInterrupted = errors.New("insertion is interrupted")
 	errChainStopped         = errors.New("blockchain is stopped")
@@ -410,11 +399,11 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	defer bc.chainmu.Unlock()
 
 	// Prepare the genesis block and reinitialise the chain
-	batch := bc.db.NewBatch()
-	rawdb.WriteBlock(batch, genesis)
-	if err := batch.Write(); err != nil {
-		log.Crit("Failed to write genesis block", "err", err)
-	}
+	// err := rawdb.AppendToAncient(bc.db, genesis, nil)
+	// TODO(metahub): truncate ancient tables and set genesis?
+	// if err != nil {
+	// 	log.Crit("Failed to write genesis block", "err", err)
+	// }
 	bc.writeHeadBlock(genesis)
 
 	// Last update all in-memory chain markers
@@ -539,12 +528,6 @@ const (
 	SideStatTy
 )
 
-// numberHash is just a container for a number and a hash, to represent a block
-type numberHash struct {
-	number uint64
-	hash   common.Hash
-}
-
 // WriteBlockWithState writes the block and all associated state to the database.
 func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state *state.StateDB, emitHeadEvent bool) (status WriteStatus, err error) {
 	if !bc.chainmu.TryLock() {
@@ -567,17 +550,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		panic("new block is not linked to parent block")
 	}
 
-	// Irrelevant of the canonical status, write the block itself to the database.
-	//
-	// Note all the components of block(td, hash->number map, header, body, receipts)
-	// should be written atomically. BlockBatch is used for containing all components.
-	blockBatch := bc.db.NewBatch()
-	rawdb.WriteBlock(blockBatch, block)
-	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
-	rawdb.WritePreimages(blockBatch, state.Preimages())
-	if err := blockBatch.Write(); err != nil {
-		log.Crit("Failed to write block into disk", "err", err)
+	if block.Number().Uint64()%10000 == 0 {
+		fmt.Println("handle block", block.Number().Uint64(), time.Now().String())
 	}
+
+	_, err = rawdb.WriteAncientBlocks(bc.db, []*types.Block{block}, []types.Receipts{receipts})
+	if err != nil {
+		return NonStatTy, err
+	}
+
 	// Commit all cached state changes into underlying memory database.
 	_, err = state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
