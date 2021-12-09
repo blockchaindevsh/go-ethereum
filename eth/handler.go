@@ -213,8 +213,7 @@ func (h *handler) runEthPeer(peer *eth.Peer, handler eth.Handler) error {
 		genesis = h.chain.Genesis()
 		head    = h.chain.CurrentHeader()
 		hash    = head.Hash()
-		number  = head.Number.Uint64()
-		td      = h.chain.GetTd(hash, number)
+		td      = head.Number
 	)
 	forkID := forkid.NewID(h.chain.Config(), h.chain.Genesis().Hash(), h.chain.CurrentHeader().Number.Uint64())
 	if err := peer.Handshake(h.networkID, td, hash, genesis.Hash(), forkID, h.forkFilter); err != nil {
@@ -365,7 +364,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		// Calculate the TD of the block (it's not imported yet, so block.Td is not valid)
 		var td *big.Int
 		if parent := h.chain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(block.Difficulty(), h.chain.GetTd(block.ParentHash(), block.NumberU64()-1))
+			td = block.Number()
 		} else {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return

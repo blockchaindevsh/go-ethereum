@@ -159,7 +159,7 @@ type LightChain interface {
 	CurrentHeader() *types.Header
 
 	// GetTd returns the total difficulty of a local block.
-	GetTd(common.Hash, uint64) *big.Int
+	// GetTd(common.Hash, uint64) *big.Int // not used (may be replaced by height?)
 
 	// InsertHeaderChain inserts a batch of headers into the local chain.
 	// InsertHeaderChain([]*types.Header, int) (int, error)
@@ -1489,7 +1489,7 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 				// R: Nothing to give
 				if mode != LightSync {
 					head := d.blockchain.CurrentBlock()
-					if !gotHeaders && td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0 {
+					if !gotHeaders && td.Cmp(head.Number()) > 0 {
 						return errStallingPeer
 					}
 				}
@@ -1501,10 +1501,7 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 				// queued for processing when the header download completes. However, as long as the
 				// peer gave us something useful, we're already happy/progressed (above check).
 				if mode == FastSync || mode == LightSync {
-					head := d.lightchain.CurrentHeader()
-					if td.Cmp(d.lightchain.GetTd(head.Hash(), head.Number.Uint64())) > 0 {
-						return errStallingPeer
-					}
+					panic("unsupported")
 				}
 				// Disable any rollback and return
 				rollback = 0

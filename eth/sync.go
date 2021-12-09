@@ -177,7 +177,7 @@ func peerToSyncOp(mode downloader.SyncMode, p *eth.Peer) *chainSyncOp {
 func (cs *chainSyncer) modeAndLocalHead() (downloader.SyncMode, *big.Int) {
 	// Nope, we're really full syncing
 	head := cs.handler.chain.CurrentBlock()
-	td := cs.handler.chain.GetTd(head.Hash(), head.NumberU64())
+	td := head.Number()
 	return downloader.FullSync, td
 }
 
