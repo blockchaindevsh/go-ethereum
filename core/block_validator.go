@@ -50,11 +50,6 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.Block) error {
-	// Check whether the block's known, and if not, that it's linkable
-	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
-		return ErrKnownBlock
-	}
-
 	// Check wether the block is linked to the latest
 	if block.ParentHash() != v.bc.CurrentBlock().Hash() {
 		return ErrInvalidLinkedBlock
@@ -71,12 +66,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if hash := types.DeriveSha(block.Transactions(), trie.NewStackTrie(nil)); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
-	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
-		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
-			return consensus.ErrUnknownAncestor
-		}
-		return consensus.ErrPrunedAncestor
-	}
+
 	return nil
 }
 
