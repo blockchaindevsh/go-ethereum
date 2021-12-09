@@ -164,8 +164,8 @@ type LightChain interface {
 	// InsertHeaderChain inserts a batch of headers into the local chain.
 	// InsertHeaderChain([]*types.Header, int) (int, error)
 
-	// SetHead rewinds the local chain to a new head.
-	SetHead(uint64) error
+	// SetHead rewinds the local chain to a new head. (don't need since we are forkless)
+	// SetHead(uint64) error
 }
 
 // BlockChain encapsulates functions required to sync a (full or fast) blockchain.
@@ -1437,21 +1437,23 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 	)
 	defer func() {
 		if rollback > 0 {
-			lastHeader, lastBlock := d.lightchain.CurrentHeader().Number, common.Big0
-			if mode != LightSync {
-				lastBlock = d.blockchain.CurrentBlock().Number()
-			}
-			if err := d.lightchain.SetHead(rollback - 1); err != nil { // -1 to target the parent of the first uncertain block
-				// We're already unwinding the stack, only print the error to make it more visible
-				log.Error("Failed to roll back chain segment", "head", rollback-1, "err", err)
-			}
-			curBlock := common.Big0
-			if mode != LightSync {
-				curBlock = d.blockchain.CurrentBlock().Number()
-			}
-			log.Warn("Rolled back chain segment",
-				"header", fmt.Sprintf("%d->%d", lastHeader, d.lightchain.CurrentHeader().Number),
-				"block", fmt.Sprintf("%d->%d", lastBlock, curBlock), "reason", rollbackErr)
+			log.Warn("Tried to rollback", "reason", rollbackErr)
+			// lastHeader, lastBlock := d.lightchain.CurrentHeader().Number, common.Big0
+			// if mode != LightSync {
+			// 	lastBlock = d.blockchain.CurrentBlock().Number()
+			// }
+			// if err := d.lightchain.SetHead(rollback - 1); err != nil { // -1 to target the parent of the first uncertain block
+			// 	// We're already unwinding the stack, only print the error to make it more visible
+			// 	log.Error("Failed to roll back chain segment", "head", rollback-1, "err", err)
+			// }
+			// curBlock := common.Big0
+			// if mode != LightSync {
+			// 	curBlock = d.blockchain.CurrentBlock().Number()
+			// }
+			// log.Warn("Rolled back chain segment",
+			// 	"header", fmt.Sprintf("%d->%d", lastHeader, d.lightchain.CurrentHeader().Number),
+			// 	"block", fmt.Sprintf("%d->%d", lastBlock, curBlock), "reason", rollbackErr)
+			// TODO(metahub): rollback unsupported
 		}
 	}()
 	// Wait for batches of headers to process

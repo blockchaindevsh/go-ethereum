@@ -203,8 +203,6 @@ type BlockChain struct {
 	prefetcher Prefetcher
 	processor  Processor // Block transaction processor interface
 	vmConfig   vm.Config
-
-	shouldPreserve func(*types.Block) bool // Function used to determine whether should preserve the given block.
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -230,16 +228,15 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 			Journal:   cacheConfig.TrieCleanJournal,
 			Preimages: cacheConfig.Preimages,
 		}),
-		quit:           make(chan struct{}),
-		chainmu:        syncx.NewClosableMutex(),
-		shouldPreserve: shouldPreserve,
-		bodyCache:      bodyCache,
-		bodyRLPCache:   bodyRLPCache,
-		receiptsCache:  receiptsCache,
-		blockCache:     blockCache,
-		txLookupCache:  txLookupCache,
-		engine:         engine,
-		vmConfig:       vmConfig,
+		quit:          make(chan struct{}),
+		chainmu:       syncx.NewClosableMutex(),
+		bodyCache:     bodyCache,
+		bodyRLPCache:  bodyRLPCache,
+		receiptsCache: receiptsCache,
+		blockCache:    blockCache,
+		txLookupCache: txLookupCache,
+		engine:        engine,
+		vmConfig:      vmConfig,
 	}
 	bc.validator = NewBlockValidator(chainConfig, bc, engine)
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
@@ -275,33 +272,34 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 
 	// Make sure the state associated with the block is available
-	head := bc.CurrentBlock()
-	if _, err := state.New(head.Root(), bc.stateCache, nil); err != nil {
-		// Head state is missing, before the state recovery, find out the
-		// disk layer point of snapshot(if it's enabled). Make sure the
-		// rewound point is lower than disk layer.
-		var diskRoot common.Hash
-		if bc.cacheConfig.SnapshotLimit > 0 {
-			diskRoot = rawdb.ReadSnapshotRoot(bc.db)
-		}
-		if diskRoot != (common.Hash{}) {
-			log.Warn("Head state missing, repairing", "number", head.Number(), "hash", head.Hash(), "snaproot", diskRoot)
+	// TODO(metahub): check if the latest bn is correct
+	// head := bc.CurrentBlock()
+	// if _, err := state.New(head.Root(), bc.stateCache, nil); err != nil {
+	// 	// Head state is missing, before the state recovery, find out the
+	// 	// disk layer point of snapshot(if it's enabled). Make sure the
+	// 	// rewound point is lower than disk layer.
+	// 	var diskRoot common.Hash
+	// 	if bc.cacheConfig.SnapshotLimit > 0 {
+	// 		diskRoot = rawdb.ReadSnapshotRoot(bc.db)
+	// 	}
+	// 	if diskRoot != (common.Hash{}) {
+	// 		log.Warn("Head state missing, repairing", "number", head.Number(), "hash", head.Hash(), "snaproot", diskRoot)
 
-			snapDisk, err := bc.SetHeadBeyondRoot(head.NumberU64(), diskRoot)
-			if err != nil {
-				return nil, err
-			}
-			// Chain rewound, persist old snapshot number to indicate recovery procedure
-			if snapDisk != 0 {
-				rawdb.WriteSnapshotRecoveryNumber(bc.db, snapDisk)
-			}
-		} else {
-			log.Warn("Head state missing, repairing", "number", head.Number(), "hash", head.Hash())
-			if err := bc.SetHead(head.NumberU64()); err != nil {
-				return nil, err
-			}
-		}
-	}
+	// 		snapDisk, err := bc.SetHeadBeyondRoot(head.NumberU64(), diskRoot)
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		// Chain rewound, persist old snapshot number to indicate recovery procedure
+	// 		if snapDisk != 0 {
+	// 			rawdb.WriteSnapshotRecoveryNumber(bc.db, snapDisk)
+	// 		}
+	// 	} else {
+	// 		log.Warn("Head state missing, repairing", "number", head.Number(), "hash", head.Hash())
+	// 		if err := bc.SetHead(head.NumberU64()); err != nil {
+	// 			return nil, err
+	// 		}
+	// 	}
+	// }
 
 	// Ensure that a previous crash in SetHead doesn't leave extra ancients
 	if frozen, err := bc.db.Ancients(); err == nil && frozen > 0 {
@@ -319,9 +317,12 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		}
 		if needRewind {
 			log.Error("Truncating ancient chain", "from", bc.CurrentHeader().Number.Uint64(), "to", low)
-			if err := bc.SetHead(low); err != nil {
-				return nil, err
+			// Truncate all relative data(header, total difficulty, body, receipt
+			// and canonical hash) from ancient store.
+			if err := bc.db.TruncateAncients(low - 1); err != nil {
+				log.Crit("Failed to truncate ancient data", "number", low-1, "err", err)
 			}
+			// Remove the hash <-> number mapping from the active store.
 		}
 	}
 	// The first thing the node will do is reconstruct the verification data for
@@ -330,21 +331,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.engine.VerifyHeader(bc, bc.CurrentHeader(), true)
 
 	// Check the current state of the block hashes and make sure that we do not have any of the bad blocks in our chain
-	for hash := range BadHashes {
-		if header := bc.GetHeaderByHash(hash); header != nil {
-			// get the canonical block corresponding to the offending header's number
-			headerByNumber := bc.GetHeaderByNumber(header.Number.Uint64())
-			// make sure the headerByNumber (if present) is in our current canonical chain
-			if headerByNumber != nil && headerByNumber.Hash() == header.Hash() {
-				log.Error("Found bad hash, rewinding chain", "number", header.Number, "hash", header.ParentHash)
-				if err := bc.SetHead(header.Number.Uint64() - 1); err != nil {
-					return nil, err
-				}
-				log.Error("Chain rewind was successful, resuming normal operation")
-			}
-		}
-	}
-
+	// TODO(metahub): support badhashes (rewind to bad hashes's parent)
 	// Start tx indexer/unindexer.
 	if txLookupLimit != nil {
 		bc.txLookupLimit = *txLookupLimit
@@ -411,142 +398,6 @@ func (bc *BlockChain) loadLastState() error {
 	return nil
 }
 
-// SetHead rewinds the local chain to a new head. Depending on whether the node
-// was fast synced or full synced and in which state, the method will try to
-// delete minimal data from disk whilst retaining chain consistency.
-func (bc *BlockChain) SetHead(head uint64) error {
-	_, err := bc.SetHeadBeyondRoot(head, common.Hash{})
-	return err
-}
-
-// SetHeadBeyondRoot rewinds the local chain to a new head with the extra condition
-// that the rewind must pass the specified state root. This method is meant to be
-// used when rewinding with snapshots enabled to ensure that we go back further than
-// persistent disk layer. Depending on whether the node was fast synced or full, and
-// in which state, the method will try to delete minimal data from disk whilst
-// retaining chain consistency.
-//
-// The method returns the block number where the requested root cap was found.
-func (bc *BlockChain) SetHeadBeyondRoot(head uint64, root common.Hash) (uint64, error) {
-	if !bc.chainmu.TryLock() {
-		return 0, errChainStopped
-	}
-	defer bc.chainmu.Unlock()
-
-	// Track the block number of the requested root hash
-	var rootNumber uint64 // (no root == always 0)
-
-	// Retrieve the last pivot block to short circuit rollbacks beyond it and the
-	// current freezer limit to start nuking id underflown
-	pivot := rawdb.ReadLastPivotNumber(bc.db)
-	frozen, _ := bc.db.Ancients()
-
-	updateFn := func(db ethdb.KeyValueWriter, header *types.Header) (uint64, bool) {
-		// Rewind the block chain, ensuring we don't end up with a stateless head
-		// block. Note, depth equality is permitted to allow using SetHead as a
-		// chain reparation mechanism without deleting any data!
-		if currentBlock := bc.CurrentBlock(); currentBlock != nil && header.Number.Uint64() <= currentBlock.NumberU64() {
-			newHeadBlock := bc.GetBlock(header.Hash(), header.Number.Uint64())
-			if newHeadBlock == nil {
-				log.Error("Gap in the chain, rewinding to genesis", "number", header.Number, "hash", header.Hash())
-				newHeadBlock = bc.genesisBlock
-			} else {
-				// Block exists, keep rewinding until we find one with state,
-				// keeping rewinding until we exceed the optional threshold
-				// root hash
-				beyondRoot := (root == common.Hash{}) // Flag whether we're beyond the requested root (no root, always true)
-
-				for {
-					// If a root threshold was requested but not yet crossed, check
-					if root != (common.Hash{}) && !beyondRoot && newHeadBlock.Root() == root {
-						beyondRoot, rootNumber = true, newHeadBlock.NumberU64()
-					}
-					if _, err := state.New(newHeadBlock.Root(), bc.stateCache, nil); err != nil {
-						log.Trace("Block state missing, rewinding further", "number", newHeadBlock.NumberU64(), "hash", newHeadBlock.Hash())
-						if pivot == nil || newHeadBlock.NumberU64() > *pivot {
-							parent := bc.GetBlock(newHeadBlock.ParentHash(), newHeadBlock.NumberU64()-1)
-							if parent != nil {
-								newHeadBlock = parent
-								continue
-							}
-							log.Error("Missing block in the middle, aiming genesis", "number", newHeadBlock.NumberU64()-1, "hash", newHeadBlock.ParentHash())
-							newHeadBlock = bc.genesisBlock
-						} else {
-							log.Trace("Rewind passed pivot, aiming genesis", "number", newHeadBlock.NumberU64(), "hash", newHeadBlock.Hash(), "pivot", *pivot)
-							newHeadBlock = bc.genesisBlock
-						}
-					}
-					if beyondRoot || newHeadBlock.NumberU64() == 0 {
-						log.Debug("Rewound to block with state", "number", newHeadBlock.NumberU64(), "hash", newHeadBlock.Hash())
-						break
-					}
-					log.Debug("Skipping block with threshold state", "number", newHeadBlock.NumberU64(), "hash", newHeadBlock.Hash(), "root", newHeadBlock.Root())
-					newHeadBlock = bc.GetBlock(newHeadBlock.ParentHash(), newHeadBlock.NumberU64()-1) // Keep rewinding
-				}
-			}
-			rawdb.WriteHeadBlockHash(db, newHeadBlock.Hash())
-
-			// Degrade the chain markers if they are explicitly reverted.
-			// In theory we should update all in-memory markers in the
-			// last step, however the direction of SetHead is from high
-			// to low, so it's safe the update in-memory markers directly.
-			bc.currentBlock.Store(newHeadBlock)
-			headBlockGauge.Update(int64(newHeadBlock.NumberU64()))
-		}
-		head := bc.CurrentBlock().NumberU64()
-
-		// If setHead underflown the freezer threshold and the block processing
-		// intent afterwards is full block importing, delete the chain segment
-		// between the stateful-block and the sethead target.
-		var wipe bool
-		if head+1 < frozen {
-			wipe = pivot == nil || head >= *pivot
-		}
-		return head, wipe // Only force wipe if full synced
-	}
-	// Rewind the header chain, deleting all block bodies until then
-	delFn := func(db ethdb.KeyValueWriter, hash common.Hash, num uint64) {
-		// Ignore the error here since light client won't hit this path
-		frozen, _ := bc.db.Ancients()
-		if num+1 <= frozen {
-			// Truncate all relative data(header, total difficulty, body, receipt
-			// and canonical hash) from ancient store.
-			if err := bc.db.TruncateAncients(num); err != nil {
-				log.Crit("Failed to truncate ancient data", "number", num, "err", err)
-			}
-			// Remove the hash <-> number mapping from the active store.
-			rawdb.DeleteHeaderNumber(db, hash)
-		} else {
-			// Remove relative body and receipts from the active store.
-			// The header, total difficulty and canonical hash will be
-			// removed in the hc.SetHead function.
-			rawdb.DeleteBody(db, hash, num)
-			rawdb.DeleteReceipts(db, hash, num)
-		}
-		// Todo(rjl493456442) txlookup, bloombits, etc
-	}
-	// If SetHead was only called as a chain reparation method, try to skip
-	// touching the header chain altogether, unless the freezer is broken
-	if block := bc.CurrentBlock(); block.NumberU64() == head {
-		if target, force := updateFn(bc.db, block.Header()); force {
-			bc.hc.SetHead(target, updateFn, delFn)
-		}
-	} else {
-		// Rewind the chain to the requested head and keep going backwards until a
-		// block with a state is found or fast sync pivot is passed
-		log.Warn("Rewinding blockchain", "target", head)
-		bc.hc.SetHead(head, updateFn, delFn)
-	}
-	// Clear out any stale content from the caches
-	bc.bodyCache.Purge()
-	bc.bodyRLPCache.Purge()
-	bc.receiptsCache.Purge()
-	bc.blockCache.Purge()
-	bc.txLookupCache.Purge()
-
-	return rootNumber, bc.loadLastState()
-}
-
 // Reset purges the entire blockchain, restoring it to its genesis state.
 func (bc *BlockChain) Reset() error {
 	return bc.ResetWithGenesisBlock(bc.genesisBlock)
@@ -556,9 +407,7 @@ func (bc *BlockChain) Reset() error {
 // specified genesis state.
 func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	// Dump the entire block chain and purge the caches
-	if err := bc.SetHead(0); err != nil {
-		return err
-	}
+	// TODO(metahub): support reset
 	if !bc.chainmu.TryLock() {
 		return errChainStopped
 	}

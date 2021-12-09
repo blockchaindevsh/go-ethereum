@@ -33,7 +33,7 @@ import (
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
 func (bc *BlockChain) CurrentHeader() *types.Header {
-	return bc.hc.CurrentHeader()
+	return bc.CurrentBlock().Header()
 }
 
 // CurrentBlock retrieves the current head block of the canonical chain. The

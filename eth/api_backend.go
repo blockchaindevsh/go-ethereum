@@ -59,7 +59,8 @@ func (b *EthAPIBackend) CurrentBlock() *types.Block {
 
 func (b *EthAPIBackend) SetHead(number uint64) {
 	b.eth.handler.downloader.Cancel()
-	b.eth.blockchain.SetHead(number)
+	// TODO(metahub) unsupported at the monent
+	// b.eth.blockchain.SetHead(number)
 }
 
 func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
