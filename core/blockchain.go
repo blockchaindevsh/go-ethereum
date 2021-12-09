@@ -349,7 +349,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 // into node seamlessly.
 func (bc *BlockChain) empty() bool {
 	genesis := bc.genesisBlock.Hash()
-	for _, hash := range []common.Hash{rawdb.ReadHeadBlockHash(bc.db), rawdb.ReadHeadHeaderHash(bc.db), rawdb.ReadHeadFastBlockHash(bc.db)} {
+	for _, hash := range []common.Hash{rawdb.ReadHeadBlockHash(bc.db), rawdb.ReadHeadHeaderHash(bc.db)} {
 		if hash != genesis {
 			return false
 		}
@@ -484,7 +484,6 @@ func (bc *BlockChain) writeHeadBlock(block *types.Block) {
 	// If the block is better than our head or is on a different chain, force update heads
 	if updateHeads {
 		rawdb.WriteHeadHeaderHash(batch, block.Hash())
-		rawdb.WriteHeadFastBlockHash(batch, block.Hash())
 	}
 	// Flush the whole batch into the disk, exit the node if failed
 	if err := batch.Write(); err != nil {
