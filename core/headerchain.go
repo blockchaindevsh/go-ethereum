@@ -18,8 +18,6 @@ package core
 
 import (
 	crand "crypto/rand"
-	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	mrand "math/rand"
@@ -30,7 +28,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	lru "github.com/hashicorp/golang-lru"
 )
@@ -123,71 +120,6 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 		hc.numberCache.Add(hash, *number)
 	}
 	return number
-}
-
-type headerWriteResult struct {
-	status     WriteStatus
-	ignored    int
-	imported   int
-	lastHash   common.Hash
-	lastHeader *types.Header
-}
-
-func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
-	// Do a sanity check that the provided chain is actually ordered and linked
-	for i := 1; i < len(chain); i++ {
-		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 {
-			hash := chain[i].Hash()
-			parentHash := chain[i-1].Hash()
-			// Chain broke ancestry, log a message (programming error) and skip insertion
-			log.Error("Non contiguous header insert", "number", chain[i].Number, "hash", hash,
-				"parent", chain[i].ParentHash, "prevnumber", chain[i-1].Number, "prevhash", parentHash)
-
-			return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x..], item %d is #%d [%x..] (parent [%x..])", i-1, chain[i-1].Number,
-				parentHash.Bytes()[:4], i, chain[i].Number, hash.Bytes()[:4], chain[i].ParentHash[:4])
-		}
-		// If the header is a banned one, straight out abort
-		if BadHashes[chain[i].ParentHash] {
-			return i - 1, ErrBannedHash
-		}
-		// If it's the last header in the cunk, we need to check it too
-		if i == len(chain)-1 && BadHashes[chain[i].Hash()] {
-			return i, ErrBannedHash
-		}
-	}
-
-	// Generate the list of seal verification requests, and start the parallel verifier
-	seals := make([]bool, len(chain))
-	if checkFreq != 0 {
-		// In case of checkFreq == 0 all seals are left false.
-		for i := 0; i <= len(seals)/checkFreq; i++ {
-			index := i*checkFreq + hc.rand.Intn(checkFreq)
-			if index >= len(seals) {
-				index = len(seals) - 1
-			}
-			seals[index] = true
-		}
-		// Last should always be verified to avoid junk.
-		seals[len(seals)-1] = true
-	}
-
-	abort, results := hc.engine.VerifyHeaders(hc, chain, seals)
-	defer close(abort)
-
-	// Iterate over the headers and ensure they all check out
-	for i := range chain {
-		// If the chain is terminating, stop processing blocks
-		if hc.procInterrupt() {
-			log.Debug("Premature abort during headers verification")
-			return 0, errors.New("aborted")
-		}
-		// Otherwise wait for headers checks and ensure they pass
-		if err := <-results; err != nil {
-			return i, err
-		}
-	}
-
-	return 0, nil
 }
 
 // GetAncestor retrieves the Nth ancestor of a given block. It assumes that either the given block or
@@ -304,85 +236,6 @@ type (
 	// before each header is deleted.
 	DeleteBlockContentCallback func(ethdb.KeyValueWriter, common.Hash, uint64)
 )
-
-// SetHead rewinds the local chain to a new head. Everything above the new head
-// will be deleted and the new one set.
-func (hc *HeaderChain) SetHead(head uint64, updateFn UpdateHeadBlocksCallback, delFn DeleteBlockContentCallback) {
-	var (
-		parentHash common.Hash
-		batch      = hc.chainDb.NewBatch()
-		origin     = true
-	)
-	for hdr := hc.CurrentHeader(); hdr != nil && hdr.Number.Uint64() > head; hdr = hc.CurrentHeader() {
-		num := hdr.Number.Uint64()
-
-		// Rewind block chain to new head.
-		parent := hc.GetHeader(hdr.ParentHash, num-1)
-		if parent == nil {
-			parent = hc.genesisHeader
-		}
-		parentHash = parent.Hash()
-
-		// Notably, since geth has the possibility for setting the head to a low
-		// height which is even lower than ancient head.
-		// In order to ensure that the head is always no higher than the data in
-		// the database (ancient store or active store), we need to update head
-		// first then remove the relative data from the database.
-		//
-		// Update head first(head fast block, head full block) before deleting the data.
-		markerBatch := hc.chainDb.NewBatch()
-		if updateFn != nil {
-			newHead, force := updateFn(markerBatch, parent)
-			if force && newHead < head {
-				log.Warn("Force rewinding till ancient limit", "head", newHead)
-				head = newHead
-			}
-		}
-		// Update head header then.
-		rawdb.WriteHeadHeaderHash(markerBatch, parentHash)
-		if err := markerBatch.Write(); err != nil {
-			log.Crit("Failed to update chain markers", "error", err)
-		}
-		hc.currentHeader.Store(parent)
-		hc.currentHeaderHash = parentHash
-		headHeaderGauge.Update(parent.Number.Int64())
-
-		// If this is the first iteration, wipe any leftover data upwards too so
-		// we don't end up with dangling daps in the database
-		var nums []uint64
-		if origin {
-			for n := num + 1; len(rawdb.ReadAllHashes(hc.chainDb, n)) > 0; n++ {
-				nums = append([]uint64{n}, nums...) // suboptimal, but we don't really expect this path
-			}
-			origin = false
-		}
-		nums = append(nums, num)
-
-		// Remove the related data from the database on all sidechains
-		for _, num := range nums {
-			// Gather all the side fork hashes
-			hashes := rawdb.ReadAllHashes(hc.chainDb, num)
-			if len(hashes) == 0 {
-				// No hashes in the database whatsoever, probably frozen already
-				hashes = append(hashes, hdr.Hash())
-			}
-			for _, hash := range hashes {
-				if delFn != nil {
-					delFn(batch, hash, num)
-				}
-				rawdb.DeleteHeader(batch, hash, num)
-			}
-			rawdb.DeleteCanonicalHash(batch, num)
-		}
-	}
-	// Flush all accumulated deletions.
-	if err := batch.Write(); err != nil {
-		log.Crit("Failed to rewind block", "error", err)
-	}
-	// Clear out any stale content from the caches
-	hc.headerCache.Purge()
-	hc.numberCache.Purge()
-}
 
 // SetGenesis sets a new genesis block header for the chain
 func (hc *HeaderChain) SetGenesis(head *types.Header) {
