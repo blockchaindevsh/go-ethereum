@@ -21,9 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
 	"sort"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -227,24 +225,6 @@ func WriteLastPivotNumber(db ethdb.KeyValueWriter, pivot uint64) {
 	}
 }
 
-// ReadFastTrieProgress retrieves the number of tries nodes fast synced to allow
-// reporting correct numbers across restarts.
-func ReadFastTrieProgress(db ethdb.KeyValueReader) uint64 {
-	data, _ := db.Get(fastTrieProgressKey)
-	if len(data) == 0 {
-		return 0
-	}
-	return new(big.Int).SetBytes(data).Uint64()
-}
-
-// WriteFastTrieProgress stores the fast sync trie process counter to support
-// retrieving it across restarts.
-func WriteFastTrieProgress(db ethdb.KeyValueWriter, count uint64) {
-	if err := db.Put(fastTrieProgressKey, new(big.Int).SetUint64(count).Bytes()); err != nil {
-		log.Crit("Failed to store fast sync trie progress", "err", err)
-	}
-}
-
 // ReadTxIndexTail retrieves the number of oldest indexed block
 // whose transaction indices has been indexed. If the corresponding entry
 // is non-existent in database it means the indexing has been finished.
@@ -325,43 +305,6 @@ func ReadHeader(db ethdb.Reader, hash common.Hash, number uint64) *types.Header 
 	return header
 }
 
-// WriteHeader stores a block header into the database and also stores the hash-
-// to-number mapping.
-func WriteHeader(db ethdb.KeyValueWriter, header *types.Header) {
-	var (
-		hash   = header.Hash()
-		number = header.Number.Uint64()
-	)
-	// Write the hash -> number mapping
-	WriteHeaderNumber(db, hash, number)
-
-	// Write the encoded header
-	data, err := rlp.EncodeToBytes(header)
-	if err != nil {
-		log.Crit("Failed to RLP encode header", "err", err)
-	}
-	key := headerKey(number, hash)
-	if err := db.Put(key, data); err != nil {
-		log.Crit("Failed to store header", "err", err)
-	}
-}
-
-// DeleteHeader removes all block header data associated with a hash.
-func DeleteHeader(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
-	deleteHeaderWithoutNumber(db, hash, number)
-	if err := db.Delete(headerNumberKey(hash)); err != nil {
-		log.Crit("Failed to delete hash to number mapping", "err", err)
-	}
-}
-
-// deleteHeaderWithoutNumber removes only the block header but does not remove
-// the hash to number mapping.
-func deleteHeaderWithoutNumber(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
-	if err := db.Delete(headerKey(number, hash)); err != nil {
-		log.Crit("Failed to delete header", "err", err)
-	}
-}
-
 // isCanon is an internal utility method, to check whether the given number/hash
 // is part of the ancient (canon) set.
 func isCanon(reader ethdb.AncientReader, number uint64, hash common.Hash) bool {
@@ -407,13 +350,6 @@ func ReadCanonicalBodyRLP(db ethdb.Reader, number uint64) rlp.RawValue {
 	return data
 }
 
-// WriteBodyRLP stores an RLP encoded block body into the database.
-func WriteBodyRLP(db ethdb.KeyValueWriter, hash common.Hash, number uint64, rlp rlp.RawValue) {
-	if err := db.Put(blockBodyKey(number, hash), rlp); err != nil {
-		log.Crit("Failed to store block body", "err", err)
-	}
-}
-
 // HasBody verifies the existence of a block body corresponding to the hash.
 func HasBody(db ethdb.Reader, hash common.Hash, number uint64) bool {
 	if isCanon(db, number, hash) {
@@ -437,22 +373,6 @@ func ReadBody(db ethdb.Reader, hash common.Hash, number uint64) *types.Body {
 		return nil
 	}
 	return body
-}
-
-// WriteBody stores a block body into the database.
-func WriteBody(db ethdb.KeyValueWriter, hash common.Hash, number uint64, body *types.Body) {
-	data, err := rlp.EncodeToBytes(body)
-	if err != nil {
-		log.Crit("Failed to RLP encode body", "err", err)
-	}
-	WriteBodyRLP(db, hash, number, data)
-}
-
-// DeleteBody removes all block body data associated with a hash.
-func DeleteBody(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
-	if err := db.Delete(blockBodyKey(number, hash)); err != nil {
-		log.Crit("Failed to delete block body", "err", err)
-	}
 }
 
 // HasReceipts verifies the existence of all the transaction receipts belonging
@@ -528,30 +448,6 @@ func ReadReceipts(db ethdb.Reader, hash common.Hash, number uint64, config *para
 		return nil
 	}
 	return receipts
-}
-
-// WriteReceipts stores all the transaction receipts belonging to a block.
-func WriteReceipts(db ethdb.KeyValueWriter, hash common.Hash, number uint64, receipts types.Receipts) {
-	// Convert the receipts into their storage form and serialize them
-	storageReceipts := make([]*types.ReceiptForStorage, len(receipts))
-	for i, receipt := range receipts {
-		storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
-	}
-	bytes, err := rlp.EncodeToBytes(storageReceipts)
-	if err != nil {
-		log.Crit("Failed to encode block receipts", "err", err)
-	}
-	// Store the flattened receipt slice
-	if err := db.Put(blockReceiptsKey(number, hash), bytes); err != nil {
-		log.Crit("Failed to store block receipts", "err", err)
-	}
-}
-
-// DeleteReceipts removes all receipt data associated with a block hash.
-func DeleteReceipts(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
-	if err := db.Delete(blockReceiptsKey(number, hash)); err != nil {
-		log.Crit("Failed to delete block receipts", "err", err)
-	}
 }
 
 // storedReceiptRLP is the storage encoding of a receipt.
@@ -652,15 +548,6 @@ func ReadBlock(db ethdb.Reader, hash common.Hash, number uint64) *types.Block {
 	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Uncles)
 }
 
-// WriteBlock serializes a block into the database, header and body separately.
-func WriteBlock(db ethdb.KeyValueWriter, block *types.Block) {
-	if block.Number().Uint64()%10000 == 0 {
-		fmt.Println("handle block", block.Number().Uint64(), time.Now().String())
-	}
-	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
-	WriteHeader(db, block.Header())
-}
-
 // WriteAncientBlock writes entire block data into ancient store and returns the total written size.
 func WriteAncientBlocks(db ethdb.AncientWriter, blocks []*types.Block, receipts []types.Receipts) (int64, error) {
 	var (
@@ -697,21 +584,6 @@ func writeAncientBlock(op ethdb.AncientWriteOp, block *types.Block, header *type
 		return fmt.Errorf("can't append block %d receipts: %v", num, err)
 	}
 	return nil
-}
-
-// DeleteBlock removes all block data associated with a hash.
-func DeleteBlock(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
-	DeleteReceipts(db, hash, number)
-	DeleteHeader(db, hash, number)
-	DeleteBody(db, hash, number)
-}
-
-// DeleteBlockWithoutNumber removes all block data associated with a hash, except
-// the hash to number mapping.
-func DeleteBlockWithoutNumber(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
-	DeleteReceipts(db, hash, number)
-	deleteHeaderWithoutNumber(db, hash, number)
-	DeleteBody(db, hash, number)
 }
 
 const badBlockToKeep = 10

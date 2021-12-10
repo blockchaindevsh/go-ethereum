@@ -27,7 +27,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -210,7 +209,7 @@ func New(checkpoint uint64, stateDb ethdb.Database, stateBloom *trie.SyncBloom, 
 		stateCh:        make(chan dataPack),
 		stateSyncStart: make(chan *stateSync),
 		syncStatsState: stateSyncStats{
-			processed: rawdb.ReadFastTrieProgress(stateDb),
+			processed: 0, // to removed
 		},
 		trackStateReq: make(chan *stateReq),
 	}
@@ -1010,7 +1009,8 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 					// Write out the pivot into the database so a rollback beyond
 					// it will reenable fast sync and update the state root that
 					// the state syncer will be downloading.
-					rawdb.WriteLastPivotNumber(d.stateDB, pivot)
+					// TODO(metahub): remove state sync
+					// rawdb.WriteLastPivotNumber(d.stateDB, pivot)
 				}
 				pivoting = false
 				getHeaders(from)
