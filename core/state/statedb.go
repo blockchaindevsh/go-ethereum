@@ -503,7 +503,7 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 		newobj.data.Incarnation = 0
 	} else {
 		s.journal.append(resetObjectChange{prev: prev, prevdestruct: prevdestruct})
-		newobj.data.Incarnation += 1
+		newobj.data.Incarnation = prev.data.Incarnation + 1
 	}
 	s.setStateObject(newobj)
 	if prev != nil && !prev.deleted && !prev.data.Deleted {
