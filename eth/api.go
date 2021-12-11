@@ -509,12 +509,7 @@ func (api *PrivateDebugAPI) getModifiedAccounts(startBlock, endBlock *types.Bloc
 // The (from, to) parameters are the sequence of blocks to search, which can go
 // either forwards or backwards
 func (api *PrivateDebugAPI) GetAccessibleState(from, to rpc.BlockNumber) (uint64, error) {
-	db := api.eth.ChainDb()
-	var pivot uint64
-	if p := rawdb.ReadLastPivotNumber(db); p != nil {
-		pivot = *p
-		log.Info("Found fast-sync pivot marker", "number", pivot)
-	}
+	// TOOD(metahub): need to redefine?
 	var resolveNum = func(num rpc.BlockNumber) (uint64, error) {
 		// We don't have state for pending (-2), so treat it as latest
 		if num.Int64() < 0 {
@@ -549,9 +544,6 @@ func (api *PrivateDebugAPI) GetAccessibleState(from, to rpc.BlockNumber) (uint64
 		if time.Since(lastLog) > 8*time.Second {
 			log.Info("Finding roots", "from", start, "to", end, "at", i)
 			lastLog = time.Now()
-		}
-		if i < int64(pivot) {
-			continue
 		}
 		h := api.eth.BlockChain().GetHeaderByNumber(uint64(i))
 		if h == nil {
