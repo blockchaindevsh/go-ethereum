@@ -501,6 +501,9 @@ func (bc *BlockChain) Stop() {
 	bc.chainmu.Close()
 	bc.wg.Wait()
 
+	// Flush all KV to the store
+	bc.stateCache.TrieDB().CommitWithForce(true)
+
 	log.Info("Blockchain stopped")
 }
 
@@ -551,6 +554,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		fmt.Println("handle block", block.Number().Uint64(), time.Now().String())
 	}
 
+	// Write the blocks to ancient blocks as the consensus is forkless
 	_, err = rawdb.WriteAncientBlocks(bc.db, []*types.Block{block}, []types.Receipts{receipts})
 	if err != nil {
 		return NonStatTy, err
@@ -563,6 +567,9 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	}
 	triedb := bc.stateCache.TrieDB()
 
+	// Write the hash => number mapping to KV store (TODO(metahub): write to kv cache)
+	rawdb.WriteHeaderNumber(bc.db, block.Hash(), block.NumberU64())
+
 	// Commit block, which will only write db if the cache size is large
 	if err := triedb.CommitWithForce(false); err != nil {
 		return NonStatTy, err
@@ -570,23 +577,20 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 
 	status = CanonStatTy
 	// Set new head.
-	if status == CanonStatTy {
-		bc.writeHeadBlock(block)
-	}
+	bc.writeHeadBlock(block)
 
-	if status == CanonStatTy {
-		bc.chainFeed.Send(ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
-		if len(logs) > 0 {
-			bc.logsFeed.Send(logs)
-		}
-		// In theory we should fire a ChainHeadEvent when we inject
-		// a canonical block, but sometimes we can insert a batch of
-		// canonicial blocks. Avoid firing too much ChainHeadEvents,
-		// we will fire an accumulated ChainHeadEvent and disable fire
-		// event here.
-		if emitHeadEvent {
-			bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
-		}
+	// Signal events
+	bc.chainFeed.Send(ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
+	if len(logs) > 0 {
+		bc.logsFeed.Send(logs)
+	}
+	// In theory we should fire a ChainHeadEvent when we inject
+	// a canonical block, but sometimes we can insert a batch of
+	// canonicial blocks. Avoid firing too much ChainHeadEvents,
+	// we will fire an accumulated ChainHeadEvent and disable fire
+	// event here.
+	if emitHeadEvent {
+		bc.chainHeadFeed.Send(ChainHeadEvent{Block: block})
 	}
 	return status, nil
 }
@@ -697,7 +701,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 	// ErrKnownBlock is allowed here since some known blocks
 	// still need re-execution to generate snapshots that are missing
 	case err != nil && !errors.Is(err, ErrKnownBlock):
-
 		stats.ignored += len(it.chain)
 		bc.reportBlock(block, nil, err)
 		return it.index, err
