@@ -816,8 +816,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		stats.processed++
 		stats.usedGas += usedGas
 
-		dirty, _ := bc.stateCache.TrieDB().Size()
-		stats.report(chain, it.index, dirty)
+		dirty, cache := bc.stateCache.TrieDB().Size()
+		stats.report(chain, it.index, dirty, cache)
 	}
 
 	return it.index, err
