@@ -504,7 +504,7 @@ func dbDumpTrie(ctx *cli.Context) error {
 			fmt.Printf("Exiting after %d values\n", count)
 			break
 		}
-		size = common.StorageSize(len(it.Key) + len(it.Value))
+		size += common.StorageSize(len(it.Key) + len(it.Value))
 		// fmt.Printf("  %d. key %#x: %#x\n", count, it.Key, it.Value)
 		count++
 		if count%1000 == 0 && time.Since(logged) > 8*time.Second {
