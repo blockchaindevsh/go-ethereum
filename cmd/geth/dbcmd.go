@@ -495,14 +495,22 @@ func dbDumpTrie(ctx *cli.Context) error {
 		return err
 	}
 	var count int64
+	logged := time.Now()
+	startTime := logged
 	it := trie.NewIterator(theTrie.NodeIterator(start))
+	var size common.StorageSize
 	for it.Next() {
 		if max > 0 && count == max {
 			fmt.Printf("Exiting after %d values\n", count)
 			break
 		}
-		fmt.Printf("  %d. key %#x: %#x\n", count, it.Key, it.Value)
+		size = common.StorageSize(len(it.Key) + len(it.Value))
+		// fmt.Printf("  %d. key %#x: %#x\n", count, it.Key, it.Value)
 		count++
+		if count%1000 == 0 && time.Since(logged) > 8*time.Second {
+			log.Info("Iterating kv", "count", count, "size", size, "elapsed", common.PrettyDuration(time.Since(startTime)))
+			logged = time.Now()
+		}
 	}
 	return it.Err
 }
