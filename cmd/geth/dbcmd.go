@@ -34,9 +34,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/console/prompt"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	st "github.com/golang-collections/collections/stack"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -490,29 +493,71 @@ func dbDumpTrie(ctx *cli.Context) error {
 			return err
 		}
 	}
-	theTrie, err := trie.New(stRoot, trie.NewDatabase(db))
-	if err != nil {
-		return err
-	}
+
+	s := st.New()
+	s.Push(stRoot)
+
 	var count int64
-	logged := time.Now()
-	startTime := logged
-	it := trie.NewIterator(theTrie.NodeIterator(start))
+	startTime := time.Now()
 	var size common.StorageSize
-	for it.Next() {
-		if max > 0 && count == max {
-			fmt.Printf("Exiting after %d values\n", count)
-			break
+	isWorld := true
+	var accountCount int64
+	var storageCount int64
+
+	for s.Len() != 0 {
+		root := s.Pop().(common.Hash)
+		log.Info("Iterating root", "root", root)
+		theTrie, err := trie.New(root, trie.NewDatabase(db))
+		if err != nil {
+			return err
 		}
-		size += common.StorageSize(len(it.Key) + len(it.Value))
-		// fmt.Printf("  %d. key %#x: %#x\n", count, it.Key, it.Value)
-		count++
-		if count%1000 == 0 && time.Since(logged) > 8*time.Second {
-			log.Info("Iterating kv", "count", count, "size", size, "elapsed", common.PrettyDuration(time.Since(startTime)))
-			logged = time.Now()
+
+		logged := time.Now()
+		it := trie.NewIterator(theTrie.NodeIterator(start))
+		var rootCount int64
+		var rootSize common.StorageSize
+
+		for it.Next() {
+			if max > 0 && count == max {
+				fmt.Printf("Exiting after %d values\n", count)
+				break
+			}
+			rootCount++
+			size += common.StorageSize(len(it.Key) + len(it.Value))
+			rootSize += common.StorageSize(len(it.Key) + len(it.Value))
+			// fmt.Printf("  %d. key %#x: %#x\n", count, it.Key, it.Value)
+			count++
+			if count%1000 == 0 && time.Since(logged) > 8*time.Second {
+				log.Info("Iterating kv", "count", count, "size", size, "pending roots", s.Len(), "elapsed", common.PrettyDuration(time.Since(startTime)))
+				logged = time.Now()
+			}
+
+			if isWorld {
+				data := new(types.StateAccount)
+				if err := rlp.DecodeBytes(it.Value, data); err != nil {
+					log.Error("Failed to decode state object", "addr", it.Key, "err", err)
+					return nil
+				}
+
+				if data.Root != emptyRoot {
+					s.Push(data.Root)
+				}
+				accountCount++
+			} else {
+				storageCount++
+			}
 		}
+
+		if it.Err != nil {
+			return it.Err
+		}
+
+		isWorld = false
+		log.Info("Iterated", "root", root, "count", rootCount, "size", rootSize)
 	}
-	return it.Err
+
+	log.Info("Done", "count", count, "size", size, "acc_count", accountCount, "storage_count", storageCount, "elapsed", common.PrettyDuration(time.Since(startTime)))
+	return nil
 }
 
 func freezerInspect(ctx *cli.Context) error {
