@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -166,11 +167,12 @@ func (s *stateObject) GetState(db Database, key common.Hash) common.Hash {
 }
 
 func (s *stateObject) storageKey(key []byte) []byte {
-	newKey := make([]byte, len(s.address)+1+8+1)
-	copy(newKey, s.address[:])
-	newKey[len(s.address)] = '/'
-	binary.PutUvarint(newKey[len(s.address)+1:], s.data.Incarnation)
-	newKey[len(newKey)-1] = '/'
+	newKey := rawdb.StateObjectKey(s.address)
+
+	enc := make([]byte, 8)
+	binary.BigEndian.PutUint64(enc, s.data.Incarnation)
+
+	newKey = append(newKey, enc...)
 
 	newKey = append(newKey, key...)
 	return newKey

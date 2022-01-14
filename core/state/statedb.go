@@ -417,7 +417,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	}
 	// Encode the account and update the account trie
 	addr := obj.Address()
-	if err := s.trie.TryUpdateAccount(addr[:], &obj.data); err != nil {
+	if err := s.trie.TryUpdateAccount(rawdb.StateObjectKey(addr), &obj.data); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
 }
@@ -430,7 +430,7 @@ func (s *StateDB) deleteStateObject(obj *stateObject) {
 	}
 	// Delete the account from the trie
 	addr := obj.Address()
-	if err := s.trie.TryDelete(addr[:]); err != nil {
+	if err := s.trie.TryDelete(rawdb.StateObjectKey(addr)); err != nil {
 		s.setError(fmt.Errorf("deleteStateObject (%x) error: %v", addr[:], err))
 	}
 }
@@ -463,7 +463,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.AccountReads += time.Since(start) }(time.Now())
 	}
-	enc, err := s.trie.TryGet(addr.Bytes())
+	enc, err := s.trie.TryGet(rawdb.StateObjectKey(addr))
 	if err != nil {
 		s.setError(fmt.Errorf("getDeleteStateObject (%x) error: %v", addr.Bytes(), err))
 		return nil
