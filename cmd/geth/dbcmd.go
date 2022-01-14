@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -460,6 +461,13 @@ func dbPut(ctx *cli.Context) error {
 	return db.Put(key, value)
 }
 
+type dumpTask struct {
+	root    common.Hash
+	begin   []byte // inclusive
+	end     []byte // exclusive
+	isWorld bool
+}
+
 // dbDumpTrie shows the key-value slots of a given storage trie
 func dbDumpTrie(ctx *cli.Context) error {
 	if ctx.NArg() < 1 {
@@ -471,10 +479,11 @@ func dbDumpTrie(ctx *cli.Context) error {
 	db := utils.MakeChainDatabase(ctx, stack, true)
 	defer db.Close()
 	var (
-		root  []byte
-		start []byte
-		max   = int64(-1)
-		err   error
+		root []byte
+		// start []byte
+		// max = int64(-1)
+		err     error
+		nthread = int(1)
 	)
 	if root, err = hexutil.Decode(ctx.Args().Get(0)); err != nil {
 		log.Info("Could not decode the root", "error", err)
@@ -482,81 +491,149 @@ func dbDumpTrie(ctx *cli.Context) error {
 	}
 	stRoot := common.BytesToHash(root)
 	if ctx.NArg() >= 2 {
-		if start, err = hexutil.Decode(ctx.Args().Get(1)); err != nil {
+		if nthread, err = strconv.Atoi(ctx.Args().Get(1)); err != nil {
 			log.Info("Could not decode the seek position", "error", err)
 			return err
 		}
 	}
-	if ctx.NArg() >= 3 {
-		if max, err = strconv.ParseInt(ctx.Args().Get(2), 10, 64); err != nil {
-			log.Info("Could not decode the max count", "error", err)
-			return err
+	// if ctx.NArg() >= 3 {
+	// 	if max, err = strconv.ParseInt(ctx.Args().Get(2), 10, 64); err != nil {
+	// 		log.Info("Could not decode the max count", "error", err)
+	// 		return err
+	// 	}
+	// }
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	s := st.New()
+
+	wg.Add(nthread)
+	for i := 0; i < nthread; i++ {
+		if i != nthread-1 {
+			s.Push(dumpTask{
+				root:    stRoot,
+				begin:   []byte{byte(256 / nthread * i)},
+				end:     []byte{byte(256 / nthread * (i + 1))},
+				isWorld: true,
+			})
+		} else {
+			s.Push(dumpTask{
+				root:    stRoot,
+				begin:   []byte{byte(256 / nthread * i)},
+				end:     nil,
+				isWorld: true,
+			})
 		}
 	}
 
-	s := st.New()
-	s.Push(stRoot)
-
-	var count int64
 	startTime := time.Now()
 	var size common.StorageSize
-	isWorld := true
 	var accountCount int64
 	var storageCount int64
 
-	for s.Len() != 0 {
-		root := s.Pop().(common.Hash)
-		log.Info("Iterating root", "root", root)
-		theTrie, err := trie.New(root, trie.NewDatabase(db))
-		if err != nil {
-			return err
-		}
+	log.Info("KV iterator", "nthread", nthread)
 
-		logged := time.Now()
-		it := trie.NewIterator(theTrie.NodeIterator(start))
-		var rootCount int64
-		var rootSize common.StorageSize
+	for i := 0; i < nthread; i++ {
+		go func() {
+			for {
+				var t dumpTask
 
-		for it.Next() {
-			if max > 0 && count == max {
-				fmt.Printf("Exiting after %d values\n", count)
-				break
-			}
-			rootCount++
-			size += common.StorageSize(len(it.Key) + len(it.Value))
-			rootSize += common.StorageSize(len(it.Key) + len(it.Value))
-			// fmt.Printf("  %d. key %#x: %#x\n", count, it.Key, it.Value)
-			count++
-			if count%1000 == 0 && time.Since(logged) > 8*time.Second {
-				log.Info("Iterating kv", "count", count, "size", size, "pending roots", s.Len(), "elapsed", common.PrettyDuration(time.Since(startTime)))
-				logged = time.Now()
-			}
+				mu.Lock()
+				if s.Len() == 0 {
+					mu.Unlock()
+					break
+				}
+				t = s.Pop().(dumpTask)
+				mu.Unlock()
 
-			if isWorld {
-				data := new(types.StateAccount)
-				if err := rlp.DecodeBytes(it.Value, data); err != nil {
-					log.Error("Failed to decode state object", "addr", it.Key, "err", err)
-					return nil
+				log.Info("Iterating root", "root", t.root, "start", t.begin, "end", t.end)
+				theTrie, err := trie.New(t.root, trie.NewDatabase(db))
+				if err != nil {
+					log.Error("Failed to open root trie", "err", err)
+					break
 				}
 
-				if data.Root != emptyRoot {
-					s.Push(data.Root)
+				logged := time.Now()
+				it := trie.NewIterator(theTrie.NodeIterator(t.begin))
+				var rootCount int64
+				var rootSize common.StorageSize
+				var count int64
+
+				for it.Next() {
+					isDone := false
+					for i := 0; i < len(t.end); i++ {
+						if it.Key[i] >= t.end[i] {
+							isDone = true
+							break
+						}
+					}
+					if isDone {
+						break
+					}
+					rootCount++
+					rootSize += common.StorageSize(len(it.Key) + len(it.Value))
+					// fmt.Printf("  %d. key %#x: %#x\n", count, it.Key, it.Value)
+					count++
+					if count%1000 == 0 && time.Since(logged) > 8*time.Second {
+						mu.Lock()
+						size += rootSize
+						if t.isWorld {
+							accountCount += rootCount
+						} else {
+							storageCount += rootCount
+						}
+
+						rootSize = 0
+						rootCount = 0
+						mu.Unlock()
+
+						log.Info("Iterating kv", "acc_count", accountCount, "storage_count", storageCount, "size", size, "pending roots", s.Len(), "elapsed", common.PrettyDuration(time.Since(startTime)))
+						logged = time.Now()
+					}
+
+					if t.isWorld {
+						data := new(types.StateAccount)
+						if err := rlp.DecodeBytes(it.Value, data); err != nil {
+							log.Error("Failed to decode state object", "addr", it.Key, "err", err)
+							return
+						}
+
+						if data.Root != emptyRoot {
+							mu.Lock()
+							s.Push(dumpTask{
+								root:    data.Root,
+								begin:   nil,
+								end:     nil,
+								isWorld: false,
+							})
+							mu.Unlock()
+						}
+					}
 				}
-				accountCount++
-			} else {
-				storageCount++
+
+				mu.Lock()
+				size += rootSize
+				if t.isWorld {
+					accountCount += rootCount
+				} else {
+					storageCount += rootCount
+				}
+
+				rootSize = 0
+				rootCount = 0
+				mu.Unlock()
+
+				log.Info("Iterated root", "root", t.root, "start", t.begin, "end", t.end)
 			}
-		}
 
-		if it.Err != nil {
-			return it.Err
-		}
-
-		isWorld = false
-		log.Info("Iterated", "root", root, "count", rootCount, "size", rootSize)
+			wg.Done()
+		}()
 	}
 
-	log.Info("Done", "count", count, "size", size, "acc_count", accountCount, "storage_count", storageCount, "elapsed", common.PrettyDuration(time.Since(startTime)))
+	wg.Wait()
+
+	log.Info("Done", "acc_count", accountCount, "storage_count", storageCount, "size", size, "elapsed", common.PrettyDuration(time.Since(startTime)))
 	return nil
 }
 
