@@ -528,7 +528,8 @@ func dbDumpTrie(ctx *cli.Context) error {
 	}
 
 	startTime := time.Now()
-	var size common.StorageSize
+	var accountSize common.StorageSize
+	var storageSize common.StorageSize
 	var accountCount int64
 	var storageCount int64
 
@@ -577,10 +578,11 @@ func dbDumpTrie(ctx *cli.Context) error {
 					count++
 					if count%1000 == 0 && time.Since(logged) > 8*time.Second {
 						mu.Lock()
-						size += rootSize
 						if t.isWorld {
+							accountSize += rootSize
 							accountCount += rootCount
 						} else {
+							storageSize += rootSize
 							storageCount += rootCount
 						}
 
@@ -588,7 +590,7 @@ func dbDumpTrie(ctx *cli.Context) error {
 						rootCount = 0
 						mu.Unlock()
 
-						log.Info("Iterating kv", "acc_count", accountCount, "storage_count", storageCount, "size", size, "pending roots", s.Len(), "elapsed", common.PrettyDuration(time.Since(startTime)))
+						log.Info("Iterating kv", "acc_count", accountCount, "stor_count", storageCount, "acc_size", accountSize, "stor_size", storageSize, "pending roots", s.Len(), "elapsed", common.PrettyDuration(time.Since(startTime)))
 						logged = time.Now()
 					}
 
@@ -613,10 +615,11 @@ func dbDumpTrie(ctx *cli.Context) error {
 				}
 
 				mu.Lock()
-				size += rootSize
 				if t.isWorld {
+					accountSize += rootSize
 					accountCount += rootCount
 				} else {
+					storageSize += rootSize
 					storageCount += rootCount
 				}
 
@@ -633,7 +636,7 @@ func dbDumpTrie(ctx *cli.Context) error {
 
 	wg.Wait()
 
-	log.Info("Done", "acc_count", accountCount, "storage_count", storageCount, "size", size, "elapsed", common.PrettyDuration(time.Since(startTime)))
+	log.Info("Done", "acc_count", accountCount, "stor_count", storageCount, "acc_size", accountSize, "stor_size", storageSize, "elapsed", common.PrettyDuration(time.Since(startTime)))
 	return nil
 }
 
