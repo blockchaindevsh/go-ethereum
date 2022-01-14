@@ -18,6 +18,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"sort"
@@ -259,6 +260,9 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
 		return common.Hash{}
+	}
+	if bytes.Equal(stateObject.CodeHash(), emptyCodeHash) {
+		return crypto.Keccak256Hash(nil)
 	}
 	return common.BytesToHash(stateObject.CodeHash())
 }

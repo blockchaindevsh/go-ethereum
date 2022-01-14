@@ -31,7 +31,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-var emptyCodeHash = crypto.Keccak256(nil)
+var emptyCodeHash []byte = nil
+var emptyCodeHash0 = crypto.Keccak256Hash(nil)
 
 type Code []byte
 
@@ -104,7 +105,7 @@ func newObject(db *StateDB, address common.Address, data types.StateAccount, tri
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
 	}
-	if data.CodeHash == nil {
+	if data.CodeHash == nil || bytes.Equal(data.CodeHash, emptyCodeHash0[:]) {
 		data.CodeHash = emptyCodeHash
 	}
 	//if data.Root == (common.Hash{}) {
@@ -406,7 +407,7 @@ func (s *stateObject) Code(db Database) []byte {
 	if s.code != nil {
 		return s.code
 	}
-	if bytes.Equal(s.CodeHash(), emptyCodeHash) {
+	if bytes.Equal(s.CodeHash(), emptyCodeHash) || bytes.Equal(s.CodeHash(), emptyCodeHash0[:]) {
 		return nil
 	}
 	code, err := db.ContractCode(s.addrHash, common.BytesToHash(s.CodeHash()))
