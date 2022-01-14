@@ -60,6 +60,8 @@ Remove blockchain and state databases`,
 		Subcommands: []cli.Command{
 			dbInspectCmd,
 			dbStatCmd,
+			dbScanCmd,
+			dbStateScanCmd,
 			dbCompactCmd,
 			dbGetCmd,
 			dbDeleteCmd,
@@ -69,6 +71,26 @@ Remove blockchain and state databases`,
 			dbImportCmd,
 			dbExportCmd,
 		},
+	}
+	dbScanCmd = cli.Command{
+		Action:    utils.MigrateFlags(dbScan),
+		Name:      "scan",
+		ArgsUsage: "<prefix> <start>",
+		Flags: []cli.Flag{
+			utils.DataDirFlag,
+		},
+		Usage:       "Scan the db with prefix and start",
+		Description: `This commands iterates the entire database. If the optional 'prefix' and 'start' arguments are provided, then the iteration is limited to the given subset of data.`,
+	}
+	dbStateScanCmd = cli.Command{
+		Action:    utils.MigrateFlags(stateScan),
+		Name:      "state_scan",
+		ArgsUsage: "<start>",
+		Flags: []cli.Flag{
+			utils.DataDirFlag,
+		},
+		Usage:       "Scan the db with start",
+		Description: `This commands iterates the entire database. If the optional 'prefix' and 'start' arguments are provided, then the iteration is limited to the given subset of data.`,
 	}
 	dbInspectCmd = cli.Command{
 		Action:    utils.MigrateFlags(inspect),
@@ -391,6 +413,102 @@ func dbGet(ctx *cli.Context) error {
 		return err
 	}
 	fmt.Printf("key %#x: %#x\n", key, data)
+	return nil
+}
+
+// dbScan shows the value of a given database key
+func dbScan(ctx *cli.Context) error {
+	prefix := make([]byte, 0)
+	start := make([]byte, 0)
+
+	if ctx.NArg() >= 1 {
+		if d, err := hexutil.Decode(ctx.Args().Get(0)); err != nil {
+			return fmt.Errorf("failed to hex-decode 'prefix': %v", err)
+		} else {
+			prefix = d
+		}
+	}
+	if ctx.NArg() >= 2 {
+		if d, err := hexutil.Decode(ctx.Args().Get(1)); err != nil {
+			return fmt.Errorf("failed to hex-decode 'start': %v", err)
+		} else {
+			start = d
+		}
+	}
+
+	stack, _ := makeConfigNode(ctx)
+	defer stack.Close()
+
+	db := utils.MakeChainDatabase(ctx, stack, true)
+	defer db.Close()
+
+	iter := db.NewIterator(prefix, start)
+
+	var size common.StorageSize
+	var count int64
+
+	for iter.Next() {
+		count++
+		size += common.StorageSize(len(iter.Key()) + len(iter.Value()))
+		fmt.Printf("key %#x: %#x\n", iter.Key(), iter.Value())
+	}
+
+	log.Info("Scan done", "count", count, "size", size)
+
+	return nil
+}
+
+// dbScan shows the value of a given database key
+func stateScan(ctx *cli.Context) error {
+	prefix := rawdb.StateObjectPrefix
+	start := make([]byte, 0)
+
+	if ctx.NArg() >= 1 {
+		if d, err := hexutil.Decode(ctx.Args().Get(1)); err != nil {
+			return fmt.Errorf("failed to hex-decode 'start': %v", err)
+		} else {
+			start = d
+		}
+	}
+
+	stack, _ := makeConfigNode(ctx)
+	defer stack.Close()
+
+	db := utils.MakeChainDatabase(ctx, stack, true)
+	defer db.Close()
+
+	iter := db.NewIterator(prefix, start)
+
+	var accountSize common.StorageSize
+	var storageSize common.StorageSize
+
+	var accountCount int64
+	var storageCount int64
+	var count int64
+	logged := time.Now()
+	startTime := time.Now()
+
+	for iter.Next() {
+		count++
+
+		if len(iter.Key()) == len(rawdb.StateObjectPrefix)+common.AddressLength {
+			accountCount++
+			accountSize += common.StorageSize(len(iter.Key()) + len(iter.Value()))
+		} else {
+			storageCount++
+			// diff encoding should reuse address in storage slot
+			storageSize += common.StorageSize(len(iter.Key())+len(iter.Value())) - common.AddressLength
+		}
+
+		count++
+		if count%1000 == 0 && time.Since(logged) > 8*time.Second {
+			log.Info("Inspecting database", "count", count, "elapsed", common.PrettyDuration(time.Since(startTime)))
+			logged = time.Now()
+		}
+	}
+
+	log.Info("Scan done", "acc_count", accountCount, "stor_count", storageCount, "acc_size", accountSize, "stor_size", storageSize, "total_size", accountSize+storageSize)
+
 	return nil
 }
 
