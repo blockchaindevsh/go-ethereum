@@ -19,8 +19,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
-	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -258,12 +258,17 @@ func init() {
 }
 
 func main() {
-	f, err := os.Create("geth.prof")
-	if err != nil {
-		return
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	go func() {
+		fmt.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
+	// f, err := os.Create("geth.prof")
+	// if err != nil {
+	// 	return
+	// }
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
+
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
