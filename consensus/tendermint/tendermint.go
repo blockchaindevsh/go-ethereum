@@ -87,6 +87,7 @@ type Tendermint struct {
 	rootCtxCancel context.CancelFunc
 	rootCtx       context.Context
 	governance    *gov.Governance
+	chain         *core.BlockChain
 }
 
 // New creates a Clique proof-of-authority consensus engine with the initial
@@ -103,7 +104,15 @@ func New(config *params.TendermintConfig) *Tendermint {
 	}
 }
 
-func (c *Tendermint) Init(chain *core.BlockChain, makeBlock func(chan *types.Block)) (err error) {
+func (c *Tendermint) SetBlockChain(chain *core.BlockChain) {
+	// governance
+	governance := gov.New(c.config.Epoch, chain)
+	c.governance = governance
+	c.chain = chain
+}
+
+func (c *Tendermint) Init(makeBlock func(chan *types.Block)) (err error) {
+	chain := c.chain
 	// Outbound gossip message queue
 	sendC := make(chan pbftconsensus.Message, 1000)
 
@@ -133,11 +142,7 @@ func (c *Tendermint) Init(chain *core.BlockChain, makeBlock func(chan *types.Blo
 		}
 	}
 	// datastore
-	store := adapter.NewStore(chain, c.VerifyHeader, makeFullBlock)
-
-	// governance
-	governance := gov.New(c.config.Epoch, chain)
-	c.governance = governance
+	store := adapter.NewStore(chain, c.governance, c.VerifyHeader, makeFullBlock)
 
 	// validator key
 	valKey, err := loadValidatorKey(c.config.ValKeyPath)

@@ -14,6 +14,13 @@ func New(epoch uint64, chain *core.BlockChain) *Governance {
 	return &Governance{epoch: epoch, chain: chain}
 }
 
+// EpochValidators returns the current epoch validators that height belongs to
+func (g *Governance) EpochValidators(height uint64) []common.Address {
+	// TODO get real validators by calling contract
+	header := g.chain.GetHeaderByNumber(0)
+	return header.NextValidators
+}
+
 func (g *Governance) NextValidators(height uint64) []common.Address {
 	if height%g.epoch != 0 {
 		return nil

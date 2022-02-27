@@ -416,7 +416,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case <-w.startCh:
 			clearPending(w.chain.CurrentBlock().NumberU64())
 			if isTm {
-				err := tm.Init(w.chain, w.makeBlock)
+				err := tm.Init(w.makeBlock)
 				if err != nil {
 					log.Crit("tm.Init", "err", err)
 				}

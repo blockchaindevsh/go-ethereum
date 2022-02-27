@@ -5,6 +5,7 @@ import (
 
 	pbft "github.com/QuarkChain/go-minimal-pbft/consensus"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/tendermint/gov"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -12,15 +13,17 @@ import (
 
 type Store struct {
 	chain            *core.BlockChain
+	governance       *gov.Governance
 	verifyHeaderFunc func(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error
 	makeBlock        func() (block *types.FullBlock)
 }
 
 func NewStore(
 	chain *core.BlockChain,
+	governance *gov.Governance,
 	verifyHeaderFunc func(chain consensus.ChainHeaderReader, header *types.Header, seal bool) error,
 	makeBlock func() (block *types.FullBlock)) *Store {
-	return &Store{chain: chain, verifyHeaderFunc: verifyHeaderFunc, makeBlock: makeBlock}
+	return &Store{chain: chain, governance: governance, verifyHeaderFunc: verifyHeaderFunc, makeBlock: makeBlock}
 }
 
 func (s *Store) Base() uint64 {
@@ -82,7 +85,21 @@ func (s *Store) ValidateBlock(state pbft.ChainState, block *types.FullBlock) (er
 }
 
 func (s *Store) ApplyBlock(ctx context.Context, old pbft.ChainState, block *types.FullBlock) (new pbft.ChainState, err error) {
+	number := block.NumberU64()
 	new = old
+	root := block.Root()
+	new.AppHash = root[:]
+	new.LastBlockHeight = number - 1
+	new.LastBlockID = block.ParentHash()
+	parent := s.chain.GetHeaderByHash(block.Header().ParentHash)
+	new.LastBlockTime = parent.TimeMs
+
+	new.LastValidators = old.Validators
+	new.Validators = old.NextValidators
+	nextVS := s.governance.EpochValidators(number + 1)
+	new.NextValidators = types.NewValidatorSet(nextVS)
+
+	// new.LastHeightValidatorsChanged is not used
 	return
 }
 
