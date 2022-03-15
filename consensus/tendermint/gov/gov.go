@@ -45,7 +45,7 @@ func (g *Governance) GetValidatorSet(height uint64, lastVals *types.ValidatorSet
 
 	epochNumber := height - 1 - idxInEpoch
 	epochHeader := g.chain.GetHeaderByNumber(epochNumber)
-	epochVals := types.NewValidatorSet(epochHeader.NextValidators, types.U64ToI64Array(epochHeader.NextValidatorPowers), int64(g.config.Epoch))
+	epochVals := types.NewValidatorSet(epochHeader.NextValidators, types.U64ToI64Array(epochHeader.NextValidatorPowers), int64(g.config.ProposerRepetition))
 	if idxInEpoch != 0 {
 		epochVals.IncrementProposerPriority(int32(idxInEpoch))
 	}
