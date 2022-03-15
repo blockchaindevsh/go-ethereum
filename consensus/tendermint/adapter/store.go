@@ -117,6 +117,9 @@ func (s *Store) ValidateBlock(state pbft.ChainState, block *types.FullBlock) (er
 			state.ChainID, state.LastBlockID, block.NumberU64()-1, block.LastCommit); err != nil {
 			return err
 		}
+		if block.Block.Header().LastCommitHash != block.LastCommit.Hash() {
+			return errors.New("header.LastCommitHash != LastCommit.Hash()")
+		}
 	}
 
 	// Validate block Time with LastCommit
