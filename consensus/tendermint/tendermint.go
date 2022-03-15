@@ -116,6 +116,7 @@ func (c *Tendermint) Authorize(signer common.Address, signFn SignerFn) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	log.Info("Authorize", "signer", signer)
 	c.privVal = NewEthPrivValidator(signer, signFn)
 }
 

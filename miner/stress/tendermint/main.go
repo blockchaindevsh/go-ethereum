@@ -62,8 +62,11 @@ func main() {
 	for i := 0; i < len(sealers); i++ {
 		sealers[i], _ = crypto.GenerateKey()
 	}
+
 	// Create a Clique network based off of the Rinkeby config
 	genesis := makeGenesis(faucets, sealers)
+
+	log.Warn("genesis", "NextValidators", genesis.NextValidators)
 
 	// Handle interrupts.
 	interruptCh := make(chan os.Signal, 5)
@@ -119,6 +122,15 @@ func main() {
 		// Connect libp2p
 		tm := node.Engine().(*tendermint.Tendermint)
 		for {
+			select {
+			case <-interruptCh:
+				for _, node := range stacks {
+					node.Close()
+				}
+				return
+			default:
+			}
+
 			if tm.P2pServer() == nil {
 				log.Info("P2pServer nil")
 				time.Sleep(250 * time.Millisecond)
@@ -222,6 +234,7 @@ func makeGenesis(faucets []*ecdsa.PrivateKey, sealers []*ecdsa.PrivateKey) *core
 	genesis := core.DefaultWeb3QGalileoGenesisBlock()
 	genesis.GasLimit = 25000000
 	genesis.Config.Tendermint.P2pPort = 0
+	genesis.Config.Tendermint.P2pBootstrap = ""
 
 	genesis.Alloc = core.GenesisAlloc{}
 	for _, faucet := range faucets {
