@@ -78,24 +78,8 @@ func (obj *Header) EncodeRLP(_w io.Writer) error {
 		w.WriteBytes(obj.LastCommitHash[:])
 	}
 	if _tmp6 {
-		if obj.Commit == nil {
-			w.Write([]byte{0xC0})
-		} else {
-			_tmp11 := w.List()
-			w.WriteUint64(obj.Commit.Height)
-			w.WriteUint64(uint64(obj.Commit.Round))
-			w.WriteBytes(obj.Commit.BlockID[:])
-			_tmp12 := w.List()
-			for _, _tmp13 := range obj.Commit.Signatures {
-				_tmp14 := w.List()
-				w.WriteUint64(uint64(_tmp13.BlockIDFlag))
-				w.WriteBytes(_tmp13.ValidatorAddress[:])
-				w.WriteUint64(_tmp13.TimestampMs)
-				w.WriteBytes(_tmp13.Signature)
-				w.ListEnd(_tmp14)
-			}
-			w.ListEnd(_tmp12)
-			w.ListEnd(_tmp11)
+		if err := obj.Commit.EncodeRLP(w); err != nil {
+			return err
 		}
 	}
 	w.ListEnd(_tmp0)
