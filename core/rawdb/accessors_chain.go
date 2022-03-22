@@ -340,6 +340,7 @@ func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValu
 			var header *types.Header
 			err := rlp.DecodeBytes(data, &header)
 			if err != nil {
+				data = nil
 				return err
 			}
 			if header != nil && header.Hash() == hash {
