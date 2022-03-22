@@ -338,7 +338,10 @@ func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValu
 		data, _ = reader.Ancient(freezerHeaderTable, number)
 		if len(data) > 0 {
 			var header *types.Header
-			rlp.DecodeBytes(data, &header)
+			err := rlp.DecodeBytes(data, &header)
+			if err != nil {
+				return err
+			}
 			if header != nil && header.Hash() == hash {
 				return nil
 			}
