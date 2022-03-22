@@ -351,7 +351,7 @@ func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValu
 		return nil
 	})
 	if err != nil {
-		data = nil
+		return nil
 	}
 	return data
 }
