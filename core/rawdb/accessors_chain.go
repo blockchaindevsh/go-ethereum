@@ -331,7 +331,7 @@ func ReadHeaderRange(db ethdb.Reader, number uint64, count uint64) []rlp.RawValu
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
 func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValue {
 	var data []byte
-	db.ReadAncients(func(reader ethdb.AncientReader) error {
+	err := db.ReadAncients(func(reader ethdb.AncientReader) error {
 		// First try to look up the data in ancient database. Extra hash
 		// comparison is necessary since ancient database only maintains
 		// the canonical data.
@@ -340,7 +340,6 @@ func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValu
 			var header *types.Header
 			err := rlp.DecodeBytes(data, &header)
 			if err != nil {
-				data = nil
 				return err
 			}
 			if header != nil && header.Hash() == hash {
@@ -351,6 +350,9 @@ func ReadHeaderRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValu
 		data, _ = db.Get(headerKey(number, hash))
 		return nil
 	})
+	if err != nil {
+		data = nil
+	}
 	return data
 }
 
