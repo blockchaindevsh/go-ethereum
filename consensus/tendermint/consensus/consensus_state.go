@@ -655,7 +655,6 @@ func (cs *ConsensusState) processSyncRequest(csq *ConsensusSyncRequest) []interf
 		if csq.HasProposal == 0 {
 			// return block and commit directly
 			fb := cs.blockStore.LoadBlock(csq.Height)
-			fb = fb.WithCommit(cs.blockStore.LoadBlockCommit(csq.Height))
 			return []interface{}{fb}
 		} else {
 			// we are ahead and the peer has proposal, only return precommits
