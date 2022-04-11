@@ -287,6 +287,7 @@ loop:
 	}
 
 	close(p.closed)
+	p.log.Info("Peer.run", "reason", reason, "id", p.rw.node.ID())
 	p.rw.close(reason)
 	p.wg.Wait()
 	return remoteRequested, err
