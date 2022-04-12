@@ -36,6 +36,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/golang/snappy"
 	"golang.org/x/crypto/sha3"
@@ -215,6 +216,7 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
 	if len(data) > maxUint24 {
 		return 0, errPlainMessageTooLarge
 	}
+	dataSize := len(data)
 	if c.snappyWriteBuffer != nil {
 		// Ensure the buffer has sufficient size.
 		// Package snappy will allocate its own buffer if the provided
@@ -225,6 +227,9 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
 
 	wireSize := uint32(len(data))
 	err := c.session.writeFrame(c.conn, code, data)
+	if err != nil {
+		log.Warn("Con.Write", "dataSize", dataSize, "wireSize", wireSize)
+	}
 	return wireSize, err
 }
 
