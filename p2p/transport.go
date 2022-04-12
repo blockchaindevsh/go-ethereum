@@ -27,6 +27,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/bitutil"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -92,6 +93,7 @@ func (t *rlpxTransport) WriteMsg(msg Msg) error {
 	t.conn.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
 	size, err := t.conn.Write(msg.Code, t.wbuf.Bytes())
 	if err != nil {
+		log.Warn("rlpxTransport.WriteMsg", "#bytes", len(t.wbuf.Bytes()), "err", err)
 		return err
 	}
 
