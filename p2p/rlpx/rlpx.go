@@ -262,7 +262,10 @@ func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) erro
 	// Write frame MAC.
 	h.wbuf.Write(h.egressMAC.computeFrame(framedata))
 
-	_, err := conn.Write(h.wbuf.data)
+	n, err := conn.Write(h.wbuf.data)
+	if err != nil {
+		log.Warn("writeFrame", "#data", len(h.wbuf.data), "n", n)
+	}
 	return err
 }
 
