@@ -375,7 +375,7 @@ func (c *Tendermint) verifyHeader(chain consensus.ChainHeaderReader, header *typ
 
 	epochHeader := c.getEpochHeader(chain, header)
 	if epochHeader == nil {
-		return fmt.Errorf("epochHeader not found, height:%d", number)
+		return fmt.Errorf("epochHeader not found, height:%d epoch:%d", number, c.config.Epoch)
 	}
 
 	vs := types.NewValidatorSet(epochHeader.NextValidators, types.U64ToI64Array(epochHeader.NextValidatorPowers), int64(c.config.ProposerRepetition))
