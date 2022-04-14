@@ -71,7 +71,21 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 		}
 		return consensus.ErrPrunedAncestor
 	}
+	if v.config.IsPisa(block.Number()) {
+		totalCalldata := 0
+		for _, tx := range block.Transactions() {
+			totalCalldata += len(tx.Data())
+		}
+
+		if totalCalldata > EIP4488MaxCalldata(len(block.Transactions())) {
+			return fmt.Errorf("transaction totalCalldata exceeded for EIP4488")
+		}
+	}
 	return nil
+}
+
+func EIP4488MaxCalldata(txCount int) int {
+	return params.BaseMaxCalldataPerBlock + params.CalldataPerTxStipend*(txCount)
 }
 
 // ValidateState validates the various changes that happen after a state
