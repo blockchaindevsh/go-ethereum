@@ -898,7 +898,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 			break
 		}
 
-		if w.chainConfig.IsPisa(env.header.Number) && env.totalCalldata+len(tx.Data()) > core.EIP4488MaxCalldata(env.tcount+1) {
+		if w.chainConfig.IsPisa(env.header.Number) && env.totalCalldata+len(tx.Data()) > core.MaxCalldataEIP4488(env.tcount+1) {
 			log.Trace("Total transaction calldata exceeded, ignoring transaction", "hash", tx.Hash(), "eip4488", w.chainConfig.PisaBlock)
 
 			break

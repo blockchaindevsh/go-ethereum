@@ -77,15 +77,15 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 			totalCalldata += len(tx.Data())
 		}
 
-		if totalCalldata > EIP4488MaxCalldata(len(block.Transactions())) {
+		if totalCalldata > MaxCalldataEIP4488(len(block.Transactions())) {
 			return fmt.Errorf("transaction totalCalldata exceeded for EIP4488")
 		}
 	}
 	return nil
 }
 
-func EIP4488MaxCalldata(txCount int) int {
-	return params.BaseMaxCalldataPerBlock + params.CalldataPerTxStipend*(txCount)
+func MaxCalldataEIP4488(txCount int) int {
+	return params.BaseMaxCalldataPerBlockEIP4488 + params.CalldataPerTxStipendEIP4488*(txCount)
 }
 
 // ValidateState validates the various changes that happen after a state
