@@ -551,6 +551,11 @@ func (n *Node) EventMux() *event.TypeMux {
 	return n.eventmux
 }
 
+// PruneBody returns whether the node will prune expired body (according to params.) or not
+func (n *Node) PruneBody() bool {
+	return n.config.pruneBody
+}
+
 // OpenDatabase opens an existing database with the given name (or creates one if no
 // previous can be found) from within the node's instance directory. If the node is
 // ephemeral, a memory database is returned.
@@ -599,7 +604,7 @@ func (n *Node) OpenDatabaseWithFreezer(name string, cache, handles int, freezer,
 		case !filepath.IsAbs(freezer):
 			freezer = n.ResolvePath(freezer)
 		}
-		db, err = rawdb.NewLevelDBDatabaseWithFreezer(root, cache, handles, freezer, namespace, readonly)
+		db, err = rawdb.NewLevelDBDatabaseWithFreezer(root, cache, handles, freezer, namespace, readonly, n.PruneBody())
 	}
 
 	if err == nil {

@@ -187,6 +187,7 @@ type Config struct {
 	staticNodesWarning     bool
 	trustedNodesWarning    bool
 	oldGethResourceWarning bool
+	pruneBody              bool
 
 	// AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
 	AllowUnprotectedTxs bool `toml:",omitempty"`

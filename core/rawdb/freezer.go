@@ -88,6 +88,7 @@ type freezer struct {
 	readonly     bool
 	tables       map[string]*freezerTable // Data tables for storing everything
 	instanceLock fileutil.Releaser        // File-system lock to prevent double opens
+	pruneBody    bool                     // Do not write transaction body to cold storage
 
 	trigger chan chan struct{} // Manual blocking freeze trigger, test determinism
 
@@ -101,7 +102,7 @@ type freezer struct {
 //
 // The 'tables' argument defines the data tables. If the value of a map
 // entry is true, snappy compression is disabled for the table.
-func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool) (*freezer, error) {
+func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool, pruneBody bool) (*freezer, error) {
 	// Create the initial freezer object
 	var (
 		readMeter  = metrics.NewRegisteredMeter(namespace+"ancient/read", nil)
@@ -129,10 +130,16 @@ func newFreezer(datadir string, namespace string, readonly bool, maxTableSize ui
 		instanceLock: lock,
 		trigger:      make(chan chan struct{}),
 		quit:         make(chan struct{}),
+		pruneBody:    pruneBody,
 	}
 
 	// Create the tables.
 	for name, disableSnappy := range tables {
+		// Do not include body table in ancients
+		// Reading the body from ancient will result in errUnknownTable
+		if pruneBody && name == freezerBodiesTable {
+			continue
+		}
 		table, err := newTable(datadir, name, readMeter, writeMeter, sizeGauge, maxTableSize, disableSnappy, readonly)
 		if err != nil {
 			for _, table := range freezer.tables {
@@ -563,8 +570,10 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 			if err := op.AppendRaw(freezerHeaderTable, number, header); err != nil {
 				return fmt.Errorf("can't write header to freezer: %v", err)
 			}
-			if err := op.AppendRaw(freezerBodiesTable, number, body); err != nil {
-				return fmt.Errorf("can't write body to freezer: %v", err)
+			if !f.pruneBody {
+				if err := op.AppendRaw(freezerBodiesTable, number, body); err != nil {
+					return fmt.Errorf("can't write body to freezer: %v", err)
+				}
 			}
 			if err := op.AppendRaw(freezerReceiptTable, number, receipts); err != nil {
 				return fmt.Errorf("can't write receipts to freezer: %v", err)

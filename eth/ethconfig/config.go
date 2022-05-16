@@ -221,6 +221,8 @@ type Config struct {
 	// Sstorage config
 	SstorageFiles  []string `toml:",omitempty"`
 	SstorageShards []string `toml:",omitempty"`
+
+	PruneBody bool
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.
