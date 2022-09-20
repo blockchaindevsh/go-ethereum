@@ -120,6 +120,8 @@ type AncientWriteOp interface {
 
 	// AppendRaw adds an item without RLP-encoding it.
 	AppendRaw(kind string, number uint64, item []byte) error
+
+	PruneBody() bool
 }
 
 // Reader contains the methods required to read data from both key-value as well as
