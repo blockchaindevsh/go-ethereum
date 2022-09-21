@@ -88,13 +88,14 @@ type freezer struct {
 	readonly     bool
 	tables       map[string]*freezerTable // Data tables for storing everything
 	instanceLock fileutil.Releaser        // File-system lock to prevent double opens
-	pruneBody    bool                     // Do not write transaction body to cold storage
 
 	trigger chan chan struct{} // Manual blocking freeze trigger, test determinism
 
 	quit      chan struct{}
 	wg        sync.WaitGroup
 	closeOnce sync.Once
+
+	pruneConfig *ethdb.PruneConfig
 }
 
 // newFreezer creates a chain freezer that moves ancient chain data into
@@ -102,7 +103,7 @@ type freezer struct {
 //
 // The 'tables' argument defines the data tables. If the value of a map
 // entry is true, snappy compression is disabled for the table.
-func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool, pruneBody bool) (*freezer, error) {
+func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool) (*freezer, error) {
 	// Create the initial freezer object
 	var (
 		readMeter  = metrics.NewRegisteredMeter(namespace+"ancient/read", nil)
@@ -130,16 +131,10 @@ func newFreezer(datadir string, namespace string, readonly bool, maxTableSize ui
 		instanceLock: lock,
 		trigger:      make(chan chan struct{}),
 		quit:         make(chan struct{}),
-		pruneBody:    pruneBody,
 	}
 
 	// Create the tables.
 	for name, disableSnappy := range tables {
-		// Do not include body table in ancients
-		// Reading the body from ancient will result in errUnknownTable
-		if pruneBody && name == freezerBodiesTable {
-			continue
-		}
 		table, err := newTable(datadir, name, readMeter, writeMeter, sizeGauge, maxTableSize, disableSnappy, readonly)
 		if err != nil {
 			for _, table := range freezer.tables {
@@ -286,6 +281,42 @@ func (f *freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	}
 	atomic.StoreUint64(&f.frozen, item)
 	return writeSize, nil
+}
+
+func (f *freezer) StartFreeze(db ethdb.KeyValueStore, cfg *ethdb.PruneConfig) error {
+	if f.readonly {
+		return errReadOnly
+	}
+	f.writeLock.Lock()
+	defer f.writeLock.Unlock()
+
+	f.pruneConfig = cfg
+
+	if cfg != nil {
+		table := f.tables[freezerBodiesTable]
+		if table != nil {
+			delete(f.tables, freezerBodiesTable)
+			err := table.Close()
+			if err != nil {
+				log.Warn("table.Close failed", "err", err)
+			}
+		}
+
+		if cfg.DurationBlocks != 0 {
+			f.threshold = cfg.DurationBlocks
+		}
+	}
+
+	f.wg.Add(1)
+	go func() {
+		f.freeze(db)
+		f.wg.Done()
+	}()
+	return nil
+}
+
+func (f *freezer) PruneConfig() (*ethdb.PruneConfig, error) {
+	return f.pruneConfig, nil
 }
 
 // TruncateAncients discards any recent data above the provided threshold number.
@@ -570,7 +601,7 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 			if err := op.AppendRaw(freezerHeaderTable, number, header); err != nil {
 				return fmt.Errorf("can't write header to freezer: %v", err)
 			}
-			if !f.pruneBody {
+			if !op.PruneBody() {
 				if err := op.AppendRaw(freezerBodiesTable, number, body); err != nil {
 					return fmt.Errorf("can't write body to freezer: %v", err)
 				}

@@ -89,6 +89,14 @@ func (t *table) ReadAncients(fn func(reader ethdb.AncientReader) error) (err err
 	return t.db.ReadAncients(fn)
 }
 
+func (t *table) StartFreeze(db ethdb.KeyValueStore, cfg *ethdb.PruneConfig) error {
+	return t.db.StartFreeze(db, cfg)
+}
+
+func (f *table) PruneConfig() (*ethdb.PruneConfig, error) {
+	return f.db.PruneConfig()
+}
+
 // TruncateAncients is a noop passthrough that just forwards the request to the underlying
 // database.
 func (t *table) TruncateAncients(items uint64) error {

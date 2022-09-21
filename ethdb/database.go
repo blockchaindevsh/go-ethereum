@@ -111,6 +111,16 @@ type AncientWriter interface {
 
 	// Sync flushes all in-memory ancient store data to disk.
 	Sync() error
+
+	// StartFreeze should be called only once
+	StartFreeze(db KeyValueStore, cfg *PruneConfig) error
+
+	PruneConfig() (*PruneConfig, error)
+}
+
+type PruneConfig struct {
+	// if 0, default setting is used
+	DurationBlocks uint64 `json:"duration_blocks"`
 }
 
 // AncientWriteOp is given to the function argument of ModifyAncients.

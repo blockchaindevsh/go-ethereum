@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -539,6 +540,7 @@ type TendermintConfig struct {
 	NodeName               string
 	ProposerRepetition     uint64
 	ConsensusConfig        ConsensusConfig
+	PruneConfig            *ethdb.PruneConfig // if non nil, pruning body is enabled
 }
 
 // String implements the stringer interface, returning the consensus engine details.

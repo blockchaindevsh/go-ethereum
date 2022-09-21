@@ -109,6 +109,15 @@ func (db *nofreezedb) ModifyAncients(func(ethdb.AncientWriteOp) error) (int64, e
 	return 0, errNotSupported
 }
 
+// StartFreeze is not supported.
+func (db *nofreezedb) StartFreeze(ethdb.KeyValueStore, *ethdb.PruneConfig) error {
+	return errNotSupported
+}
+
+func (f *nofreezedb) PruneConfig() (*ethdb.PruneConfig, error) {
+	return nil, errNotSupported
+}
+
 // TruncateAncients returns an error as we don't have a backing chain freezer.
 func (db *nofreezedb) TruncateAncients(items uint64) error {
 	return errNotSupported
@@ -144,9 +153,9 @@ func NewDatabase(db ethdb.KeyValueStore) ethdb.Database {
 // NewDatabaseWithFreezer creates a high level database on top of a given key-
 // value data store with a freezer moving immutable chain segments into cold
 // storage.
-func NewDatabaseWithFreezer(db ethdb.KeyValueStore, freezer string, namespace string, readonly bool, pruneBody bool) (ethdb.Database, error) {
+func NewDatabaseWithFreezer(db ethdb.KeyValueStore, freezer string, namespace string, readonly bool) (ethdb.Database, error) {
 	// Create the idle freezer instance
-	frdb, err := newFreezer(freezer, namespace, readonly, freezerTableSize, FreezerNoSnappy, pruneBody)
+	frdb, err := newFreezer(freezer, namespace, readonly, freezerTableSize, FreezerNoSnappy)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +224,14 @@ func NewDatabaseWithFreezer(db ethdb.KeyValueStore, freezer string, namespace st
 		}
 	}
 	// Freezer is consistent with the key-value database, permit combining the two
-	if !frdb.readonly {
-		frdb.wg.Add(1)
-		go func() {
-			frdb.freeze(db)
-			frdb.wg.Done()
-		}()
-	}
+	// need to call StartFreeze() manually
+	// if !frdb.readonly {
+	// 	frdb.wg.Add(1)
+	// 	go func() {
+	// 		frdb.freeze(db)
+	// 		frdb.wg.Done()
+	// 	}()
+	// }
 	return &freezerdb{
 		KeyValueStore: db,
 		AncientStore:  frdb,
@@ -258,7 +268,7 @@ func NewLevelDBDatabaseWithFreezer(file string, cache int, handles int, freezer 
 	if err != nil {
 		return nil, err
 	}
-	frdb, err := NewDatabaseWithFreezer(kvdb, freezer, namespace, readonly, pruneBody)
+	frdb, err := NewDatabaseWithFreezer(kvdb, freezer, namespace, readonly)
 	if err != nil {
 		kvdb.Close()
 		return nil, err
