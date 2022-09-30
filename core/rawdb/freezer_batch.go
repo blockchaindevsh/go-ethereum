@@ -62,7 +62,7 @@ func (batch *freezerBatch) AppendRaw(kind string, num uint64, item []byte) error
 	return batch.tables[kind].AppendRaw(num, item)
 }
 
-func (batch *freezerBatch) PruneBodyAndReceipt() bool {
+func (batch *freezerBatch) PruneBody() bool {
 	return batch.f.pruneConfig != nil
 }
 

@@ -571,7 +571,7 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 	hashes = make([]common.Hash, 0, limit-number)
 
 	_, err = f.ModifyAncients(func(op ethdb.AncientWriteOp) error {
-		pruneEnabled := op.PruneBodyAndReceipt()
+		pruneEnabled := op.PruneBody()
 
 		for ; number <= limit; number++ {
 			// Retrieve all the components of the canonical block.
@@ -587,9 +587,11 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 			if len(body) == 0 && !pruneEnabled {
 				return fmt.Errorf("block body missing, can't freeze block %d", number)
 			}
-			receipts := ReadReceiptsRLP(nfdb, hash, number)
-			if len(receipts) == 0 && !pruneEnabled {
-				return fmt.Errorf("block receipts missing, can't freeze block %d", number)
+			receipts := ReadReceipts(nfdb, hash, number, nil)
+			if len(receipts) == 0 {
+				if len(ReadReceiptsRLP(nfdb, hash, number)) == 0 {
+					return fmt.Errorf("block receipts missing, can't freeze block %d", number)
+				}
 			}
 			td := ReadTdRLP(nfdb, hash, number)
 			if len(td) == 0 {
@@ -607,10 +609,10 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 				if err := op.AppendRaw(freezerBodiesTable, number, body); err != nil {
 					return fmt.Errorf("can't write body to freezer: %v", err)
 				}
+			}
 
-				if err := op.AppendRaw(freezerReceiptTable, number, receipts); err != nil {
-					return fmt.Errorf("can't write receipts to freezer: %v", err)
-				}
+			if err := op.Append(freezerReceiptTable, number, receipts); err != nil {
+				return fmt.Errorf("can't write receipts to freezer: %v", err)
 			}
 
 			if err := op.AppendRaw(freezerDifficultyTable, number, td); err != nil {
