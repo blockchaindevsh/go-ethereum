@@ -665,14 +665,6 @@ func DeleteReceipts(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
 	}
 }
 
-// storedReceiptRLP is the storage encoding of a receipt.
-// Re-definition in core/types/receipt.go.
-type storedReceiptRLP struct {
-	PostStateOrStatus []byte
-	CumulativeGasUsed uint64
-	Logs              []*types.LogForStorage
-}
-
 // ReceiptLogs is a barebone version of ReceiptForStorage which only keeps
 // the list of logs. When decoding a stored receipt into this object we
 // avoid creating the bloom filter.
@@ -682,13 +674,32 @@ type receiptLogs struct {
 
 // DecodeRLP implements rlp.Decoder.
 func (r *receiptLogs) DecodeRLP(s *rlp.Stream) error {
-	var stored storedReceiptRLP
+	var stored types.ReceiptForStorage
 	if err := s.Decode(&stored); err != nil {
 		return err
 	}
 	r.Logs = make([]*types.Log, len(stored.Logs))
 	for i, log := range stored.Logs {
+		log.TxHash = stored.TxHash
 		r.Logs[i] = (*types.Log)(log)
+	}
+	return nil
+}
+
+func deriveLogFieldsNoBody(receipts []*receiptLogs, hash common.Hash, number uint64) error {
+	logIndex := uint(0)
+	for i := 0; i < len(receipts); i++ {
+		// The derived log fields can simply be set from the block and transaction
+		for j := 0; j < len(receipts[i].Logs); j++ {
+			if receipts[i].Logs[j].TxHash == (common.Hash{}) {
+				return errors.New("receipt is not complete")
+			}
+			receipts[i].Logs[j].BlockNumber = number
+			receipts[i].Logs[j].BlockHash = hash
+			receipts[i].Logs[j].TxIndex = uint(i)
+			receipts[i].Logs[j].Index = logIndex
+			logIndex++
+		}
 	}
 	return nil
 }
@@ -736,13 +747,18 @@ func ReadLogs(db ethdb.Reader, hash common.Hash, number uint64, config *params.C
 
 	body := ReadBody(db, hash, number)
 	if body == nil {
-		log.Error("Missing body but have receipt", "hash", hash, "number", number)
-		return nil
+		if err := deriveLogFieldsNoBody(receipts, hash, number); err != nil {
+			log.Error("Missing body but have incomplete receipt", "hash", hash, "number", number, "err", err)
+			return nil
+		}
+
+		goto END
 	}
 	if err := deriveLogFields(receipts, hash, number, body.Transactions); err != nil {
 		log.Error("Failed to derive block receipts fields", "hash", hash, "number", number, "err", err)
 		return nil
 	}
+END:
 	logs := make([][]*types.Log, len(receipts))
 	for i, receipt := range receipts {
 		logs[i] = receipt.Logs
