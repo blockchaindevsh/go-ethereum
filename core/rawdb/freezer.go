@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -576,6 +577,7 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []common.Hash, err error) {
 	hashes = make([]common.Hash, 0, limit-number)
 
+	var stReceipts []*types.ReceiptForStorage
 	_, err = f.ModifyAncients(func(op ethdb.AncientWriteOp) error {
 		pruneEnabled := op.PruneBody()
 
@@ -599,6 +601,11 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 					return fmt.Errorf("block receipts missing, can't freeze block %d", number)
 				}
 			}
+			// Convert receipts to storage format
+			stReceipts = stReceipts[:0]
+			for _, receipt := range receipts {
+				stReceipts = append(stReceipts, (*types.ReceiptForStorage)(receipt))
+			}
 			td := ReadTdRLP(nfdb, hash, number)
 			if len(td) == 0 {
 				return fmt.Errorf("total difficulty missing, can't freeze block %d", number)
@@ -617,7 +624,7 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 				}
 			}
 
-			if err := op.Append(freezerReceiptTable, number, receipts); err != nil {
+			if err := op.Append(freezerReceiptTable, number, stReceipts); err != nil {
 				return fmt.Errorf("can't write receipts to freezer: %v", err)
 			}
 
