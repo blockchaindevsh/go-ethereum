@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/olekukonko/tablewriter"
 )
 
@@ -110,11 +111,11 @@ func (db *nofreezedb) ModifyAncients(func(ethdb.AncientWriteOp) error) (int64, e
 }
 
 // StartFreeze is not supported.
-func (db *nofreezedb) StartFreeze(ethdb.KeyValueStore, *ethdb.PruneConfig) error {
+func (db *nofreezedb) StartFreeze(ethdb.KeyValueStore, *params.ChainConfig) error {
 	return errNotSupported
 }
 
-func (f *nofreezedb) PruneConfig() (*ethdb.PruneConfig, error) {
+func (f *nofreezedb) PruneConfig() (*params.PruneConfig, error) {
 	return nil, errNotSupported
 }
 

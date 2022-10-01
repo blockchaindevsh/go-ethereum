@@ -95,7 +95,8 @@ type freezer struct {
 	wg        sync.WaitGroup
 	closeOnce sync.Once
 
-	pruneConfig *ethdb.PruneConfig
+	pruneConfig *params.PruneConfig
+	chainConfig *params.ChainConfig
 }
 
 // newFreezer creates a chain freezer that moves ancient chain data into
@@ -283,14 +284,19 @@ func (f *freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	return writeSize, nil
 }
 
-func (f *freezer) StartFreeze(db ethdb.KeyValueStore, cfg *ethdb.PruneConfig) error {
+func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainConfig) error {
 	if f.readonly {
 		return errReadOnly
+	}
+	var cfg *params.PruneConfig
+	if chainConfig.Tendermint != nil {
+		cfg = chainConfig.Tendermint.PruneConfig
 	}
 	f.writeLock.Lock()
 	defer f.writeLock.Unlock()
 
 	f.pruneConfig = cfg
+	f.chainConfig = chainConfig
 
 	if cfg != nil {
 		table := f.tables[freezerBodiesTable]
@@ -315,7 +321,7 @@ func (f *freezer) StartFreeze(db ethdb.KeyValueStore, cfg *ethdb.PruneConfig) er
 	return nil
 }
 
-func (f *freezer) PruneConfig() (*ethdb.PruneConfig, error) {
+func (f *freezer) PruneConfig() (*params.PruneConfig, error) {
 	return f.pruneConfig, nil
 }
 
@@ -587,7 +593,7 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 			if len(body) == 0 && !pruneEnabled {
 				return fmt.Errorf("block body missing, can't freeze block %d", number)
 			}
-			receipts := ReadReceipts(nfdb, hash, number, nil)
+			receipts := ReadReceipts(nfdb, hash, number, f.chainConfig)
 			if len(receipts) == 0 {
 				if len(ReadReceiptsRLP(nfdb, hash, number)) == 0 {
 					return fmt.Errorf("block receipts missing, can't freeze block %d", number)

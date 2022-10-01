@@ -18,6 +18,7 @@ package rawdb
 
 import (
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // table is a wrapper around a database that prefixes each key access with a pre-
@@ -89,11 +90,11 @@ func (t *table) ReadAncients(fn func(reader ethdb.AncientReader) error) (err err
 	return t.db.ReadAncients(fn)
 }
 
-func (t *table) StartFreeze(db ethdb.KeyValueStore, cfg *ethdb.PruneConfig) error {
+func (t *table) StartFreeze(db ethdb.KeyValueStore, cfg *params.ChainConfig) error {
 	return t.db.StartFreeze(db, cfg)
 }
 
-func (f *table) PruneConfig() (*ethdb.PruneConfig, error) {
+func (f *table) PruneConfig() (*params.PruneConfig, error) {
 	return f.db.PruneConfig()
 }
 
