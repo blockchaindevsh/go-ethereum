@@ -93,11 +93,15 @@ func (q *bodyQueue) deliver(peer *peerConnection, packet *eth.Response) (int, er
 	hashsets := packet.Meta.([][]common.Hash) // {txs hashes, uncle hashes}
 
 	var pivot uint64
-	q.pivotLock.RLock()
-	if q.pivotHeader != nil {
-		pivot = q.pivotHeader.Number.Uint64()
+
+	cfg, _ := q.stateDB.PruneConfig()
+	if cfg != nil {
+		q.pivotLock.RLock()
+		if q.pivotHeader != nil {
+			pivot = q.pivotHeader.Number.Uint64()
+		}
+		q.pivotLock.RUnlock()
 	}
-	q.pivotLock.RUnlock()
 
 	accepted, err := q.queue.DeliverBodies(peer.id, txs, hashsets[0], uncles, hashsets[1], pivot)
 	switch {
