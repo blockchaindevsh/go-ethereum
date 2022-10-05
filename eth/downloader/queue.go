@@ -854,9 +854,10 @@ LOOP:
 						// not something to panic about
 						log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
 						failure = errStaleDelivery
+
+						// Clean up a successful fetch
+						delete(taskPool, header.Hash())
 					}
-					// Clean up a successful fetch
-					delete(taskPool, header.Hash())
 					accepted++
 				} else {
 					request.Peer.MarkLacking(header.Hash())
@@ -904,6 +905,9 @@ LOOP:
 						// not something to panic about
 						log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
 						failure = errStaleDelivery
+
+						// Clean up a successful fetch
+						delete(taskPool, header.Hash())
 					}
 				}
 
