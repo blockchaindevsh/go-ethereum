@@ -782,6 +782,11 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 		result.Uncles = uncleLists[index]
 		result.SetBodyDone()
 	}
+	if pivot == 0 {
+		return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool,
+			bodyReqTimer, bodyInMeter, bodyDropMeter, len(txLists), validate, reconstruct)
+	}
+
 	return q.deliverWithPivot(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool,
 		bodyReqTimer, bodyInMeter, bodyDropMeter, len(txLists), validate, reconstruct, pivot)
 }
