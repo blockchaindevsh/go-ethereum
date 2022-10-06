@@ -592,7 +592,7 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 				return fmt.Errorf("block header missing, can't freeze block %d", number)
 			}
 			body := ReadBodyRLP(nfdb, hash, number)
-			if len(body) == 0 && !pruneEnabled {
+			if len(body) == 0 {
 				return fmt.Errorf("block body missing, can't freeze block %d", number)
 			}
 			receipts := ReadReceipts(nfdb, hash, number, f.chainConfig)
