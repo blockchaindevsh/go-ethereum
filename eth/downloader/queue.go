@@ -882,15 +882,13 @@ LOOP:
 		for j := accepted; j < len(request.Headers); j++ {
 			header := request.Headers[j]
 			// Validate the fields
-			if err := validate(i, header); err != nil {
-				if failure != errStaleDelivery {
-					failure = err
-				}
+			if failure = validate(i, header); failure != nil {
 				if header.Number.Uint64() >= pivot {
 					break
 				}
 			} else {
 				if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
+					failure = nil
 					reconstruct(j, res)
 				} else {
 					// else: betweeen here and above, some other peer filled this result,
@@ -909,7 +907,6 @@ LOOP:
 						// or it was indeed a no-op. This should not happen, but if it does it's
 						// not something to panic about
 						log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
-						failure = errStaleDelivery
 
 						// Clean up a successful fetch
 						delete(taskPool, header.Hash())
@@ -920,9 +917,6 @@ LOOP:
 				delete(taskPool, header.Hash())
 
 				matched = true
-				if failure != errStaleDelivery {
-					failure = nil
-				}
 				accepted = j + 1
 				if accepted >= len(request.Headers) {
 					break LOOP
