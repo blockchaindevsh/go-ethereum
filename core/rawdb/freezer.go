@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -88,13 +89,15 @@ type freezer struct {
 	readonly     bool
 	tables       map[string]*freezerTable // Data tables for storing everything
 	instanceLock fileutil.Releaser        // File-system lock to prevent double opens
-	pruneBody    bool                     // Do not write transaction body to cold storage
 
 	trigger chan chan struct{} // Manual blocking freeze trigger, test determinism
 
 	quit      chan struct{}
 	wg        sync.WaitGroup
 	closeOnce sync.Once
+
+	pruneConfig *params.PruneConfig
+	chainConfig *params.ChainConfig
 }
 
 // newFreezer creates a chain freezer that moves ancient chain data into
@@ -102,7 +105,7 @@ type freezer struct {
 //
 // The 'tables' argument defines the data tables. If the value of a map
 // entry is true, snappy compression is disabled for the table.
-func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool, pruneBody bool) (*freezer, error) {
+func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool) (*freezer, error) {
 	// Create the initial freezer object
 	var (
 		readMeter  = metrics.NewRegisteredMeter(namespace+"ancient/read", nil)
@@ -130,16 +133,10 @@ func newFreezer(datadir string, namespace string, readonly bool, maxTableSize ui
 		instanceLock: lock,
 		trigger:      make(chan chan struct{}),
 		quit:         make(chan struct{}),
-		pruneBody:    pruneBody,
 	}
 
 	// Create the tables.
 	for name, disableSnappy := range tables {
-		// Do not include body table in ancients
-		// Reading the body from ancient will result in errUnknownTable
-		if pruneBody && name == freezerBodiesTable {
-			continue
-		}
 		table, err := newTable(datadir, name, readMeter, writeMeter, sizeGauge, maxTableSize, disableSnappy, readonly)
 		if err != nil {
 			for _, table := range freezer.tables {
@@ -286,6 +283,47 @@ func (f *freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	}
 	atomic.StoreUint64(&f.frozen, item)
 	return writeSize, nil
+}
+
+func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainConfig) error {
+	if f.readonly {
+		return errReadOnly
+	}
+	var cfg *params.PruneConfig
+	if chainConfig.Tendermint != nil {
+		cfg = chainConfig.Tendermint.PruneConfig
+	}
+	f.writeLock.Lock()
+	defer f.writeLock.Unlock()
+
+	f.pruneConfig = cfg
+	f.chainConfig = chainConfig
+
+	if cfg != nil {
+		table := f.tables[freezerBodiesTable]
+		if table != nil {
+			delete(f.tables, freezerBodiesTable)
+			err := table.Close()
+			if err != nil {
+				log.Warn("table.Close failed", "err", err)
+			}
+		}
+
+		if cfg.DurationBlocks != 0 {
+			f.threshold = cfg.DurationBlocks
+		}
+	}
+
+	f.wg.Add(1)
+	go func() {
+		f.freeze(db)
+		f.wg.Done()
+	}()
+	return nil
+}
+
+func (f *freezer) PruneConfig() (*params.PruneConfig, error) {
+	return f.pruneConfig, nil
 }
 
 // TruncateAncients discards any recent data above the provided threshold number.
@@ -539,7 +577,10 @@ func (f *freezer) freeze(db ethdb.KeyValueStore) {
 func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []common.Hash, err error) {
 	hashes = make([]common.Hash, 0, limit-number)
 
+	var stReceipts []*types.ReceiptForStorage
 	_, err = f.ModifyAncients(func(op ethdb.AncientWriteOp) error {
+		pruneEnabled := op.PruneBody()
+
 		for ; number <= limit; number++ {
 			// Retrieve all the components of the canonical block.
 			hash := ReadCanonicalHash(nfdb, number)
@@ -554,9 +595,16 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 			if len(body) == 0 {
 				return fmt.Errorf("block body missing, can't freeze block %d", number)
 			}
-			receipts := ReadReceiptsRLP(nfdb, hash, number)
+			receipts := ReadReceipts(nfdb, hash, number, f.chainConfig)
 			if len(receipts) == 0 {
-				return fmt.Errorf("block receipts missing, can't freeze block %d", number)
+				if len(ReadReceiptsRLP(nfdb, hash, number)) == 0 {
+					return fmt.Errorf("block receipts missing, can't freeze block %d", number)
+				}
+			}
+			// Convert receipts to storage format
+			stReceipts = stReceipts[:0]
+			for _, receipt := range receipts {
+				stReceipts = append(stReceipts, (*types.ReceiptForStorage)(receipt))
 			}
 			td := ReadTdRLP(nfdb, hash, number)
 			if len(td) == 0 {
@@ -570,14 +618,16 @@ func (f *freezer) freezeRange(nfdb *nofreezedb, number, limit uint64) (hashes []
 			if err := op.AppendRaw(freezerHeaderTable, number, header); err != nil {
 				return fmt.Errorf("can't write header to freezer: %v", err)
 			}
-			if !f.pruneBody {
+			if !pruneEnabled {
 				if err := op.AppendRaw(freezerBodiesTable, number, body); err != nil {
 					return fmt.Errorf("can't write body to freezer: %v", err)
 				}
 			}
-			if err := op.AppendRaw(freezerReceiptTable, number, receipts); err != nil {
+
+			if err := op.Append(freezerReceiptTable, number, stReceipts); err != nil {
 				return fmt.Errorf("can't write receipts to freezer: %v", err)
 			}
+
 			if err := op.AppendRaw(freezerDifficultyTable, number, td); err != nil {
 				return fmt.Errorf("can't write td to freezer: %v", err)
 			}

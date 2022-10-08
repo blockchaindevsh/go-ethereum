@@ -97,6 +97,14 @@ func TestLegacyReceiptDecoding(t *testing.T) {
 		encode func(*Receipt) ([]byte, error)
 	}{
 		{
+			"ReceiptForStorage",
+			encodeAsReceiptForStorage,
+		},
+		{
+			"storedReceiptRLPComplete",
+			encodeAsStoredReceiptRLPComplete,
+		},
+		{
 			"StoredReceiptRLP",
 			encodeAsStoredReceiptRLP,
 		},
@@ -166,8 +174,43 @@ func TestLegacyReceiptDecoding(t *testing.T) {
 					t.Fatalf("Receipt log %d data mismatch, want %v, have %v", i, receipt.Logs[i].Data, dec.Logs[i].Data)
 				}
 			}
+
+			if tc.name == "storedReceiptRLPComplete" || tc.name == "ReceiptForStorage" {
+				if receipt.Type != dec.Type {
+					t.Fatalf("Receipt type mismatch, want %v, have %v", receipt.Type, dec.Type)
+				}
+				if receipt.TxHash != dec.TxHash {
+					t.Fatalf("Receipt txhash mismatch, want %v, have %v", receipt.TxHash, dec.TxHash)
+				}
+				if receipt.ContractAddress != dec.ContractAddress {
+					t.Fatalf("Receipt ContractAddress mismatch, want %v, have %v", receipt.ContractAddress, dec.ContractAddress)
+				}
+			}
 		})
 	}
+}
+
+func encodeAsReceiptForStorage(want *Receipt) ([]byte, error) {
+	return rlp.EncodeToBytes((*ReceiptForStorage)(want))
+}
+
+func encodeAsStoredReceiptRLPComplete(want *Receipt) ([]byte, error) {
+	var contract *common.Address
+	if want.ContractAddress != (common.Address{}) {
+		contract = &want.ContractAddress
+	}
+	stored := &storedReceiptRLPComplete{
+		Type:              want.Type,
+		TxHash:            want.TxHash,
+		ContractAddress:   contract,
+		PostStateOrStatus: want.statusEncoding(),
+		CumulativeGasUsed: want.CumulativeGasUsed,
+		Logs:              make([]*LogForStorage, len(want.Logs)),
+	}
+	for i, log := range want.Logs {
+		stored.Logs[i] = (*LogForStorage)(log)
+	}
+	return rlp.EncodeToBytes(stored)
 }
 
 func encodeAsStoredReceiptRLP(want *Receipt) ([]byte, error) {

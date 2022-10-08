@@ -539,6 +539,12 @@ type TendermintConfig struct {
 	NodeName               string
 	ProposerRepetition     uint64
 	ConsensusConfig        ConsensusConfig
+	PruneConfig            *PruneConfig // if non nil, pruning body is enabled
+}
+
+type PruneConfig struct {
+	// if 0, default setting is used
+	DurationBlocks uint64 `json:"duration_blocks"`
 }
 
 // String implements the stringer interface, returning the consensus engine details.

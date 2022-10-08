@@ -763,7 +763,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, hashes []comm
 // DeliverBodies injects a block body retrieval response into the results queue.
 // The method returns the number of blocks bodies accepted from the delivery and
 // also wakes any threads waiting for data delivery.
-func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListHashes []common.Hash, uncleLists [][]*types.Header, uncleListHashes []common.Hash) (int, error) {
+func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListHashes []common.Hash, uncleLists [][]*types.Header, uncleListHashes []common.Hash, pivot uint64) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -782,8 +782,13 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, txListH
 		result.Uncles = uncleLists[index]
 		result.SetBodyDone()
 	}
-	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool,
-		bodyReqTimer, bodyInMeter, bodyDropMeter, len(txLists), validate, reconstruct)
+	if pivot == 0 {
+		return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool,
+			bodyReqTimer, bodyInMeter, bodyDropMeter, len(txLists), validate, reconstruct)
+	}
+
+	return q.deliverWithPivot(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool,
+		bodyReqTimer, bodyInMeter, bodyDropMeter, len(txLists), validate, reconstruct, pivot)
 }
 
 // DeliverReceipts injects a receipt retrieval response into the results queue.
@@ -805,6 +810,148 @@ func (q *queue) DeliverReceipts(id string, receiptList [][]*types.Receipt, recei
 	}
 	return q.deliver(id, q.receiptTaskPool, q.receiptTaskQueue, q.receiptPendPool,
 		receiptReqTimer, receiptInMeter, receiptDropMeter, len(receiptList), validate, reconstruct)
+}
+
+func (q *queue) deliverWithPivot(id string, taskPool map[common.Hash]*types.Header,
+	taskQueue *prque.Prque, pendPool map[string]*fetchRequest,
+	reqTimer metrics.Timer, resInMeter metrics.Meter, resDropMeter metrics.Meter,
+	results int, validate func(index int, header *types.Header) error,
+	reconstruct func(index int, result *fetchResult), pivot uint64) (int, error) {
+
+	// Short circuit if the data was never requested
+	request := pendPool[id]
+	if request == nil {
+		resDropMeter.Mark(int64(results))
+		return 0, errNoFetchesPending
+	}
+	delete(pendPool, id)
+
+	reqTimer.UpdateSince(request.Time)
+	resInMeter.Mark(int64(results))
+
+	// Assemble each of the results with their headers and retrieved data parts
+	var (
+		accepted int
+		failure  error
+		i        int
+	)
+
+	nilFy := func(result *fetchResult, header *types.Header) {
+		result.SetBodyDone()
+		// Clean up a successful fetch
+		delete(taskPool, header.Hash())
+	}
+
+LOOP:
+	for {
+		// Short circuit assembly if no more fetch results are found
+		if i >= results {
+
+			for j := accepted; j < len(request.Headers); j++ {
+				// accept those below pivot
+				header := request.Headers[j]
+				if header.Number.Uint64() < pivot {
+					if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
+						nilFy(res, header)
+					} else {
+						// else: betweeen here and above, some other peer filled this result,
+						// or it was indeed a no-op. This should not happen, but if it does it's
+						// not something to panic about
+						log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
+						failure = errStaleDelivery
+
+						// Clean up a successful fetch
+						delete(taskPool, header.Hash())
+					}
+					accepted++
+				} else {
+					request.Peer.MarkLacking(header.Hash())
+					for k := j + 1; k < len(request.Headers); j++ {
+						if request.Headers[k].Number.Uint64() >= pivot {
+							request.Peer.MarkLacking(request.Headers[k].Hash())
+						}
+					}
+					break
+				}
+			}
+
+			break
+		}
+
+		matched := false
+		for j := accepted; j < len(request.Headers); j++ {
+			header := request.Headers[j]
+			// Validate the fields
+			if failure = validate(i, header); failure != nil {
+				if header.Number.Uint64() >= pivot {
+					break
+				}
+			} else {
+				if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
+					failure = nil
+					reconstruct(j, res)
+				} else {
+					// else: betweeen here and above, some other peer filled this result,
+					// or it was indeed a no-op. This should not happen, but if it does it's
+					// not something to panic about
+					log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
+					failure = errStaleDelivery
+				}
+
+				for k := accepted; k < j; k++ {
+					header := request.Headers[k]
+					if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
+						nilFy(res, header)
+					} else {
+						// else: betweeen here and above, some other peer filled this result,
+						// or it was indeed a no-op. This should not happen, but if it does it's
+						// not something to panic about
+						log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
+
+						// Clean up a successful fetch
+						delete(taskPool, header.Hash())
+					}
+				}
+
+				// Clean up a successful fetch
+				delete(taskPool, header.Hash())
+
+				matched = true
+				accepted = j + 1
+				if accepted >= len(request.Headers) {
+					break LOOP
+				}
+				break
+			}
+		}
+
+		// result i doesn't match any header
+		if !matched {
+			break
+		}
+
+		// match success, advance to the next result
+		i++
+
+	}
+	resDropMeter.Mark(int64(results - i))
+
+	// Return all failed or missing fetches to the queue
+	for _, header := range request.Headers[accepted:] {
+		taskQueue.Push(header, -int64(header.Number.Uint64()))
+	}
+	// Wake up Results
+	if accepted > 0 {
+		q.active.Signal()
+	}
+	if failure == nil {
+		return accepted, nil
+	}
+	// If none of the data was good, it's a stale delivery
+	if accepted > 0 {
+		return accepted, fmt.Errorf("partial failure: %v", failure)
+	}
+	return accepted, fmt.Errorf("%w: %v", failure, errStaleDelivery)
 }
 
 // deliver injects a data retrieval response into the results queue.
