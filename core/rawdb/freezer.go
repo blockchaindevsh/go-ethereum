@@ -98,6 +98,15 @@ type freezer struct {
 
 	pruneConfig *params.PruneConfig
 	chainConfig *params.ChainConfig
+
+	delayedParams *delayedParams
+}
+
+type delayedParams struct {
+	datadir      string
+	namespace    string
+	maxTableSize uint32
+	tables       map[string]bool
 }
 
 // newFreezer creates a chain freezer that moves ancient chain data into
@@ -107,11 +116,7 @@ type freezer struct {
 // entry is true, snappy compression is disabled for the table.
 func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool) (*freezer, error) {
 	// Create the initial freezer object
-	var (
-		readMeter  = metrics.NewRegisteredMeter(namespace+"ancient/read", nil)
-		writeMeter = metrics.NewRegisteredMeter(namespace+"ancient/write", nil)
-		sizeGauge  = metrics.NewRegisteredGauge(namespace+"ancient/size", nil)
-	)
+
 	// Ensure the datadir is not a symbolic link if it exists.
 	if info, err := os.Lstat(datadir); !os.IsNotExist(err) {
 		if info.Mode()&os.ModeSymlink != 0 {
@@ -133,35 +138,12 @@ func newFreezer(datadir string, namespace string, readonly bool, maxTableSize ui
 		instanceLock: lock,
 		trigger:      make(chan chan struct{}),
 		quit:         make(chan struct{}),
-	}
-
-	// Create the tables.
-	for name, disableSnappy := range tables {
-		table, err := newTable(datadir, name, readMeter, writeMeter, sizeGauge, maxTableSize, disableSnappy, readonly)
-		if err != nil {
-			for _, table := range freezer.tables {
-				table.Close()
-			}
-			lock.Release()
-			return nil, err
-		}
-		freezer.tables[name] = table
-	}
-
-	if freezer.readonly {
-		// In readonly mode only validate, don't truncate.
-		// validate also sets `freezer.frozen`.
-		err = freezer.validate()
-	} else {
-		// Truncate all tables to common length.
-		err = freezer.repair()
-	}
-	if err != nil {
-		for _, table := range freezer.tables {
-			table.Close()
-		}
-		lock.Release()
-		return nil, err
+		delayedParams: &delayedParams{
+			datadir:      datadir,
+			namespace:    namespace,
+			maxTableSize: maxTableSize,
+			tables:       tables,
+		},
 	}
 
 	log.Info("Opened ancient database", "database", datadir, "readonly", readonly)
@@ -282,10 +264,47 @@ func (f *freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	return writeSize, nil
 }
 
-func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainConfig) error {
-	if f.readonly {
-		return errReadOnly
+func (f *freezer) initTables() (err error) {
+	var (
+		readMeter  = metrics.NewRegisteredMeter(f.delayedParams.namespace+"ancient/read", nil)
+		writeMeter = metrics.NewRegisteredMeter(f.delayedParams.namespace+"ancient/write", nil)
+		sizeGauge  = metrics.NewRegisteredGauge(f.delayedParams.namespace+"ancient/size", nil)
+	)
+
+	// Create the tables.
+	for name, disableSnappy := range f.delayedParams.tables {
+		table, err := newTable(f.delayedParams.datadir, name, readMeter, writeMeter, sizeGauge, f.delayedParams.maxTableSize, disableSnappy, f.readonly)
+		if err != nil {
+			for _, table := range f.tables {
+				table.Close()
+			}
+			f.instanceLock.Release()
+			return err
+		}
+		f.tables[name] = table
 	}
+
+	if f.readonly {
+		// In readonly mode only validate, don't truncate.
+		// validate also sets `freezer.frozen`.
+		err = f.validate()
+	} else {
+		// Truncate all tables to common length.
+		err = f.repair()
+	}
+	if err != nil {
+		for _, table := range f.tables {
+			table.Close()
+		}
+		f.instanceLock.Release()
+		return
+	}
+
+	return
+}
+
+func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainConfig) error {
+
 	var cfg *params.PruneConfig
 	if chainConfig.Tendermint != nil {
 		cfg = chainConfig.Tendermint.PruneConfig
@@ -297,28 +316,30 @@ func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainC
 	f.chainConfig = chainConfig
 
 	if cfg != nil {
-		table := f.tables[freezerBodiesTable]
-		if table != nil {
-			delete(f.tables, freezerBodiesTable)
-			err := table.Close()
-			if err != nil {
-				log.Warn("table.Close failed", "err", err)
-			}
-		}
+		delete(f.delayedParams.tables, freezerBodiesTable)
 
 		if cfg.DurationBlocks != 0 {
 			f.threshold = cfg.DurationBlocks
 		}
 	}
 
-	// Create the write batch.
-	f.writeBatch = newFreezerBatch(f)
+	err := f.initTables()
+	if err != nil {
+		return err
+	}
 
-	f.wg.Add(1)
-	go func() {
-		f.freeze(db)
-		f.wg.Done()
-	}()
+	if !f.readonly {
+		// Create the write batch.
+		f.writeBatch = newFreezerBatch(f)
+		f.wg.Add(1)
+		go func() {
+			f.freeze(db)
+			f.wg.Done()
+		}()
+	}
+
+	// delayedParams is useless afterwards
+	f.delayedParams = nil
 	return nil
 }
 
