@@ -164,9 +164,6 @@ func newFreezer(datadir string, namespace string, readonly bool, maxTableSize ui
 		return nil, err
 	}
 
-	// Create the write batch.
-	freezer.writeBatch = newFreezerBatch(freezer)
-
 	log.Info("Opened ancient database", "database", datadir, "readonly", readonly)
 	return freezer, nil
 }
@@ -313,6 +310,9 @@ func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainC
 			f.threshold = cfg.DurationBlocks
 		}
 	}
+
+	// Create the write batch.
+	f.writeBatch = newFreezerBatch(f)
 
 	f.wg.Add(1)
 	go func() {
