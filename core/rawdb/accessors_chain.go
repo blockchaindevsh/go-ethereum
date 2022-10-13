@@ -439,7 +439,10 @@ func ReadBodyRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValue 
 		// Check if the data is in ancients
 		if isCanon(reader, number, hash) {
 			data, _ = reader.Ancient(freezerBodiesTable, number)
-			return nil
+			if len(data) > 0 {
+				return nil
+			}
+			// special case for genesis block
 		}
 		// If not, try reading from leveldb
 		data, _ = db.Get(blockBodyKey(number, hash))
@@ -477,7 +480,11 @@ func WriteBodyRLP(db ethdb.KeyValueWriter, hash common.Hash, number uint64, rlp 
 // HasBody verifies the existence of a block body corresponding to the hash.
 func HasBody(db ethdb.Reader, hash common.Hash, number uint64) bool {
 	if isCanon(db, number, hash) {
-		return true
+		exists, _ := db.HasAncient(freezerBodiesTable, number)
+		if exists {
+			return true
+		}
+		// special case for genesis block
 	}
 	if has, err := db.Has(blockBodyKey(number, hash)); !has || err != nil {
 		return false
