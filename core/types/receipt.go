@@ -104,7 +104,7 @@ type storedReceiptRLPComplete struct {
 	Logs              []*LogForStorage
 	Type              uint8
 	TxHash            common.Hash
-	ContractAddress   *common.Address
+	ContractAddress   *common.Address `rlp:"nil"`
 }
 
 // v4StoredReceiptRLP is the storage encoding of a receipt used in database version 4.
