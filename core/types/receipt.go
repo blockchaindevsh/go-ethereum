@@ -603,7 +603,7 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 
 	logIndex := uint(0)
 	if len(txs) != len(rs) {
-		return errors.New("transaction and receipt count mismatch")
+		return fmt.Errorf("transaction and receipt count mismatch, %d vs %d", len(txs), len(rs))
 	}
 	for i := 0; i < len(rs); i++ {
 		// The transaction type and hash can be retrieved from the transaction itself
