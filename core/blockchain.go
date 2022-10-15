@@ -881,8 +881,23 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		ancientBlocks, liveBlocks     types.Blocks
 		ancientReceipts, liveReceipts []types.Receipts
 	)
+
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 0; i < len(blockChain); i++ {
+
+		needDerive := false
+		for _, receipt := range receiptChain[i] {
+			if receipt.TxHash == (common.Hash{}) {
+				needDerive = true
+				break
+			}
+		}
+		if needDerive {
+			if err := receiptChain[i].DeriveFields(bc.chainConfig, blockChain[i].Hash(), blockChain[i].NumberU64(), blockChain[i].Transactions()); err != nil {
+				return 0, fmt.Errorf("DeriveFields failed:%v", err)
+			}
+		}
+
 		if i != 0 {
 			if blockChain[i].NumberU64() != blockChain[i-1].NumberU64()+1 || blockChain[i].ParentHash() != blockChain[i-1].Hash() {
 				log.Error("Non contiguous receipt insert", "number", blockChain[i].Number(), "hash", blockChain[i].Hash(), "parent", blockChain[i].ParentHash(),
