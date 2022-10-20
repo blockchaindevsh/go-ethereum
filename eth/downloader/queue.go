@@ -836,10 +836,12 @@ func (q *queue) deliverWithPivot(id string, taskPool map[common.Hash]*types.Head
 		i        int
 	)
 
-	nilFy := func(result *fetchResult, header *types.Header) {
+	nilFy := func(result *fetchResult, header *types.Header, reason string) {
+		hash := header.Hash()
+		log.Info("nilFy", "number", header.Number.Uint64(), "hash", hash, "reason", reason)
 		result.SetBodyDone()
 		// Clean up a successful fetch
-		delete(taskPool, header.Hash())
+		delete(taskPool, hash)
 	}
 
 LOOP:
@@ -847,12 +849,16 @@ LOOP:
 		// Short circuit assembly if no more fetch results are found
 		if i >= results {
 
+			// only do "tail nilFy" if no one is accepted
+			if accepted > 0 {
+				break
+			}
 			for j := accepted; j < len(request.Headers); j++ {
 				// accept those below pivot
 				header := request.Headers[j]
 				if header.Number.Uint64() < pivot {
 					if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
-						nilFy(res, header)
+						nilFy(res, header, "tail nilFy")
 					} else {
 						// else: betweeen here and above, some other peer filled this result,
 						// or it was indeed a no-op. This should not happen, but if it does it's
@@ -901,7 +907,7 @@ LOOP:
 				for k := accepted; k < j; k++ {
 					header := request.Headers[k]
 					if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
-						nilFy(res, header)
+						nilFy(res, header, "gap nilFy")
 					} else {
 						// else: betweeen here and above, some other peer filled this result,
 						// or it was indeed a no-op. This should not happen, but if it does it's

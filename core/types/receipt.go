@@ -49,6 +49,16 @@ const (
 	ReceiptStatusSuccessful = uint64(1)
 )
 
+type ReceiptComplete Receipt
+
+func ConvertReceipts(old []*ReceiptComplete) (new Receipts) {
+	new = make(Receipts, 0, len(old))
+	for _, r := range old {
+		new = append(new, (*Receipt)(r))
+	}
+	return
+}
+
 // Receipt represents the results of a transaction.
 type Receipt struct {
 	// Consensus fields: These fields are defined by the Yellow Paper
@@ -90,6 +100,16 @@ type receiptRLP struct {
 	Logs              []*Log
 }
 
+type receiptRLPComplete struct {
+	PostStateOrStatus []byte
+	CumulativeGasUsed uint64
+	Bloom             Bloom
+	Logs              []*Log
+	Type              uint8
+	TxHash            common.Hash
+	ContractAddress   *common.Address `rlp:"nil"`
+}
+
 // storedReceiptRLP is the storage encoding of a receipt.
 type storedReceiptRLP struct {
 	PostStateOrStatus []byte
@@ -104,7 +124,7 @@ type storedReceiptRLPComplete struct {
 	Logs              []*LogForStorage
 	Type              uint8
 	TxHash            common.Hash
-	ContractAddress   *common.Address
+	ContractAddress   *common.Address `rlp:"nil"`
 }
 
 // v4StoredReceiptRLP is the storage encoding of a receipt used in database version 4.
@@ -144,6 +164,30 @@ func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 	return r
 }
 
+func (r *ReceiptComplete) EncodeRLP(w io.Writer) error {
+
+	var contract *common.Address
+	if r.ContractAddress != (common.Address{}) {
+		contract = &r.ContractAddress
+	}
+	data := &receiptRLPComplete{(*Receipt)(r).statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs, r.Type, r.TxHash, contract}
+
+	if r.Type == LegacyTxType {
+		return rlp.Encode(w, data)
+	}
+
+	buf := encodeBufferPool.Get().(*bytes.Buffer)
+	defer encodeBufferPool.Put(buf)
+	buf.Reset()
+	buf.WriteByte(r.Type)
+	err := rlp.Encode(buf, data)
+	if err != nil {
+		return err
+	}
+
+	return rlp.Encode(w, buf.Bytes())
+}
+
 // EncodeRLP implements rlp.Encoder, and flattens the consensus fields of a receipt
 // into an RLP stream. If no post state is present, byzantium fork is assumed.
 func (r *Receipt) EncodeRLP(w io.Writer) error {
@@ -175,6 +219,58 @@ func (r *Receipt) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	err := r.encodeTyped(data, &buf)
 	return buf.Bytes(), err
+}
+
+func (r *ReceiptComplete) DecodeRLP(_s *rlp.Stream) error {
+	blob, err := _s.Raw()
+	if err != nil {
+		return err
+	}
+
+	s := rlp.NewStream(bytes.NewReader(blob), uint64(len(blob)))
+	kind, _, err := s.Kind()
+	switch {
+	case err != nil:
+		return err
+	case kind == rlp.List:
+		// It's a legacy receipt.
+		r.Type = LegacyTxType
+
+		var dec receiptRLPComplete
+		if err := s.Decode(&dec); err != nil {
+			var dec receiptRLP
+			if err = rlp.DecodeBytes(blob, &dec); err != nil {
+				return err
+			}
+			return (*Receipt)(r).setFromRLP(dec)
+		}
+
+		return (*Receipt)(r).setFromRLPComplete(dec)
+	case kind == rlp.String:
+		// It's an EIP-2718 typed tx receipt.
+		b, err := s.Bytes()
+		if err != nil {
+			return err
+		}
+		if len(b) == 0 {
+			return errEmptyTypedReceipt
+		}
+		r.Type = b[0]
+		if r.Type == AccessListTxType || r.Type == DynamicFeeTxType {
+			var dec receiptRLPComplete
+			if err := rlp.DecodeBytes(b[1:], &dec); err != nil {
+				var dec receiptRLP
+				if err := rlp.DecodeBytes(b[1:], &dec); err != nil {
+					return err
+				}
+				return (*Receipt)(r).setFromRLP(dec)
+			}
+			return (*Receipt)(r).setFromRLPComplete(dec)
+		}
+		return ErrTxTypeNotSupported
+	default:
+		return rlp.ErrExpectedList
+	}
 }
 
 // DecodeRLP implements rlp.Decoder, and loads the consensus fields of a receipt
@@ -253,6 +349,14 @@ func (r *Receipt) decodeTyped(b []byte) error {
 
 func (r *Receipt) setFromRLP(data receiptRLP) error {
 	r.CumulativeGasUsed, r.Bloom, r.Logs = data.CumulativeGasUsed, data.Bloom, data.Logs
+	return r.setStatus(data.PostStateOrStatus)
+}
+
+func (r *Receipt) setFromRLPComplete(data receiptRLPComplete) error {
+	r.CumulativeGasUsed, r.Bloom, r.Logs, r.Type, r.TxHash = data.CumulativeGasUsed, data.Bloom, data.Logs, data.Type, data.TxHash
+	if data.ContractAddress != nil {
+		r.ContractAddress = *data.ContractAddress
+	}
 	return r.setStatus(data.PostStateOrStatus)
 }
 
@@ -499,7 +603,7 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 
 	logIndex := uint(0)
 	if len(txs) != len(rs) {
-		return errors.New("transaction and receipt count mismatch")
+		return fmt.Errorf("transaction and receipt count mismatch, %d vs %d", len(txs), len(rs))
 	}
 	for i := 0; i < len(rs); i++ {
 		// The transaction type and hash can be retrieved from the transaction itself
