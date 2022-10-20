@@ -331,6 +331,7 @@ var (
 		LondonBlock:         big.NewInt(0),
 		ArrowGlacierBlock:   nil,
 		Tendermint: &TendermintConfig{
+			PruneConfig:            &PruneConfig{},
 			Epoch:                  100800, // expect 6s block interval = one week
 			ValidatorContract:      "",
 			ContractChainID:        0,

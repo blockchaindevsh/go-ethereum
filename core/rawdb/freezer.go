@@ -17,6 +17,7 @@
 package rawdb
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -98,6 +99,15 @@ type freezer struct {
 
 	pruneConfig *params.PruneConfig
 	chainConfig *params.ChainConfig
+
+	delayedParams *delayedParams
+}
+
+type delayedParams struct {
+	datadir      string
+	namespace    string
+	maxTableSize uint32
+	tables       map[string]bool
 }
 
 // newFreezer creates a chain freezer that moves ancient chain data into
@@ -107,11 +117,7 @@ type freezer struct {
 // entry is true, snappy compression is disabled for the table.
 func newFreezer(datadir string, namespace string, readonly bool, maxTableSize uint32, tables map[string]bool) (*freezer, error) {
 	// Create the initial freezer object
-	var (
-		readMeter  = metrics.NewRegisteredMeter(namespace+"ancient/read", nil)
-		writeMeter = metrics.NewRegisteredMeter(namespace+"ancient/write", nil)
-		sizeGauge  = metrics.NewRegisteredGauge(namespace+"ancient/size", nil)
-	)
+
 	// Ensure the datadir is not a symbolic link if it exists.
 	if info, err := os.Lstat(datadir); !os.IsNotExist(err) {
 		if info.Mode()&os.ModeSymlink != 0 {
@@ -133,39 +139,13 @@ func newFreezer(datadir string, namespace string, readonly bool, maxTableSize ui
 		instanceLock: lock,
 		trigger:      make(chan chan struct{}),
 		quit:         make(chan struct{}),
+		delayedParams: &delayedParams{
+			datadir:      datadir,
+			namespace:    namespace,
+			maxTableSize: maxTableSize,
+			tables:       tables,
+		},
 	}
-
-	// Create the tables.
-	for name, disableSnappy := range tables {
-		table, err := newTable(datadir, name, readMeter, writeMeter, sizeGauge, maxTableSize, disableSnappy, readonly)
-		if err != nil {
-			for _, table := range freezer.tables {
-				table.Close()
-			}
-			lock.Release()
-			return nil, err
-		}
-		freezer.tables[name] = table
-	}
-
-	if freezer.readonly {
-		// In readonly mode only validate, don't truncate.
-		// validate also sets `freezer.frozen`.
-		err = freezer.validate()
-	} else {
-		// Truncate all tables to common length.
-		err = freezer.repair()
-	}
-	if err != nil {
-		for _, table := range freezer.tables {
-			table.Close()
-		}
-		lock.Release()
-		return nil, err
-	}
-
-	// Create the write batch.
-	freezer.writeBatch = newFreezerBatch(freezer)
 
 	log.Info("Opened ancient database", "database", datadir, "readonly", readonly)
 	return freezer, nil
@@ -285,10 +265,115 @@ func (f *freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	return writeSize, nil
 }
 
-func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainConfig) error {
-	if f.readonly {
-		return errReadOnly
+func (f *freezer) initTables() (err error) {
+	var (
+		readMeter  = metrics.NewRegisteredMeter(f.delayedParams.namespace+"ancient/read", nil)
+		writeMeter = metrics.NewRegisteredMeter(f.delayedParams.namespace+"ancient/write", nil)
+		sizeGauge  = metrics.NewRegisteredGauge(f.delayedParams.namespace+"ancient/size", nil)
+	)
+
+	// Create the tables.
+	for name, disableSnappy := range f.delayedParams.tables {
+		table, err := newTable(f.delayedParams.datadir, name, readMeter, writeMeter, sizeGauge, f.delayedParams.maxTableSize, disableSnappy, f.readonly)
+		if err != nil {
+			for _, table := range f.tables {
+				table.Close()
+			}
+			f.instanceLock.Release()
+			return err
+		}
+		f.tables[name] = table
 	}
+
+	if f.readonly {
+		// In readonly mode only validate, don't truncate.
+		// validate also sets `freezer.frozen`.
+		err = f.validate()
+	} else {
+		// Truncate all tables to common length.
+		err = f.repair()
+	}
+	if err != nil {
+		for _, table := range f.tables {
+			table.Close()
+		}
+		f.instanceLock.Release()
+		return
+	}
+
+	return
+}
+
+func (f *freezer) checkConsistency(db ethdb.KeyValueStore) error {
+	// Since the freezer can be stored separately from the user's key-value database,
+	// there's a fairly high probability that the user requests invalid combinations
+	// of the freezer and database. Ensure that we don't shoot ourselves in the foot
+	// by serving up conflicting data, leading to both datastores getting corrupted.
+	//
+	//   - If both the freezer and key-value store is empty (no genesis), we just
+	//     initialized a new empty freezer, so everything's fine.
+	//   - If the key-value store is empty, but the freezer is not, we need to make
+	//     sure the user's genesis matches the freezer. That will be checked in the
+	//     blockchain, since we don't have the genesis block here (nor should we at
+	//     this point care, the key-value/freezer combo is valid).
+	//   - If neither the key-value store nor the freezer is empty, cross validate
+	//     the genesis hashes to make sure they are compatible. If they are, also
+	//     ensure that there's no gap between the freezer and sunsequently leveldb.
+	//   - If the key-value store is not empty, but the freezer is we might just be
+	//     upgrading to the freezer release, or we might have had a small chain and
+	//     not frozen anything yet. Ensure that no blocks are missing yet from the
+	//     key-value store, since that would mean we already had an old freezer.
+
+	// If the genesis hash is empty, we have a new key-value store, so nothing to
+	// validate in this method. If, however, the genesis hash is not nil, compare
+	// it to the freezer content.
+	if kvgenesis, _ := db.Get(headerHashKey(0)); len(kvgenesis) > 0 {
+		if frozen, _ := f.Ancients(); frozen > 0 {
+			// If the freezer already contains something, ensure that the genesis blocks
+			// match, otherwise we might mix up freezers across chains and destroy both
+			// the freezer and the key-value store.
+			frgenesis, err := f.Ancient(freezerHashTable, 0)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve genesis from ancient %v", err)
+			} else if !bytes.Equal(kvgenesis, frgenesis) {
+				return fmt.Errorf("genesis mismatch: %#x (leveldb) != %#x (ancients)", kvgenesis, frgenesis)
+			}
+			// Key-value store and freezer belong to the same network. Ensure that they
+			// are contiguous, otherwise we might end up with a non-functional freezer.
+			if kvhash, _ := db.Get(headerHashKey(frozen)); len(kvhash) == 0 {
+				// Subsequent header after the freezer limit is missing from the database.
+				// Reject startup is the database has a more recent head.
+				if *ReadHeaderNumber(db, ReadHeadHeaderHash(db)) > frozen-1 {
+					return fmt.Errorf("gap (#%d) in the chain between ancients and leveldb", frozen)
+				}
+				// Database contains only older data than the freezer, this happens if the
+				// state was wiped and reinited from an existing freezer.
+			}
+			// Otherwise, key-value store continues where the freezer left off, all is fine.
+			// We might have duplicate blocks (crash after freezer write but before key-value
+			// store deletion, but that's fine).
+		} else {
+			// If the freezer is empty, ensure nothing was moved yet from the key-value
+			// store, otherwise we'll end up missing data. We check block #1 to decide
+			// if we froze anything previously or not, but do take care of databases with
+			// only the genesis block.
+			if ReadHeadHeaderHash(db) != common.BytesToHash(kvgenesis) {
+				// Key-value store contains more data than the genesis block, make sure we
+				// didn't freeze anything yet.
+				if kvblob, _ := db.Get(headerHashKey(1)); len(kvblob) == 0 {
+					return errors.New("ancient chain segments already extracted, please set --datadir.ancient to the correct path")
+				}
+				// Block #1 is still in the database, we're allowed to init a new feezer
+			}
+			// Otherwise, the head header is still the genesis, we're allowed to init a new
+			// feezer.
+		}
+	}
+
+	return nil
+}
+func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainConfig) error {
+
 	var cfg *params.PruneConfig
 	if chainConfig.Tendermint != nil {
 		cfg = chainConfig.Tendermint.PruneConfig
@@ -300,25 +385,34 @@ func (f *freezer) StartFreeze(db ethdb.KeyValueStore, chainConfig *params.ChainC
 	f.chainConfig = chainConfig
 
 	if cfg != nil {
-		table := f.tables[freezerBodiesTable]
-		if table != nil {
-			delete(f.tables, freezerBodiesTable)
-			err := table.Close()
-			if err != nil {
-				log.Warn("table.Close failed", "err", err)
-			}
-		}
+		delete(f.delayedParams.tables, freezerBodiesTable)
 
 		if cfg.DurationBlocks != 0 {
 			f.threshold = cfg.DurationBlocks
 		}
 	}
 
-	f.wg.Add(1)
-	go func() {
-		f.freeze(db)
-		f.wg.Done()
-	}()
+	err := f.initTables()
+	if err != nil {
+		return err
+	}
+	err = f.checkConsistency(db)
+	if err != nil {
+		return err
+	}
+
+	if !f.readonly {
+		// Create the write batch.
+		f.writeBatch = newFreezerBatch(f)
+		f.wg.Add(1)
+		go func() {
+			f.freeze(db)
+			f.wg.Done()
+		}()
+	}
+
+	// delayedParams is useless afterwards
+	f.delayedParams = nil
 	return nil
 }
 
