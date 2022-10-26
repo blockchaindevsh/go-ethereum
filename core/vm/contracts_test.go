@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"testing"
 	"time"
 
@@ -299,6 +300,36 @@ func benchJson(name, addr string, b *testing.B) {
 	}
 	for _, test := range tests {
 		benchmarkPrecompiled(addr, test, b)
+	}
+}
+
+func TestUnmaskDaggerDataArgs(t *testing.T) {
+	chunkIdx := big.NewInt(10)
+	hash := [24]byte{0x01, 0x2}
+	maskedChunk := [4 * 1024]byte{0x03, 0x4}
+	packed, err := unmaskDaggerDataInputAbi.Pack(chunkIdx, hash, maskedChunk[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	values, err := unmaskDaggerDataInputAbi.Unpack(packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var decoded unmaskDaggerDataInput
+	err = unmaskDaggerDataInputAbi.Copy(&decoded, values)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.ChunkIdx.Cmp(chunkIdx) != 0 {
+		t.Fatal("chunkIdx mismatch")
+	}
+	if decoded.Hash != hash {
+		t.Fatal("hash mismatch")
+	}
+	if !bytes.Equal(decoded.MaskedChunk, maskedChunk[:]) {
+		t.Fatal("maskedChunk mismatch")
 	}
 }
 

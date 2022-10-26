@@ -39,8 +39,8 @@ const (
 	datasetGrowthBytes = 1 << 23 // Dataset growth per epoch
 	cacheInitBytes     = 1 << 24 // Bytes in cache at genesis
 	cacheGrowthBytes   = 1 << 17 // Cache growth per epoch
-	epochLength        = 30000   // Blocks per epoch
-	mixBytes           = 128     // Width of mix
+	EpochLength        = 30000   // Blocks per epoch
+	MixBytes           = 128     // Width of mix
 	hashBytes          = 64      // Hash length in bytes
 	hashWords          = 16      // Number of 32 bit ints in a hash
 	datasetParents     = 256     // Number of parents of each dataset element
@@ -51,7 +51,7 @@ const (
 // cacheSize returns the size of the ethash verification cache that belongs to a certain
 // block number.
 func cacheSize(block uint64) uint64 {
-	epoch := int(block / epochLength)
+	epoch := int(block / EpochLength)
 	if epoch < maxEpoch {
 		return cacheSizes[epoch]
 	}
@@ -69,10 +69,10 @@ func calcCacheSize(epoch int) uint64 {
 	return size
 }
 
-// datasetSize returns the size of the ethash mining dataset that belongs to a certain
+// DatasetSize returns the size of the ethash mining dataset that belongs to a certain
 // block number.
-func datasetSize(block uint64) uint64 {
-	epoch := int(block / epochLength)
+func DatasetSize(block uint64) uint64 {
+	epoch := int(block / EpochLength)
 	if epoch < maxEpoch {
 		return datasetSizes[epoch]
 	}
@@ -83,9 +83,9 @@ func datasetSize(block uint64) uint64 {
 // however, we always take the highest prime below the linearly growing threshold in order
 // to reduce the risk of accidental regularities leading to cyclic behavior.
 func calcDatasetSize(epoch int) uint64 {
-	size := datasetInitBytes + datasetGrowthBytes*uint64(epoch) - mixBytes
-	for !new(big.Int).SetUint64(size / mixBytes).ProbablyPrime(1) { // Always accurate for n < 2^64
-		size -= 2 * mixBytes
+	size := datasetInitBytes + datasetGrowthBytes*uint64(epoch) - MixBytes
+	for !new(big.Int).SetUint64(size / MixBytes).ProbablyPrime(1) { // Always accurate for n < 2^64
+		size -= 2 * MixBytes
 	}
 	return size
 }
@@ -120,11 +120,11 @@ func makeHasher(h hash.Hash) hasher {
 // dataset.
 func seedHash(block uint64) []byte {
 	seed := make([]byte, 32)
-	if block < epochLength {
+	if block < EpochLength {
 		return seed
 	}
 	keccak256 := makeHasher(sha3.NewLegacyKeccak256())
-	for i := 0; i < int(block/epochLength); i++ {
+	for i := 0; i < int(block/EpochLength); i++ {
 		keccak256(seed, seed)
 	}
 	return seed
@@ -337,7 +337,7 @@ func generateDataset(dest []uint32, epoch uint64, cache []uint32) {
 // value for a particular header hash and nonce.
 func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32) []uint32) ([]byte, []byte) {
 	// Calculate the number of theoretical rows (we use one buffer nonetheless)
-	rows := uint32(size / mixBytes)
+	rows := uint32(size / MixBytes)
 
 	// Combine header+nonce into a 64 byte seed
 	seed := make([]byte, 40)
@@ -348,7 +348,7 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 	seedHead := binary.LittleEndian.Uint32(seed)
 
 	// Start the mix with replicated seed
-	mix := make([]uint32, mixBytes/4)
+	mix := make([]uint32, MixBytes/4)
 	for i := 0; i < len(mix); i++ {
 		mix[i] = binary.LittleEndian.Uint32(seed[i%16*4:])
 	}
@@ -357,7 +357,7 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 
 	for i := 0; i < loopAccesses; i++ {
 		parent := fnv(uint32(i)^seedHead, mix[i%len(mix)]) % rows
-		for j := uint32(0); j < mixBytes/hashBytes; j++ {
+		for j := uint32(0); j < MixBytes/hashBytes; j++ {
 			copy(temp[j*hashWords:], lookup(2*parent+j))
 		}
 		fnvHash(mix, temp)
@@ -373,6 +373,52 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 		binary.LittleEndian.PutUint32(digest[i*4:], val)
 	}
 	return digest, crypto.Keccak256(append(seed, digest...))
+}
+
+func HashimotoForMask(hash []byte, nonce uint64, size uint64, lookup func(index uint32) []uint32) []byte {
+	// Calculate the number of theoretical rows (we use one buffer nonetheless)
+	rows := uint32(size / MixBytes)
+
+	// Combine header+nonce into a 64 byte seed
+	seed := make([]byte, 40)
+	copy(seed, hash)
+	binary.LittleEndian.PutUint64(seed[32:], nonce)
+
+	seed = crypto.Keccak512(seed)
+	seedHead := binary.LittleEndian.Uint32(seed)
+
+	// Start the mix with replicated seed
+	mix := make([]uint32, MixBytes/4)
+	for i := 0; i < len(mix); i++ {
+		mix[i] = binary.LittleEndian.Uint32(seed[i%16*4:])
+	}
+	// Mix in random dataset nodes
+	temp := make([]uint32, len(mix))
+
+	for i := 0; i < loopAccesses; i++ {
+		parent := fnv(uint32(i)^seedHead, mix[i%len(mix)]) % rows
+		for j := uint32(0); j < MixBytes/hashBytes; j++ {
+			copy(temp[j*hashWords:], lookup(2*parent+j))
+		}
+		fnvHash(mix, temp)
+	}
+
+	return unsafe.Slice((*byte)(unsafe.Pointer(&mix[0])), len(mix)*4)
+}
+
+func HashimotoForMaskLight(size uint64, cache []uint32, hash []byte, nonce uint64) []byte {
+	keccak512 := makeHasher(sha3.NewLegacyKeccak512())
+
+	lookup := func(index uint32) []uint32 {
+		rawData := generateDatasetItem(cache, index, keccak512)
+
+		data := make([]uint32, len(rawData)/4)
+		for i := 0; i < len(data); i++ {
+			data[i] = binary.LittleEndian.Uint32(rawData[i*4:])
+		}
+		return data
+	}
+	return HashimotoForMask(hash, nonce, size, lookup)
 }
 
 // hashimotoLight aggregates data from the full dataset (using only a small
