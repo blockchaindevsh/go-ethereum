@@ -849,39 +849,8 @@ LOOP:
 		// Short circuit assembly if no more fetch results are found
 		if i >= results {
 
-			// only do "tail nilFy" if no one is accepted
-			if accepted > 0 {
-				break
-			}
-			for j := accepted; j < len(request.Headers); j++ {
-				// accept those below pivot
-				header := request.Headers[j]
-				if header.Number.Uint64() < pivot {
-					if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
-						nilFy(res, header, "tail nilFy")
-					} else {
-						// else: betweeen here and above, some other peer filled this result,
-						// or it was indeed a no-op. This should not happen, but if it does it's
-						// not something to panic about
-						log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
-						failure = errStaleDelivery
-
-						// Clean up a successful fetch
-						delete(taskPool, header.Hash())
-					}
-					accepted++
-				} else {
-					request.Peer.MarkLacking(header.Hash())
-					for k := j + 1; k < len(request.Headers); j++ {
-						if request.Headers[k].Number.Uint64() >= pivot {
-							request.Peer.MarkLacking(request.Headers[k].Hash())
-						}
-					}
-					break
-				}
-			}
-
 			break
+
 		}
 
 		matched := false
@@ -940,6 +909,38 @@ LOOP:
 		i++
 
 	}
+
+	// only do "tail nilFy" if no one is accepted
+	if accepted == 0 {
+		for j := 0; j < len(request.Headers); j++ {
+			// accept those below pivot
+			header := request.Headers[j]
+			if header.Number.Uint64() < pivot {
+				if res, stale, err := q.resultCache.GetDeliverySlot(header.Number.Uint64()); err == nil && !stale {
+					nilFy(res, header, "tail nilFy")
+				} else {
+					// else: betweeen here and above, some other peer filled this result,
+					// or it was indeed a no-op. This should not happen, but if it does it's
+					// not something to panic about
+					log.Error("Delivery stale", "stale", stale, "number", header.Number.Uint64(), "err", err)
+					failure = errStaleDelivery
+
+					// Clean up a successful fetch
+					delete(taskPool, header.Hash())
+				}
+				accepted++
+			} else {
+				request.Peer.MarkLacking(header.Hash())
+				for k := j + 1; k < len(request.Headers); j++ {
+					if request.Headers[k].Number.Uint64() >= pivot {
+						request.Peer.MarkLacking(request.Headers[k].Hash())
+					}
+				}
+				break
+			}
+		}
+	}
+
 	resDropMeter.Mark(int64(results - i))
 
 	// Return all failed or missing fetches to the queue
