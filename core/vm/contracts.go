@@ -806,6 +806,9 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 		size := ethash.DatasetSize(height)
 
 		shardMgr := sstorage.ContractToShardManager[caller]
+		if shardMgr == nil {
+			return nil, fmt.Errorf("invalid caller")
+		}
 		realHash := make([]byte, 32)
 		copy(realHash, decoded.Hash[:])
 
