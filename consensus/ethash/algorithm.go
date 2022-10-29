@@ -403,7 +403,11 @@ func HashimotoForMask(hash []byte, nonce uint64, size uint64, lookup func(index 
 		fnvHash(mix, temp)
 	}
 
-	return unsafe.Slice((*byte)(unsafe.Pointer(&mix[0])), len(mix)*4)
+	mixBytes := make([]byte, MixBytes)
+	for i, val := range mix {
+		binary.LittleEndian.PutUint32(mixBytes[i*4:], val)
+	}
+	return mixBytes
 }
 
 func HashimotoForMaskLight(size uint64, cache []uint32, hash []byte, nonce uint64) []byte {
