@@ -812,14 +812,14 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 		realHash := make([]byte, 32)
 		copy(realHash, decoded.Hash[:])
 
-		for i := 0; i < int(sstorage.CHUNK_SIZE/ethash.MixBytes); i++ {
+		for i := 0; i < int(sstorage.CHUNK_SIZE)/ethash.GetMixBytes(); i++ {
 			binary.BigEndian.PutUint64(realHash[24:], shardMgr.MaxKvSize()+uint64((i+1)<<30) /* should be fine as long as MaxKvSize is < 2^30 */)
 			mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
-			if len(mask) != ethash.MixBytes {
+			if len(mask) != ethash.GetMixBytes() {
 				panic("#mask != MixBytes")
 			}
-			for j := 0; j < ethash.MixBytes; j++ {
-				decoded.MaskedChunk[i*ethash.MixBytes+j] ^= mask[j]
+			for j := 0; j < ethash.GetMixBytes(); j++ {
+				decoded.MaskedChunk[i*ethash.GetMixBytes()+j] ^= mask[j]
 			}
 		}
 
@@ -830,7 +830,7 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 }
 
 func (l *sstoragePisa) cache(block uint64) *ethash.Cache {
-	epoch := block / ethash.EpochLength
+	epoch := block / uint64(ethash.GetEpochLength())
 	currentI, futureI := l.caches.Get(epoch)
 	current := currentI.(*ethash.Cache)
 
