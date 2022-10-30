@@ -809,11 +809,11 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 		if shardMgr == nil {
 			return nil, fmt.Errorf("invalid caller")
 		}
-		realHash := make([]byte, 32)
-		copy(realHash, decoded.Hash[:])
+		realHash := make([]byte, len(decoded.Hash)+8)
+		copy(realHash, decoded.Hash)
 
 		for i := 0; i < int(sstorage.CHUNK_SIZE)/ethash.GetMixBytes(); i++ {
-			binary.BigEndian.PutUint64(realHash[24:], shardMgr.MaxKvSize()+uint64((i+1)<<30) /* should be fine as long as MaxKvSize is < 2^30 */)
+			binary.BigEndian.PutUint64(realHash[len(decoded.Hash):], shardMgr.MaxKvSize()+uint64((i+1)<<30) /* should be fine as long as MaxKvSize is < 2^30 */)
 			mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
 			if len(mask) != ethash.GetMixBytes() {
 				panic("#mask != MixBytes")
@@ -851,15 +851,11 @@ var (
 
 type unmaskDaggerDataInput struct {
 	ChunkIdx    *big.Int
-	Hash        [24]byte
+	Hash        []byte
 	MaskedChunk []byte
 }
 
 func init() {
-	Bytes24Ty, err := abi.NewType("bytes24", "", nil)
-	if err != nil {
-		panic(err)
-	}
 	BytesTy, err := abi.NewType("bytes", "", nil)
 	if err != nil {
 		panic(err)
@@ -871,7 +867,7 @@ func init() {
 
 	unmaskDaggerDataInputAbi = abi.Arguments{
 		{Type: IntTy, Name: "chunkIdx"},
-		{Type: Bytes24Ty, Name: "hash"},
+		{Type: BytesTy, Name: "hash"},
 		{Type: BytesTy, Name: "maskedChunk"},
 	}
 

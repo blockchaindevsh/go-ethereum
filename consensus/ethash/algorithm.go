@@ -388,9 +388,9 @@ func HashimotoForMask(hash []byte, nonce uint64, size uint64, lookup func(index 
 	rows := uint32(size / mixBytes)
 
 	// Combine header+nonce into a 64 byte seed
-	seed := make([]byte, 40)
+	seed := make([]byte, len(hash)+8)
 	copy(seed, hash)
-	binary.LittleEndian.PutUint64(seed[32:], nonce)
+	binary.LittleEndian.PutUint64(seed[len(hash):], nonce)
 
 	seed = crypto.Keccak512(seed)
 	seedHead := binary.LittleEndian.Uint32(seed)

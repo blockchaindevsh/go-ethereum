@@ -305,7 +305,7 @@ func benchJson(name, addr string, b *testing.B) {
 
 func TestUnmaskDaggerDataArgs(t *testing.T) {
 	chunkIdx := big.NewInt(10)
-	hash := [24]byte{0x01, 0x2}
+	hash := []byte{0x01, 0x2}
 	maskedChunk := [4 * 1024]byte{0x03, 0x4}
 	packed, err := unmaskDaggerDataInputAbi.Pack(chunkIdx, hash, maskedChunk[:])
 	if err != nil {
@@ -325,7 +325,7 @@ func TestUnmaskDaggerDataArgs(t *testing.T) {
 	if decoded.ChunkIdx.Cmp(chunkIdx) != 0 {
 		t.Fatal("chunkIdx mismatch")
 	}
-	if decoded.Hash != hash {
+	if !bytes.Equal(decoded.Hash, hash) {
 		t.Fatal("hash mismatch")
 	}
 	if !bytes.Equal(decoded.MaskedChunk, maskedChunk[:]) {
