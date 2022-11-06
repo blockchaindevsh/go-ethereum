@@ -35,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/bn256"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/sstorage"
+	"github.com/ethereum/go-ethereum/sstorage/pora"
 
 	//lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
@@ -120,7 +121,7 @@ var PrecompiledContractsPisa = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}):          &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}):          &blake2F{},
 	common.BytesToAddress([]byte{3, 0x33, 1}): &systemContractDeployer{},
-	common.BytesToAddress([]byte{3, 0x33, 2}): &sstoragePisa{caches: ethash.NewLRU("cache", 2, ethash.NewCache)},
+	common.BytesToAddress([]byte{3, 0x33, 2}): &sstoragePisa{},
 }
 
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -301,9 +302,10 @@ var (
 // modexpMultComplexity implements bigModexp multComplexity formula, as defined in EIP-198
 //
 // def mult_complexity(x):
-//    if x <= 64: return x ** 2
-//    elif x <= 1024: return x ** 2 // 4 + 96 * x - 3072
-//    else: return x ** 2 // 16 + 480 * x - 199680
+//
+//	if x <= 64: return x ** 2
+//	elif x <= 1024: return x ** 2 // 4 + 96 * x - 3072
+//	else: return x ** 2 // 16 + 480 * x - 199680
 //
 // where is x is max(length_of_MODULUS, length_of_BASE)
 func modexpMultComplexity(x *big.Int) *big.Int {
@@ -709,7 +711,6 @@ var (
 )
 
 type sstoragePisa struct {
-	caches *ethash.LRU
 }
 
 func (l *sstoragePisa) RequiredGas(input []byte) uint64 {
@@ -800,20 +801,20 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 			return nil, fmt.Errorf("invalid chunk size")
 		}
 
-		height := env.evm.Context.BlockNumber.Uint64()
-		cache := l.cache(height)
+		epoch := decoded.Epoch.Uint64()
+		cache := pora.Cache(epoch)
 
-		size := ethash.DatasetSize(height)
+		size := ethash.DatasetSizeForEpoch(epoch)
 
 		shardMgr := sstorage.ContractToShardManager[caller]
 		if shardMgr == nil {
 			return nil, fmt.Errorf("invalid caller")
 		}
 		realHash := make([]byte, len(decoded.Hash)+8)
-		copy(realHash, decoded.Hash)
+		copy(realHash, decoded.Hash[:])
 
 		for i := 0; i < int(sstorage.CHUNK_SIZE)/ethash.GetMixBytes(); i++ {
-			binary.BigEndian.PutUint64(realHash[len(decoded.Hash):], shardMgr.MaxKvSize()+uint64((i+1)<<30) /* should be fine as long as MaxKvSize is < 2^30 */)
+			pora.ToRealHash(decoded.Hash, shardMgr.MaxKvSize(), uint64(i), realHash, false)
 			mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
 			if len(mask) != ethash.GetMixBytes() {
 				panic("#mask != MixBytes")
@@ -829,34 +830,23 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 	return nil, errors.New("unsupported method")
 }
 
-func (l *sstoragePisa) cache(block uint64) *ethash.Cache {
-	epoch := block / uint64(ethash.GetEpochLength())
-	currentI, futureI := l.caches.Get(epoch)
-	current := currentI.(*ethash.Cache)
-
-	// Wait for generation finish.
-	current.Generate("", 0, false, false)
-
-	// If we need a new future cache, now's a good time to regenerate it.
-	if futureI != nil {
-		future := futureI.(*ethash.Cache)
-		go future.Generate("", 0, false, false)
-	}
-	return current
-}
-
 var (
 	unmaskDaggerDataInputAbi, unmaskDaggerDataOutputAbi abi.Arguments
 )
 
 type unmaskDaggerDataInput struct {
+	Epoch       *big.Int
 	ChunkIdx    *big.Int
-	Hash        []byte
+	Hash        common.Hash
 	MaskedChunk []byte
 }
 
 func init() {
 	BytesTy, err := abi.NewType("bytes", "", nil)
+	if err != nil {
+		panic(err)
+	}
+	Bytes32Ty, err := abi.NewType("bytes32", "", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -866,8 +856,9 @@ func init() {
 	}
 
 	unmaskDaggerDataInputAbi = abi.Arguments{
+		{Type: IntTy, Name: "epoch"},
 		{Type: IntTy, Name: "chunkIdx"},
-		{Type: BytesTy, Name: "hash"},
+		{Type: Bytes32Ty, Name: "hash"},
 		{Type: BytesTy, Name: "maskedChunk"},
 	}
 

@@ -52,10 +52,6 @@ func GetMixBytes() int {
 	return mixBytes
 }
 
-func GetEpochLength() int {
-	return epochLength
-}
-
 // cacheSize returns the size of the ethash verification cache that belongs to a certain
 // block number.
 func cacheSize(block uint64) uint64 {
@@ -85,6 +81,13 @@ func DatasetSize(block uint64) uint64 {
 		return datasetSizes[epoch]
 	}
 	return calcDatasetSize(epoch)
+}
+
+func DatasetSizeForEpoch(epoch uint64) uint64 {
+	if epoch < maxEpoch {
+		return datasetSizes[epoch]
+	}
+	return calcDatasetSize(int(epoch))
 }
 
 // calcDatasetSize calculates the dataset size for epoch. The dataset size grows linearly,
