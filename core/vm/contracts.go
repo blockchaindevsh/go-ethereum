@@ -805,7 +805,7 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 }
 
 func unmaskDaggerDataImpl(caller common.Address, decoded unmaskDaggerDataInput) ([]byte, error) {
-	if uint64(len(decoded.MaskedChunk)) != sstorage.CHUNK_SIZE {
+	if uint64(len(decoded.MaskedChunk)) > sstorage.CHUNK_SIZE {
 		return nil, fmt.Errorf("invalid chunk size")
 	}
 
@@ -826,13 +826,25 @@ func unmaskDaggerDataImpl(caller common.Address, decoded unmaskDaggerDataInput) 
 	copy(copyBytes, decoded.MaskedChunk)
 	decoded.MaskedChunk = copyBytes
 
-	for i := 0; i < int(sstorage.CHUNK_SIZE)/ethash.GetMixBytes(); i++ {
+	for i := 0; i < len(decoded.MaskedChunk)/ethash.GetMixBytes(); i++ {
 		pora.ToRealHash(decoded.Hash, shardMgr.MaxKvSize(), uint64(i), realHash, false)
 		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
 		if len(mask) != ethash.GetMixBytes() {
 			panic("#mask != MixBytes")
 		}
 		for j := 0; j < ethash.GetMixBytes(); j++ {
+			decoded.MaskedChunk[i*ethash.GetMixBytes()+j] ^= mask[j]
+		}
+	}
+	tailBytes := len(decoded.MaskedChunk) % ethash.GetMixBytes()
+	if tailBytes > 0 {
+		i := len(decoded.MaskedChunk) / ethash.GetMixBytes()
+		pora.ToRealHash(decoded.Hash, shardMgr.MaxKvSize(), uint64(i), realHash, false)
+		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
+		if len(mask) != ethash.GetMixBytes() {
+			panic("#mask != MixBytes")
+		}
+		for j := 0; j < tailBytes; j++ {
 			decoded.MaskedChunk[i*ethash.GetMixBytes()+j] ^= mask[j]
 		}
 	}
