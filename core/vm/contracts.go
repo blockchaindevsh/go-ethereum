@@ -797,37 +797,47 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 		if err != nil {
 			return nil, fmt.Errorf("Arguments.Copy failed:%v", err)
 		}
-		if uint64(len(decoded.MaskedChunk)) != sstorage.CHUNK_SIZE {
-			return nil, fmt.Errorf("invalid chunk size")
-		}
 
-		epoch := decoded.Epoch.Uint64()
-		cache := pora.Cache(epoch)
-
-		size := ethash.DatasetSizeForEpoch(epoch)
-
-		shardMgr := sstorage.ContractToShardManager[caller]
-		if shardMgr == nil {
-			return nil, fmt.Errorf("invalid caller")
-		}
-		realHash := make([]byte, len(decoded.Hash)+8)
-		copy(realHash, decoded.Hash[:])
-
-		for i := 0; i < int(sstorage.CHUNK_SIZE)/ethash.GetMixBytes(); i++ {
-			pora.ToRealHash(decoded.Hash, shardMgr.MaxKvSize(), uint64(i), realHash, false)
-			mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
-			if len(mask) != ethash.GetMixBytes() {
-				panic("#mask != MixBytes")
-			}
-			for j := 0; j < ethash.GetMixBytes(); j++ {
-				decoded.MaskedChunk[i*ethash.GetMixBytes()+j] ^= mask[j]
-			}
-		}
-
-		return unmaskDaggerDataOutputAbi.Pack(decoded.MaskedChunk)
+		return unmaskDaggerDataImpl(caller, decoded)
 	}
 	// TODO: remove is not supported yet
 	return nil, errors.New("unsupported method")
+}
+
+func unmaskDaggerDataImpl(caller common.Address, decoded unmaskDaggerDataInput) ([]byte, error) {
+	if uint64(len(decoded.MaskedChunk)) != sstorage.CHUNK_SIZE {
+		return nil, fmt.Errorf("invalid chunk size")
+	}
+
+	epoch := decoded.Epoch.Uint64()
+	cache := pora.Cache(epoch)
+
+	size := ethash.DatasetSizeForEpoch(epoch)
+
+	shardMgr := sstorage.ContractToShardManager[caller]
+	if shardMgr == nil {
+		return nil, fmt.Errorf("invalid caller")
+	}
+	realHash := make([]byte, len(decoded.Hash)+8)
+	copy(realHash, decoded.Hash[:])
+
+	// in order to not touch the input buffer
+	copyBytes := make([]byte, len(decoded.MaskedChunk))
+	copy(copyBytes, decoded.MaskedChunk)
+	decoded.MaskedChunk = copyBytes
+
+	for i := 0; i < int(sstorage.CHUNK_SIZE)/ethash.GetMixBytes(); i++ {
+		pora.ToRealHash(decoded.Hash, shardMgr.MaxKvSize(), uint64(i), realHash, false)
+		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
+		if len(mask) != ethash.GetMixBytes() {
+			panic("#mask != MixBytes")
+		}
+		for j := 0; j < ethash.GetMixBytes(); j++ {
+			decoded.MaskedChunk[i*ethash.GetMixBytes()+j] ^= mask[j]
+		}
+	}
+
+	return unmaskDaggerDataOutputAbi.Pack(decoded.MaskedChunk)
 }
 
 var (
