@@ -784,9 +784,6 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 		binary.BigEndian.PutUint64(pb[64-8:64], uint64(len(b)))
 		return append(pb, b...), nil
 	} else if bytes.Equal(input[0:4], unmaskDaggerData) {
-		if evm.Config.IsJsonRpc {
-			return nil, errors.New("unmaskDaggerData() must be called in transaction")
-		}
 
 		values, err := unmaskDaggerDataInputAbi.Unpack(input[4:])
 		if err != nil {
