@@ -828,7 +828,7 @@ func unmaskDaggerDataImpl(caller common.Address, decoded unmaskDaggerDataInput) 
 
 	for i := 0; i < len(decoded.MaskedChunk)/ethash.GetMixBytes(); i++ {
 		pora.ToRealHash(decoded.Hash, shardMgr.MaxKvSize(), uint64(i), realHash, false)
-		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
+		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash)
 		if len(mask) != ethash.GetMixBytes() {
 			panic("#mask != MixBytes")
 		}
@@ -840,7 +840,7 @@ func unmaskDaggerDataImpl(caller common.Address, decoded unmaskDaggerDataInput) 
 	if tailBytes > 0 {
 		i := len(decoded.MaskedChunk) / ethash.GetMixBytes()
 		pora.ToRealHash(decoded.Hash, shardMgr.MaxKvSize(), uint64(i), realHash, false)
-		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash, decoded.ChunkIdx.Uint64())
+		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash)
 		if len(mask) != ethash.GetMixBytes() {
 			panic("#mask != MixBytes")
 		}
@@ -858,7 +858,6 @@ var (
 
 type unmaskDaggerDataInput struct {
 	Epoch       *big.Int
-	ChunkIdx    *big.Int
 	Hash        common.Hash
 	MaskedChunk []byte
 }
@@ -879,7 +878,6 @@ func init() {
 
 	unmaskDaggerDataInputAbi = abi.Arguments{
 		{Type: IntTy, Name: "epoch"},
-		{Type: IntTy, Name: "chunkIdx"},
 		{Type: Bytes32Ty, Name: "hash"},
 		{Type: BytesTy, Name: "maskedChunk"},
 	}

@@ -386,14 +386,9 @@ func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32)
 	return digest, crypto.Keccak256(append(seed, digest...))
 }
 
-func HashimotoForMask(hash []byte, nonce uint64, size uint64, lookup func(index uint32) []uint32) []byte {
+func HashimotoForMask(seed []byte, size uint64, lookup func(index uint32) []uint32) []byte {
 	// Calculate the number of theoretical rows (we use one buffer nonetheless)
 	rows := uint32(size / mixBytes)
-
-	// Combine header+nonce into a 64 byte seed
-	seed := make([]byte, len(hash)+8)
-	copy(seed, hash)
-	binary.LittleEndian.PutUint64(seed[len(hash):], nonce)
 
 	seed = crypto.Keccak512(seed)
 	seedHead := binary.LittleEndian.Uint32(seed)
@@ -421,7 +416,7 @@ func HashimotoForMask(hash []byte, nonce uint64, size uint64, lookup func(index 
 	return mixBytes
 }
 
-func HashimotoForMaskLight(size uint64, cache []uint32, hash []byte, nonce uint64) []byte {
+func HashimotoForMaskLight(size uint64, cache []uint32, hash []byte) []byte {
 	keccak512 := makeHasher(sha3.NewLegacyKeccak512())
 
 	lookup := func(index uint32) []uint32 {
@@ -433,7 +428,7 @@ func HashimotoForMaskLight(size uint64, cache []uint32, hash []byte, nonce uint6
 		}
 		return data
 	}
-	return HashimotoForMask(hash, nonce, size, lookup)
+	return HashimotoForMask(hash, size, lookup)
 }
 
 // hashimotoLight aggregates data from the full dataset (using only a small

@@ -312,12 +312,11 @@ func TestUnmaskDaggerData(t *testing.T) {
 	sstorage.InitializeConfig()
 	p := &sstoragePisa{}
 
-	chunkIdx := big.NewInt(10)
 	hash := common.Hash{0x01, 0x2}
 	epoch := big.NewInt(1)
 	maskedChunk := [4 * 1024]byte{0x03, 0x4}
-	input := unmaskDaggerDataInput{Epoch: epoch, ChunkIdx: chunkIdx, Hash: hash, MaskedChunk: maskedChunk[:]}
-	packed, err := unmaskDaggerDataInputAbi.Pack(epoch, chunkIdx, hash, maskedChunk[:])
+	input := unmaskDaggerDataInput{Epoch: epoch, Hash: hash, MaskedChunk: maskedChunk[:]}
+	packed, err := unmaskDaggerDataInputAbi.Pack(epoch, hash, maskedChunk[:])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,11 +367,10 @@ func TestUnmaskDaggerData(t *testing.T) {
 }
 
 func TestUnmaskDaggerDataArgs(t *testing.T) {
-	chunkIdx := big.NewInt(10)
 	hash := common.Hash{0x01, 0x2}
 	epoch := big.NewInt(1)
 	maskedChunk := [4 * 1024]byte{0x03, 0x4}
-	packed, err := unmaskDaggerDataInputAbi.Pack(epoch, chunkIdx, hash, maskedChunk[:])
+	packed, err := unmaskDaggerDataInputAbi.Pack(epoch, hash, maskedChunk[:])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,9 +388,7 @@ func TestUnmaskDaggerDataArgs(t *testing.T) {
 	if decoded.Epoch.Cmp(epoch) != 0 {
 		t.Fatal("height mismatch")
 	}
-	if decoded.ChunkIdx.Cmp(chunkIdx) != 0 {
-		t.Fatal("chunkIdx mismatch")
-	}
+
 	if decoded.Hash != hash {
 		t.Fatal("hash mismatch")
 	}
