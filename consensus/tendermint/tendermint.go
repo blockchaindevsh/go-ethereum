@@ -422,8 +422,11 @@ func (c *Tendermint) verifyHeader(chain consensus.ChainHeaderReader, header *typ
 	if err := misc.VerifyForkHashes(chain.Config(), header, false); err != nil {
 		return err
 	}
+
+	checkpoint := (number % c.config.Epoch) == 0
 	// All basic checks passed, verify signatures fields
-	if !seal {
+	// force verifying signatures fields for checkpoint headers
+	if !(seal || checkpoint) {
 		return nil
 	}
 
