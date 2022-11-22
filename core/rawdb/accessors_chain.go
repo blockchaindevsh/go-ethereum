@@ -692,7 +692,7 @@ func (r *receiptLogs) DecodeRLP(s *rlp.Stream) error {
 	r.Logs = make([]*types.Log, len(stored.Logs))
 	for i, log := range stored.Logs {
 		log.TxHash = stored.TxHash
-		r.Logs[i] = (*types.Log)(log)
+		r.Logs[i] = log
 	}
 	return nil
 }
@@ -747,6 +747,7 @@ func ReadLogs(db ethdb.Reader, hash common.Hash, number uint64, config *params.C
 	}
 	receipts := []*receiptLogs{}
 	if err := rlp.DecodeBytes(data, &receipts); err != nil {
+		log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
 		return nil
 	}
 
