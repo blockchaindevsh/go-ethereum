@@ -7,15 +7,12 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/sstorage/pora"
 )
 
 const (
-	NO_MASK         = iota
-	MASK_KECCAK_256 = NO_MASK + 1
-	MASK_END        = MASK_KECCAK_256
-	// TODO: randomx
 
 	// keccak256(b'Web3Q Large Storage')[0:8]
 	MAGIC   = uint64(0xcf20bd770c22b2e1)
@@ -28,7 +25,8 @@ type DataFile struct {
 	file          *os.File
 	chunkIdxStart uint64
 	chunkIdxLen   uint64
-	maskType      uint64
+	maxKvSize     uint64
+	miner         common.Address
 }
 
 type DataFileHeader struct {
@@ -36,24 +34,112 @@ type DataFileHeader struct {
 	version       uint64
 	chunkIdxStart uint64
 	chunkIdxLen   uint64
-	maskType      uint64
+	maxKvSize     uint64
+	miner         common.Address
 	status        uint64
 }
 
-func getMaskData(chunkIdx uint64, maskType uint64) []byte {
-	if maskType > MASK_END {
-		panic("unsupported mask type")
+func calcChunkHash(commit [24]byte, chunkIdx uint64, addr common.Address) common.Hash {
+	return common.Hash{}
+}
+
+type PhyAddr struct {
+	KvIdx  uint64
+	KvSize int
+	Commit [24]byte
+}
+
+func UnmaskKvData(epoch uint64, phyAddr PhyAddr, addr common.Address, maxKvSize uint64, maskedData, unmaskedData []byte) (bool, []byte) {
+	if len(unmaskedData) != len(maskedData) {
+		unmaskedData = make([]byte, len(maskedData))
+	}
+	if phyAddr.KvSize != len(maskedData) {
+		return false, nil
 	}
 
-	if maskType == NO_MASK {
-		return bytes.Repeat([]byte{0}, int(CHUNK_SIZE))
+	maskBuffer := make([]byte, CHUNK_SIZE)
+	startChunkIdx := maxKvSize / CHUNK_SIZE * phyAddr.KvIdx
+	for i := 0; i < phyAddr.KvSize/int(CHUNK_SIZE); i++ {
+		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
+		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), maskBuffer)
+		for j := 0; j < int(CHUNK_SIZE); j++ {
+			unmaskedData[i*int(CHUNK_SIZE)+j] = maskedData[i*int(CHUNK_SIZE)+j] ^ maskBuffer[j]
+		}
 	}
 
-	seed := make([]byte, 16)
-	binary.BigEndian.PutUint64(seed, MAGIC)
-	binary.BigEndian.PutUint64(seed[8:], chunkIdx)
-	bs := crypto.Keccak256(seed)
-	return bytes.Repeat(bs, int(CHUNK_SIZE)/len(bs))
+	tailBytes := phyAddr.KvSize % int(CHUNK_SIZE)
+	if tailBytes > 0 {
+		i := phyAddr.KvSize / int(CHUNK_SIZE)
+		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
+		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, tailBytes, maskBuffer[0:tailBytes])
+		for j := 0; j < tailBytes; j++ {
+			unmaskedData[i*int(CHUNK_SIZE)+j] = maskedData[i*int(CHUNK_SIZE)+j] ^ maskBuffer[j]
+		}
+	}
+
+	// TODO verify unmaskedData against phyAddr
+
+	return true, unmaskedData
+
+}
+
+func getKvMaskData(epoch uint64, phyAddr PhyAddr, addr common.Address, maxKvSize uint64, maskBuffer []byte) []byte {
+	if len(maskBuffer) != phyAddr.KvSize {
+		maskBuffer = make([]byte, phyAddr.KvSize)
+	}
+
+	startChunkIdx := maxKvSize / CHUNK_SIZE * phyAddr.KvIdx
+	for i := 0; i < phyAddr.KvSize/int(CHUNK_SIZE); i++ {
+		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
+		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), maskBuffer[i*int(CHUNK_SIZE):(i+1)*int(CHUNK_SIZE)])
+	}
+
+	tailBytes := phyAddr.KvSize % int(CHUNK_SIZE)
+	if tailBytes > 0 {
+		i := phyAddr.KvSize / int(CHUNK_SIZE)
+		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
+		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, tailBytes, maskBuffer[i*int(CHUNK_SIZE):])
+	}
+
+	return maskBuffer
+}
+
+func getMaskDataWInChunk(epoch uint64, chunkHash common.Hash, maxKvSize uint64, sizeInChunk int, maskBuffer []byte) []byte {
+
+	if sizeInChunk > int(CHUNK_SIZE) {
+		panic("sizeInChunk > CHUNK_SIZE")
+	}
+	if len(maskBuffer) != sizeInChunk {
+		maskBuffer = make([]byte, sizeInChunk)
+	}
+
+	cache := pora.Cache(epoch)
+	size := ethash.DatasetSizeForEpoch(epoch)
+
+	realHash := make([]byte, len(chunkHash)+8)
+	copy(realHash, chunkHash[:])
+
+	for i := 0; i < sizeInChunk/ethash.GetMixBytes(); i++ {
+		pora.ToRealHash(chunkHash, maxKvSize, uint64(i), realHash, false)
+		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash)
+		if len(mask) != ethash.GetMixBytes() {
+			panic("#mask != MixBytes")
+		}
+		copy(maskBuffer[i*ethash.GetMixBytes():], mask)
+	}
+
+	tailBytes := sizeInChunk % ethash.GetMixBytes()
+	if tailBytes > 0 {
+		i := sizeInChunk / ethash.GetMixBytes()
+		pora.ToRealHash(chunkHash, maxKvSize, uint64(i), realHash, false)
+		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash)
+		if len(mask) != ethash.GetMixBytes() {
+			panic("#mask != MixBytes")
+		}
+		copy(maskBuffer[i*ethash.GetMixBytes():], mask)
+	}
+
+	return maskBuffer
 }
 
 // Mask the data in place
@@ -78,7 +164,7 @@ func UnmaskDataInPlace(userData []byte, maskData []byte) []byte {
 	return userData
 }
 
-func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, maskType uint64) (*DataFile, error) {
+func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, epoch, maxKvSize uint64, miner common.Address) (*DataFile, error) {
 	log.Info("Creating file", "filename", filename)
 	file, err := os.Create(filename)
 	if err != nil {
@@ -86,7 +172,8 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, maskType 
 	}
 	for i := uint64(0); i < chunkIdxLen; i++ {
 		chunkIdx := chunkIdxStart + i
-		_, err := file.WriteAt(getMaskData(chunkIdx, maskType), int64((chunkIdx+1)*CHUNK_SIZE))
+		chunkHash := calcChunkHash([24]byte{}, chunkIdx, miner)
+		_, err := file.WriteAt(getMaskDataWInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), nil), int64((chunkIdx+1)*CHUNK_SIZE))
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +182,8 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, maskType 
 		file:          file,
 		chunkIdxStart: chunkIdxStart,
 		chunkIdxLen:   chunkIdxLen,
-		maskType:      maskType,
+		maxKvSize:     maxKvSize,
+		miner:         miner,
 	}
 	dataFile.writeHeader()
 	return dataFile, nil
@@ -163,7 +251,8 @@ func (df *DataFile) writeHeader() error {
 		version:       VERSION,
 		chunkIdxStart: df.chunkIdxStart,
 		chunkIdxLen:   df.chunkIdxLen,
-		maskType:      df.maskType,
+		maxKvSize:     df.maxKvSize,
+		miner:         df.miner,
 		status:        0,
 	}
 
@@ -180,8 +269,15 @@ func (df *DataFile) writeHeader() error {
 	if err := binary.Write(buf, binary.BigEndian, header.chunkIdxLen); err != nil {
 		return err
 	}
-	if err := binary.Write(buf, binary.BigEndian, header.maskType); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, header.maxKvSize); err != nil {
 		return err
+	}
+	n, err := buf.Write(header.miner[:])
+	if err != nil {
+		return err
+	}
+	if n != len(header.miner) {
+		return fmt.Errorf("short write for header.miner, n=%d", n)
 	}
 	if err := binary.Write(buf, binary.BigEndian, header.status); err != nil {
 		return err
@@ -194,12 +290,9 @@ func (df *DataFile) writeHeader() error {
 
 func (df *DataFile) readHeader() error {
 	header := DataFileHeader{
-		magic:         MAGIC,
-		version:       VERSION,
-		chunkIdxStart: df.chunkIdxStart,
-		chunkIdxLen:   df.chunkIdxLen,
-		maskType:      df.maskType,
-		status:        0,
+		magic:   MAGIC,
+		version: VERSION,
+		status:  0,
 	}
 
 	b := make([]byte, CHUNK_SIZE)
@@ -224,8 +317,15 @@ func (df *DataFile) readHeader() error {
 	if err := binary.Read(buf, binary.BigEndian, &header.chunkIdxLen); err != nil {
 		return err
 	}
-	if err := binary.Read(buf, binary.BigEndian, &header.maskType); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &header.maxKvSize); err != nil {
 		return err
+	}
+	n, err = buf.Read(header.miner[:])
+	if err != nil {
+		return err
+	}
+	if n != len(header.miner) {
+		return fmt.Errorf("short read for header.miner, n=%d", n)
 	}
 	if err := binary.Read(buf, binary.BigEndian, &header.status); err != nil {
 		return err
@@ -238,13 +338,11 @@ func (df *DataFile) readHeader() error {
 	if header.version > VERSION {
 		return fmt.Errorf("unsupported version")
 	}
-	if header.maskType > MASK_END {
-		return fmt.Errorf("unknown mask type")
-	}
 
 	df.chunkIdxStart = header.chunkIdxStart
 	df.chunkIdxLen = header.chunkIdxLen
-	df.maskType = header.maskType
+	df.maxKvSize = header.maxKvSize
+	df.miner = header.miner
 
 	return nil
 }
