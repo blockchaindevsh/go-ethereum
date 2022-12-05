@@ -70,8 +70,8 @@ func (sm *ShardManager) TryRead(meta pora.PhyAddr) ([]byte, bool, error) {
 	}
 }
 
-func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, meta pora.PhyAddr) ([]byte, bool, error) {
-	shardIdx := kvIdx / sm.kvEntries
+func (sm *ShardManager) UnmaskKV(meta pora.PhyAddr, b []byte) ([]byte, bool, error) {
+	shardIdx := meta.KvIdx / sm.kvEntries
 	var data []byte
 	if ds, ok := sm.shardMap[shardIdx]; ok {
 		datalen := len(b)
@@ -86,10 +86,10 @@ func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, meta pora.PhyAddr) ([]b
 			}
 			datalen = datalen - chunkReadLen
 
-			chunkIdx := ds.ChunkIdx() + kvIdx*ds.chunksPerKv + i
+			chunkIdx := ds.ChunkIdx() + meta.KvIdx*ds.chunksPerKv + i
 			df := ds.GetStorageFile(chunkIdx)
 			if df == nil {
-				return nil, false, fmt.Errorf("Cannot find storage file for chunkIdx", "chunkIdx", chunkIdx)
+				return nil, false, fmt.Errorf("cannot find storage file for chunkIdx:%d", chunkIdx)
 			}
 			chunkHash := pora.CalcChunkHash(meta.Commit, chunkIdx, ds.dataFiles[0].miner)
 			cdata := UnmaskDataInPlace(b[i*CHUNK_SIZE:i*CHUNK_SIZE+uint64(chunkReadLen)], pora.GetMaskDataWithInChunk(0, chunkHash, df.maxKvSize, chunkReadLen, nil))
@@ -97,7 +97,7 @@ func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, meta pora.PhyAddr) ([]b
 		}
 		return data, true, nil
 	} else {
-		return nil, false, fmt.Errorf("Cannot find storage shard for kvIdx", "kvIdx", kvIdx)
+		return nil, false, fmt.Errorf("cannot find storage shard for kvIdx:%d", meta.KvIdx)
 	}
 }
 

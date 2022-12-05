@@ -17,7 +17,6 @@ import (
 
 var (
 	chunkLen  *uint64
-	epoch     *int64
 	miner     *string
 	filenames *[]string
 
@@ -65,7 +64,6 @@ var ShardWriteCmd = &cobra.Command{
 
 func init() {
 	chunkLen = CreateCmd.Flags().Uint64("len", 0, "Chunk idx len to create")
-	epoch = CreateCmd.Flags().Int64("epoch", -1, "mask epoch")
 
 	filenames = rootCmd.PersistentFlags().StringArray("filename", []string{}, "Data filename")
 	miner = rootCmd.PersistentFlags().String("miner", "", "miner address")
@@ -106,17 +104,14 @@ func runCreate(cmd *cobra.Command, args []string) {
 		log.Crit("must provide single filename")
 	}
 
-	if *epoch < 0 {
-		log.Crit("must provide epoch")
-	}
 	if *miner == "" {
 		log.Crit("must provide miner")
 	}
 	minerAddr := common.HexToAddress(*miner)
 
-	log.Info("Creating data file", "chunkIdx", *chunkIdx, "chunkLen", *chunkLen, "epoch", *epoch, "miner", minerAddr)
+	log.Info("Creating data file", "chunkIdx", *chunkIdx, "chunkLen", *chunkLen, "miner", minerAddr)
 
-	_, err := sstorage.Create((*filenames)[0], *chunkIdx, *chunkLen, uint64(*epoch), *kvSize, minerAddr)
+	_, err := sstorage.Create((*filenames)[0], *chunkIdx, *chunkLen, 0, *kvSize, minerAddr)
 	if err != nil {
 		log.Crit("create failed", "error", err)
 	}
@@ -196,7 +191,7 @@ func runShardRead(cmd *cobra.Command, args []string) {
 	}
 
 	// do not have data hash, use empty hash for placeholder
-	b, err := ds.Read(*kvIdx, int(*readLen), common.Hash{}, *readMasked)
+	b, err := ds.Read(pora.PhyAddr{KvIdx: *kvIdx, KvSize: int(*readLen), Commit: [24]byte{}}, *readMasked)
 	if err != nil {
 		log.Crit("read failed", "error", err)
 	}
@@ -221,7 +216,7 @@ func runShardWrite(cmd *cobra.Command, args []string) {
 		log.Warn("shard is not completed")
 	}
 
-	err := ds.Write(*kvIdx, readInputBytes(), pora.PhyAddr{}, false)
+	err := ds.Write(pora.PhyAddr{KvIdx: *kvIdx}, readInputBytes(), false)
 	if err != nil {
 		log.Crit("write failed", "error", err)
 	}

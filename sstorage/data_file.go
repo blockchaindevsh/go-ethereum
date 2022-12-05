@@ -185,11 +185,7 @@ func (df *DataFile) writeHeader() error {
 }
 
 func (df *DataFile) readHeader() error {
-	header := DataFileHeader{
-		magic:   MAGIC,
-		version: VERSION,
-		status:  0,
-	}
+	header := DataFileHeader{}
 
 	b := make([]byte, CHUNK_SIZE)
 	n, err := df.file.ReadAt(b, 0)
