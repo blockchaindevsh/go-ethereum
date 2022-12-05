@@ -104,8 +104,8 @@ func (ds *DataShard) Read(meta pora.PhyAddr, isMasked bool) ([]byte, error) {
 	return data, nil
 }
 
-func (ds *DataShard) Write(kvIdx uint64, b []byte, meta pora.PhyAddr, isMasked bool) error {
-	if !ds.Contains(kvIdx) {
+func (ds *DataShard) Write(meta pora.PhyAddr, b []byte, isMasked bool) error {
+	if !ds.Contains(meta.KvIdx) {
 		return fmt.Errorf("kv not found")
 	}
 
@@ -124,7 +124,7 @@ func (ds *DataShard) Write(kvIdx uint64, b []byte, meta pora.PhyAddr, isMasked b
 			writeLen = int(CHUNK_SIZE)
 		}
 
-		chunkIdx := ds.ChunkIdx() + kvIdx*ds.chunksPerKv + i
+		chunkIdx := ds.ChunkIdx() + meta.KvIdx*ds.chunksPerKv + i
 		if isMasked {
 			err = ds.WriteChunk(chunkIdx, b[off:off+writeLen], common.Hash{}, true)
 		} else {

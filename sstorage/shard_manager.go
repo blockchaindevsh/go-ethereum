@@ -51,10 +51,10 @@ func (sm *ShardManager) AddDataFile(df *DataFile) error {
 	return nil
 }
 
-func (sm *ShardManager) TryWrite(kvIdx uint64, b []byte, meta pora.PhyAddr) (bool, error) {
-	shardIdx := kvIdx / sm.kvEntries
+func (sm *ShardManager) TryWrite(meta pora.PhyAddr, b []byte) (bool, error) {
+	shardIdx := meta.KvIdx / sm.kvEntries
 	if ds, ok := sm.shardMap[shardIdx]; ok {
-		return true, ds.Write(kvIdx, b, meta, false)
+		return true, ds.Write(meta, b, false)
 	} else {
 		return false, nil
 	}
@@ -104,7 +104,7 @@ func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, meta pora.PhyAddr) ([]b
 func (sm *ShardManager) TryWriteMaskedKV(kvIdx uint64, b []byte) (bool, error) {
 	shardIdx := kvIdx / sm.kvEntries
 	if ds, ok := sm.shardMap[shardIdx]; ok {
-		return true, ds.Write(kvIdx, b, pora.PhyAddr{}, true)
+		return true, ds.Write(pora.PhyAddr{KvIdx: kvIdx}, b, true)
 	} else {
 		return false, nil
 	}
