@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/sstorage"
+	"github.com/ethereum/go-ethereum/sstorage/pora"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -170,7 +171,7 @@ func runChunkWrite(cmd *cobra.Command, args []string) {
 		log.Crit("open failed", "error", err)
 	}
 
-	err = df.Write(*chunkIdx, readInputBytes(), false)
+	err = df.Write(*chunkIdx, readInputBytes(), common.Hash{}, false)
 	if err != nil {
 		log.Crit("write failed", "error", err)
 	}
@@ -220,7 +221,7 @@ func runShardWrite(cmd *cobra.Command, args []string) {
 		log.Warn("shard is not completed")
 	}
 
-	err := ds.Write(*kvIdx, readInputBytes(), false)
+	err := ds.Write(*kvIdx, readInputBytes(), pora.PhyAddr{}, false)
 	if err != nil {
 		log.Crit("write failed", "error", err)
 	}

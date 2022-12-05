@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/sstorage/pora"
 )
@@ -37,109 +36,6 @@ type DataFileHeader struct {
 	maxKvSize     uint64
 	miner         common.Address
 	status        uint64
-}
-
-func calcChunkHash(commit [24]byte, chunkIdx uint64, addr common.Address) common.Hash {
-	return common.Hash{}
-}
-
-type PhyAddr struct {
-	KvIdx  uint64
-	KvSize int
-	Commit [24]byte
-}
-
-func UnmaskKvData(epoch uint64, phyAddr PhyAddr, addr common.Address, maxKvSize uint64, maskedData, unmaskedData []byte) (bool, []byte) {
-	if len(unmaskedData) != len(maskedData) {
-		unmaskedData = make([]byte, len(maskedData))
-	}
-	if phyAddr.KvSize != len(maskedData) {
-		return false, nil
-	}
-
-	maskBuffer := make([]byte, CHUNK_SIZE)
-	startChunkIdx := maxKvSize / CHUNK_SIZE * phyAddr.KvIdx
-	for i := 0; i < phyAddr.KvSize/int(CHUNK_SIZE); i++ {
-		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
-		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), maskBuffer)
-		for j := 0; j < int(CHUNK_SIZE); j++ {
-			unmaskedData[i*int(CHUNK_SIZE)+j] = maskedData[i*int(CHUNK_SIZE)+j] ^ maskBuffer[j]
-		}
-	}
-
-	tailBytes := phyAddr.KvSize % int(CHUNK_SIZE)
-	if tailBytes > 0 {
-		i := phyAddr.KvSize / int(CHUNK_SIZE)
-		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
-		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, tailBytes, maskBuffer[0:tailBytes])
-		for j := 0; j < tailBytes; j++ {
-			unmaskedData[i*int(CHUNK_SIZE)+j] = maskedData[i*int(CHUNK_SIZE)+j] ^ maskBuffer[j]
-		}
-	}
-
-	// TODO verify unmaskedData against phyAddr
-
-	return true, unmaskedData
-
-}
-
-func getKvMaskData(epoch uint64, phyAddr PhyAddr, addr common.Address, maxKvSize uint64, maskBuffer []byte) []byte {
-	if len(maskBuffer) != phyAddr.KvSize {
-		maskBuffer = make([]byte, phyAddr.KvSize)
-	}
-
-	startChunkIdx := maxKvSize / CHUNK_SIZE * phyAddr.KvIdx
-	for i := 0; i < phyAddr.KvSize/int(CHUNK_SIZE); i++ {
-		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
-		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), maskBuffer[i*int(CHUNK_SIZE):(i+1)*int(CHUNK_SIZE)])
-	}
-
-	tailBytes := phyAddr.KvSize % int(CHUNK_SIZE)
-	if tailBytes > 0 {
-		i := phyAddr.KvSize / int(CHUNK_SIZE)
-		chunkHash := calcChunkHash(phyAddr.Commit, startChunkIdx+uint64(i), addr)
-		getMaskDataWInChunk(epoch, chunkHash, maxKvSize, tailBytes, maskBuffer[i*int(CHUNK_SIZE):])
-	}
-
-	return maskBuffer
-}
-
-func getMaskDataWInChunk(epoch uint64, chunkHash common.Hash, maxKvSize uint64, sizeInChunk int, maskBuffer []byte) []byte {
-
-	if sizeInChunk > int(CHUNK_SIZE) {
-		panic("sizeInChunk > CHUNK_SIZE")
-	}
-	if len(maskBuffer) != sizeInChunk {
-		maskBuffer = make([]byte, sizeInChunk)
-	}
-
-	cache := pora.Cache(epoch)
-	size := ethash.DatasetSizeForEpoch(epoch)
-
-	realHash := make([]byte, len(chunkHash)+8)
-	copy(realHash, chunkHash[:])
-
-	for i := 0; i < sizeInChunk/ethash.GetMixBytes(); i++ {
-		pora.ToRealHash(chunkHash, maxKvSize, uint64(i), realHash, false)
-		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash)
-		if len(mask) != ethash.GetMixBytes() {
-			panic("#mask != MixBytes")
-		}
-		copy(maskBuffer[i*ethash.GetMixBytes():], mask)
-	}
-
-	tailBytes := sizeInChunk % ethash.GetMixBytes()
-	if tailBytes > 0 {
-		i := sizeInChunk / ethash.GetMixBytes()
-		pora.ToRealHash(chunkHash, maxKvSize, uint64(i), realHash, false)
-		mask := ethash.HashimotoForMaskLight(size, cache.Cache, realHash)
-		if len(mask) != ethash.GetMixBytes() {
-			panic("#mask != MixBytes")
-		}
-		copy(maskBuffer[i*ethash.GetMixBytes():], mask)
-	}
-
-	return maskBuffer
 }
 
 // Mask the data in place
@@ -172,8 +68,8 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, epoch, ma
 	}
 	for i := uint64(0); i < chunkIdxLen; i++ {
 		chunkIdx := chunkIdxStart + i
-		chunkHash := calcChunkHash([24]byte{}, chunkIdx, miner)
-		_, err := file.WriteAt(getMaskDataWInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), nil), int64((chunkIdx+1)*CHUNK_SIZE))
+		chunkHash := pora.CalcChunkHash([24]byte{}, chunkIdx, miner)
+		_, err := file.WriteAt(pora.GetMaskDataWithInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), nil), int64((chunkIdx+1)*CHUNK_SIZE))
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +104,7 @@ func (df *DataFile) ChunkIdxEnd() uint64 {
 	return df.chunkIdxStart + df.chunkIdxLen
 }
 
-func (df *DataFile) Read(chunkIdx uint64, len int, hash common.Hash, isMasked bool) ([]byte, error) {
+func (df *DataFile) Read(chunkIdx uint64, len int, chunkHash common.Hash, isMasked bool) ([]byte, error) {
 	if !df.Contains(chunkIdx) {
 		return nil, fmt.Errorf("chunk not found")
 	}
@@ -223,11 +119,11 @@ func (df *DataFile) Read(chunkIdx uint64, len int, hash common.Hash, isMasked bo
 	if isMasked {
 		return md, nil
 	} else {
-		return UnmaskDataInPlace(md, getMaskData(chunkIdx, df.maskType)), nil
+		return UnmaskDataInPlace(md, pora.GetMaskDataWithInChunk(0, chunkHash, df.maxKvSize, len, nil)), nil
 	}
 }
 
-func (df *DataFile) Write(chunkIdx uint64, b []byte, isMasked bool) error {
+func (df *DataFile) Write(chunkIdx uint64, b []byte, chunkHash common.Hash, isMasked bool) error {
 	if !df.Contains(chunkIdx) {
 		return fmt.Errorf("chunk not found")
 	}
@@ -236,8 +132,8 @@ func (df *DataFile) Write(chunkIdx uint64, b []byte, isMasked bool) error {
 		return fmt.Errorf("write data too large")
 	}
 
-	if isMasked {
-		b = MaskDataInPlace(getMaskData(chunkIdx, df.maskType), b)
+	if !isMasked {
+		b = MaskDataInPlace(pora.GetMaskDataWithInChunk(0, chunkHash, df.maxKvSize, len(b), nil), b)
 	} else {
 
 	}

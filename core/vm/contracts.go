@@ -28,7 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
+	ethash "github.com/ethereum/go-ethereum/consensus/ethash/pora"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/blake2b"
 	"github.com/ethereum/go-ethereum/crypto/bls12381"
@@ -767,7 +767,8 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 			return nil, errors.New("getRaw() must be called in JSON RPC")
 		}
 		// TODO: check hash correctness
-		hash := common.BytesToHash(getData(input, 4, 4+32))
+		var hash [24]byte
+		copy(hash[:], getData(input, 4, 4+32))
 		kvIdx := new(big.Int).SetBytes(getData(input, 4+32, 32)).Uint64()
 		kvOff := new(big.Int).SetBytes(getData(input, 4+64, 32)).Uint64()
 		kvLen := new(big.Int).SetBytes(getData(input, 4+96, 32)).Uint64()

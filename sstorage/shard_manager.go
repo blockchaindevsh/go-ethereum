@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/sstorage/pora"
 )
 
 type ShardManager struct {
@@ -50,26 +51,26 @@ func (sm *ShardManager) AddDataFile(df *DataFile) error {
 	return nil
 }
 
-func (sm *ShardManager) TryWrite(kvIdx uint64, b []byte) (bool, error) {
+func (sm *ShardManager) TryWrite(kvIdx uint64, b []byte, meta pora.PhyAddr) (bool, error) {
 	shardIdx := kvIdx / sm.kvEntries
 	if ds, ok := sm.shardMap[shardIdx]; ok {
-		return true, ds.Write(kvIdx, b, false)
+		return true, ds.Write(kvIdx, b, meta, false)
 	} else {
 		return false, nil
 	}
 }
 
-func (sm *ShardManager) TryRead(kvIdx uint64, readLen int, hash common.Hash) ([]byte, bool, error) {
-	shardIdx := kvIdx / sm.kvEntries
+func (sm *ShardManager) TryRead(meta pora.PhyAddr) ([]byte, bool, error) {
+	shardIdx := meta.KvIdx / sm.kvEntries
 	if ds, ok := sm.shardMap[shardIdx]; ok {
-		b, err := ds.Read(kvIdx, readLen, hash, false)
+		b, err := ds.Read(meta, false)
 		return b, true, err
 	} else {
 		return nil, false, nil
 	}
 }
 
-func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, hash common.Hash) ([]byte, bool, error) {
+func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, meta pora.PhyAddr) ([]byte, bool, error) {
 	shardIdx := kvIdx / sm.kvEntries
 	var data []byte
 	if ds, ok := sm.shardMap[shardIdx]; ok {
@@ -90,7 +91,8 @@ func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, hash common.Hash) ([]by
 			if df == nil {
 				return nil, false, fmt.Errorf("Cannot find storage file for chunkIdx", "chunkIdx", chunkIdx)
 			}
-			cdata := UnmaskDataInPlace(b[i*CHUNK_SIZE:i*CHUNK_SIZE+uint64(chunkReadLen)], getMaskData(chunkIdx, df.maskType))
+			chunkHash := pora.CalcChunkHash(meta.Commit, chunkIdx, ds.dataFiles[0].miner)
+			cdata := UnmaskDataInPlace(b[i*CHUNK_SIZE:i*CHUNK_SIZE+uint64(chunkReadLen)], pora.GetMaskDataWithInChunk(0, chunkHash, df.maxKvSize, chunkReadLen, nil))
 			data = append(data, cdata...)
 		}
 		return data, true, nil
@@ -102,16 +104,16 @@ func (sm *ShardManager) UnmaskKV(kvIdx uint64, b []byte, hash common.Hash) ([]by
 func (sm *ShardManager) TryWriteMaskedKV(kvIdx uint64, b []byte) (bool, error) {
 	shardIdx := kvIdx / sm.kvEntries
 	if ds, ok := sm.shardMap[shardIdx]; ok {
-		return true, ds.Write(kvIdx, b, true)
+		return true, ds.Write(kvIdx, b, pora.PhyAddr{}, true)
 	} else {
 		return false, nil
 	}
 }
 
-func (sm *ShardManager) TryReadMaskedKV(kvIdx uint64, hash common.Hash) ([]byte, bool, error) {
+func (sm *ShardManager) TryReadMaskedKV(kvIdx uint64) ([]byte, bool, error) {
 	shardIdx := kvIdx / sm.kvEntries
 	if ds, ok := sm.shardMap[shardIdx]; ok {
-		b, err := ds.Read(kvIdx, int(ds.kvSize), hash, true) // read all the data
+		b, err := ds.Read(pora.PhyAddr{KvIdx: kvIdx, KvSize: int(ds.kvSize)}, true) // read all the data
 		return b, true, err
 	} else {
 		return nil, false, nil
