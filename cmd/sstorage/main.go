@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/sstorage"
+	"github.com/ethereum/go-ethereum/sstorage/pora"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ import (
 
 var (
 	chunkLen  *uint64
+	miner     *string
 	filenames *[]string
 
 	verbosity *int
@@ -64,6 +66,7 @@ func init() {
 	chunkLen = CreateCmd.Flags().Uint64("len", 0, "Chunk idx len to create")
 
 	filenames = rootCmd.PersistentFlags().StringArray("filename", []string{}, "Data filename")
+	miner = rootCmd.PersistentFlags().String("miner", "", "miner address")
 	verbosity = rootCmd.PersistentFlags().Int("verbosity", 3, "Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=detail")
 	chunkIdx = rootCmd.PersistentFlags().Uint64("chunk_idx", 0, "Chunk idx to start/read/write")
 
@@ -101,9 +104,14 @@ func runCreate(cmd *cobra.Command, args []string) {
 		log.Crit("must provide single filename")
 	}
 
-	log.Info("Creating data file", "chunkIdx", *chunkIdx, "chunkLen", *chunkLen)
+	if *miner == "" {
+		log.Crit("must provide miner")
+	}
+	minerAddr := common.HexToAddress(*miner)
 
-	_, err := sstorage.Create((*filenames)[0], *chunkIdx, *chunkLen, sstorage.MASK_KECCAK_256)
+	log.Info("Creating data file", "chunkIdx", *chunkIdx, "chunkLen", *chunkLen, "miner", minerAddr)
+
+	_, err := sstorage.Create((*filenames)[0], *chunkIdx, *chunkLen, 0, *kvSize, minerAddr)
 	if err != nil {
 		log.Crit("create failed", "error", err)
 	}
@@ -158,7 +166,7 @@ func runChunkWrite(cmd *cobra.Command, args []string) {
 		log.Crit("open failed", "error", err)
 	}
 
-	err = df.Write(*chunkIdx, readInputBytes(), false)
+	err = df.Write(*chunkIdx, readInputBytes(), common.Hash{}, false)
 	if err != nil {
 		log.Crit("write failed", "error", err)
 	}
@@ -182,8 +190,8 @@ func runShardRead(cmd *cobra.Command, args []string) {
 		log.Warn("shard is not completed")
 	}
 
-	// do not have data hash, use empty hash for placeholder 
-	b, err := ds.Read(*kvIdx, int(*readLen), common.Hash{}, *readMasked)
+	// do not have data hash, use empty hash for placeholder
+	b, err := ds.Read(pora.PhyAddr{KvIdx: *kvIdx, KvSize: int(*readLen), Commit: [24]byte{}}, *readMasked)
 	if err != nil {
 		log.Crit("read failed", "error", err)
 	}
@@ -208,7 +216,7 @@ func runShardWrite(cmd *cobra.Command, args []string) {
 		log.Warn("shard is not completed")
 	}
 
-	err := ds.Write(*kvIdx, readInputBytes(), false)
+	err := ds.Write(pora.PhyAddr{KvIdx: *kvIdx}, readInputBytes(), false)
 	if err != nil {
 		log.Crit("write failed", "error", err)
 	}

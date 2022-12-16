@@ -182,7 +182,7 @@ func (s *StateDB) SstorageWrite(addr common.Address, kvIdx uint64, data []byte) 
 	return nil
 }
 
-func (s *StateDB) SstorageRead(addr common.Address, kvIdx uint64, readLen int, hash common.Hash) ([]byte, bool, error) {
+func (s *StateDB) SstorageRead(addr common.Address, kvIdx uint64, readLen int, commit [24]byte) ([]byte, bool, error) {
 	if readLen > int(s.SstorageMaxKVSize(addr)) {
 		return nil, false, fmt.Errorf("readLen too large")
 	}
@@ -196,7 +196,7 @@ func (s *StateDB) SstorageRead(addr common.Address, kvIdx uint64, readLen int, h
 		}
 	}
 
-	return s.db.TrieDB().SstorageRead(addr, kvIdx, readLen, hash)
+	return s.db.TrieDB().SstorageRead(addr, kvIdx, readLen, commit)
 }
 
 // StartPrefetcher initializes a new trie prefetcher to pull in nodes from the
@@ -646,8 +646,8 @@ func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) 
 // CreateAccount is called during the EVM CREATE operation. The situation might arise that
 // a contract does the following:
 //
-//   1. sends funds to sha(account ++ (nonce + 1))
-//   2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
+//  1. sends funds to sha(account ++ (nonce + 1))
+//  2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
 //
 // Carrying over the balance ensures that Ether doesn't disappear.
 func (s *StateDB) CreateAccount(addr common.Address) {

@@ -7,15 +7,11 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/sstorage/pora"
 )
 
 const (
-	NO_MASK         = iota
-	MASK_KECCAK_256 = NO_MASK + 1
-	MASK_END        = MASK_KECCAK_256
-	// TODO: randomx
 
 	// keccak256(b'Web3Q Large Storage')[0:8]
 	MAGIC   = uint64(0xcf20bd770c22b2e1)
@@ -28,7 +24,8 @@ type DataFile struct {
 	file          *os.File
 	chunkIdxStart uint64
 	chunkIdxLen   uint64
-	maskType      uint64
+	maxKvSize     uint64
+	miner         common.Address
 }
 
 type DataFileHeader struct {
@@ -36,24 +33,9 @@ type DataFileHeader struct {
 	version       uint64
 	chunkIdxStart uint64
 	chunkIdxLen   uint64
-	maskType      uint64
+	maxKvSize     uint64
+	miner         common.Address
 	status        uint64
-}
-
-func getMaskData(chunkIdx uint64, maskType uint64) []byte {
-	if maskType > MASK_END {
-		panic("unsupported mask type")
-	}
-
-	if maskType == NO_MASK {
-		return bytes.Repeat([]byte{0}, int(CHUNK_SIZE))
-	}
-
-	seed := make([]byte, 16)
-	binary.BigEndian.PutUint64(seed, MAGIC)
-	binary.BigEndian.PutUint64(seed[8:], chunkIdx)
-	bs := crypto.Keccak256(seed)
-	return bytes.Repeat(bs, int(CHUNK_SIZE)/len(bs))
 }
 
 // Mask the data in place
@@ -78,7 +60,7 @@ func UnmaskDataInPlace(userData []byte, maskData []byte) []byte {
 	return userData
 }
 
-func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, maskType uint64) (*DataFile, error) {
+func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, epoch, maxKvSize uint64, miner common.Address) (*DataFile, error) {
 	log.Info("Creating file", "filename", filename)
 	file, err := os.Create(filename)
 	if err != nil {
@@ -86,7 +68,8 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, maskType 
 	}
 	for i := uint64(0); i < chunkIdxLen; i++ {
 		chunkIdx := chunkIdxStart + i
-		_, err := file.WriteAt(getMaskData(chunkIdx, maskType), int64((chunkIdx+1)*CHUNK_SIZE))
+		chunkHash := pora.CalcChunkHash([24]byte{}, chunkIdx, miner)
+		_, err := file.WriteAt(pora.GetMaskDataWithInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), nil), int64((chunkIdx+1)*CHUNK_SIZE))
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +78,8 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, maskType 
 		file:          file,
 		chunkIdxStart: chunkIdxStart,
 		chunkIdxLen:   chunkIdxLen,
-		maskType:      maskType,
+		maxKvSize:     maxKvSize,
+		miner:         miner,
 	}
 	dataFile.writeHeader()
 	return dataFile, nil
@@ -120,7 +104,7 @@ func (df *DataFile) ChunkIdxEnd() uint64 {
 	return df.chunkIdxStart + df.chunkIdxLen
 }
 
-func (df *DataFile) Read(chunkIdx uint64, len int, hash common.Hash, isMasked bool) ([]byte, error) {
+func (df *DataFile) Read(chunkIdx uint64, len int, chunkHash common.Hash, isMasked bool) ([]byte, error) {
 	if !df.Contains(chunkIdx) {
 		return nil, fmt.Errorf("chunk not found")
 	}
@@ -135,11 +119,11 @@ func (df *DataFile) Read(chunkIdx uint64, len int, hash common.Hash, isMasked bo
 	if isMasked {
 		return md, nil
 	} else {
-		return UnmaskDataInPlace(md, getMaskData(chunkIdx, df.maskType)), nil
+		return UnmaskDataInPlace(md, pora.GetMaskDataWithInChunk(0, chunkHash, df.maxKvSize, len, nil)), nil
 	}
 }
 
-func (df *DataFile) Write(chunkIdx uint64, b []byte, isMasked bool) error {
+func (df *DataFile) Write(chunkIdx uint64, b []byte, chunkHash common.Hash, isMasked bool) error {
 	if !df.Contains(chunkIdx) {
 		return fmt.Errorf("chunk not found")
 	}
@@ -148,8 +132,8 @@ func (df *DataFile) Write(chunkIdx uint64, b []byte, isMasked bool) error {
 		return fmt.Errorf("write data too large")
 	}
 
-	if isMasked {
-		b = MaskDataInPlace(getMaskData(chunkIdx, df.maskType), b)
+	if !isMasked {
+		b = MaskDataInPlace(pora.GetMaskDataWithInChunk(0, chunkHash, df.maxKvSize, len(b), nil), b)
 	} else {
 
 	}
@@ -163,7 +147,8 @@ func (df *DataFile) writeHeader() error {
 		version:       VERSION,
 		chunkIdxStart: df.chunkIdxStart,
 		chunkIdxLen:   df.chunkIdxLen,
-		maskType:      df.maskType,
+		maxKvSize:     df.maxKvSize,
+		miner:         df.miner,
 		status:        0,
 	}
 
@@ -180,8 +165,15 @@ func (df *DataFile) writeHeader() error {
 	if err := binary.Write(buf, binary.BigEndian, header.chunkIdxLen); err != nil {
 		return err
 	}
-	if err := binary.Write(buf, binary.BigEndian, header.maskType); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, header.maxKvSize); err != nil {
 		return err
+	}
+	n, err := buf.Write(header.miner[:])
+	if err != nil {
+		return err
+	}
+	if n != len(header.miner) {
+		return fmt.Errorf("short write for header.miner, n=%d", n)
 	}
 	if err := binary.Write(buf, binary.BigEndian, header.status); err != nil {
 		return err
@@ -193,14 +185,7 @@ func (df *DataFile) writeHeader() error {
 }
 
 func (df *DataFile) readHeader() error {
-	header := DataFileHeader{
-		magic:         MAGIC,
-		version:       VERSION,
-		chunkIdxStart: df.chunkIdxStart,
-		chunkIdxLen:   df.chunkIdxLen,
-		maskType:      df.maskType,
-		status:        0,
-	}
+	header := DataFileHeader{}
 
 	b := make([]byte, CHUNK_SIZE)
 	n, err := df.file.ReadAt(b, 0)
@@ -224,8 +209,15 @@ func (df *DataFile) readHeader() error {
 	if err := binary.Read(buf, binary.BigEndian, &header.chunkIdxLen); err != nil {
 		return err
 	}
-	if err := binary.Read(buf, binary.BigEndian, &header.maskType); err != nil {
+	if err := binary.Read(buf, binary.BigEndian, &header.maxKvSize); err != nil {
 		return err
+	}
+	n, err = buf.Read(header.miner[:])
+	if err != nil {
+		return err
+	}
+	if n != len(header.miner) {
+		return fmt.Errorf("short read for header.miner, n=%d", n)
 	}
 	if err := binary.Read(buf, binary.BigEndian, &header.status); err != nil {
 		return err
@@ -238,13 +230,11 @@ func (df *DataFile) readHeader() error {
 	if header.version > VERSION {
 		return fmt.Errorf("unsupported version")
 	}
-	if header.maskType > MASK_END {
-		return fmt.Errorf("unknown mask type")
-	}
 
 	df.chunkIdxStart = header.chunkIdxStart
 	df.chunkIdxLen = header.chunkIdxLen
-	df.maskType = header.maskType
+	df.maxKvSize = header.maxKvSize
+	df.miner = header.miner
 
 	return nil
 }
