@@ -86,7 +86,7 @@ func (sm *ShardManager) UnmaskKV(meta pora.PhyAddr, b []byte) ([]byte, bool, err
 			}
 			datalen = datalen - chunkReadLen
 
-			chunkIdx := ds.StartChunkIdx() + meta.KvIdx*ds.chunksPerKv + i
+			chunkIdx := meta.KvIdx*ds.chunksPerKv + i
 			df := ds.GetStorageFile(chunkIdx)
 			if df == nil {
 				return nil, false, fmt.Errorf("cannot find storage file for chunkIdx:%d", chunkIdx)

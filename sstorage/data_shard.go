@@ -87,7 +87,7 @@ func (ds *DataShard) Read(meta pora.PhyAddr, isMasked bool) ([]byte, error) {
 		}
 		readLen = readLen - chunkReadLen
 
-		chunkIdx := ds.StartChunkIdx() + meta.KvIdx*ds.chunksPerKv + i
+		chunkIdx := meta.KvIdx*ds.chunksPerKv + i
 		var cdata []byte
 		if isMasked {
 			cdata, err = ds.ReadChunk(chunkIdx, chunkReadLen, common.Hash{}, true)
@@ -124,7 +124,7 @@ func (ds *DataShard) Write(meta pora.PhyAddr, b []byte, isMasked bool) error {
 			writeLen = int(CHUNK_SIZE)
 		}
 
-		chunkIdx := ds.StartChunkIdx() + meta.KvIdx*ds.chunksPerKv + i
+		chunkIdx := meta.KvIdx*ds.chunksPerKv + i
 		if isMasked {
 			err = ds.WriteChunk(chunkIdx, b[off:off+writeLen], common.Hash{}, true)
 		} else {
