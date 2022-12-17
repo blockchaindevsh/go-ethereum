@@ -66,7 +66,7 @@ func init() {
 	chunkLen = CreateCmd.Flags().Uint64("len", 0, "Chunk idx len to create")
 
 	filenames = rootCmd.PersistentFlags().StringArray("filename", []string{}, "Data filename")
-	miner = rootCmd.PersistentFlags().String("miner", "", "miner address")
+	miner = rootCmd.PersistentFlags().String("sstorage.miner", "", "miner address")
 	verbosity = rootCmd.PersistentFlags().Int("verbosity", 3, "Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=detail")
 	chunkIdx = rootCmd.PersistentFlags().Uint64("chunk_idx", 0, "Chunk idx to start/read/write")
 
