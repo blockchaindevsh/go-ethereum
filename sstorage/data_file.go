@@ -68,7 +68,7 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, epoch, ma
 	}
 	for i := uint64(0); i < chunkIdxLen; i++ {
 		chunkIdx := chunkIdxStart + i
-		chunkHash := pora.CalcChunkHash([24]byte{}, chunkIdx, miner)
+		chunkHash := pora.CalcChunkHash(common.Hash{}, chunkIdx, miner)
 		_, err := file.WriteAt(pora.GetMaskDataWithInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), nil), int64((chunkIdx+1)*CHUNK_SIZE))
 		if err != nil {
 			return nil, err

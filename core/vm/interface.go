@@ -77,7 +77,7 @@ type StateDB interface {
 
 	SstorageMaxKVSize(common.Address) uint64 // 0 means not exist
 	SstorageWrite(common.Address, uint64, []byte) error
-	SstorageRead(common.Address, uint64, int, [24]byte) ([]byte, bool, error)
+	SstorageRead(common.Address, uint64, int, common.Hash) ([]byte, bool, error)
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

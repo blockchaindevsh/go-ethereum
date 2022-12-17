@@ -767,8 +767,7 @@ func (l *sstoragePisa) RunWith(env *PrecompiledContractCallEnv, input []byte) ([
 			return nil, errors.New("getRaw() must be called in JSON RPC")
 		}
 		// TODO: check hash correctness
-		var hash [24]byte
-		copy(hash[:], getData(input, 4, 4+32))
+		hash := common.BytesToHash(getData(input, 4, 4+32))
 		kvIdx := new(big.Int).SetBytes(getData(input, 4+32, 32)).Uint64()
 		kvOff := new(big.Int).SetBytes(getData(input, 4+64, 32)).Uint64()
 		kvLen := new(big.Int).SetBytes(getData(input, 4+96, 32)).Uint64()

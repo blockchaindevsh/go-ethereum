@@ -182,7 +182,7 @@ func (s *StateDB) SstorageWrite(addr common.Address, kvIdx uint64, data []byte) 
 	return nil
 }
 
-func (s *StateDB) SstorageRead(addr common.Address, kvIdx uint64, readLen int, commit [24]byte) ([]byte, bool, error) {
+func (s *StateDB) SstorageRead(addr common.Address, kvIdx uint64, readLen int, commit common.Hash) ([]byte, bool, error) {
 	if readLen > int(s.SstorageMaxKVSize(addr)) {
 		return nil, false, fmt.Errorf("readLen too large")
 	}

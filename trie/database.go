@@ -122,7 +122,7 @@ func (s *Database) SstorageWrite(addr common.Address, kvIdx uint64, data []byte)
 	return nil
 }
 
-func (s *Database) SstorageRead(addr common.Address, kvIdx uint64, readLen int, commit [24]byte) ([]byte, bool, error) {
+func (s *Database) SstorageRead(addr common.Address, kvIdx uint64, readLen int, commit common.Hash) ([]byte, bool, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 

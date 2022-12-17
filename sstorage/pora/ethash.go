@@ -43,14 +43,14 @@ func ToRealHash(hash common.Hash, maxKvSize, idxWithinChunk uint64, realHash []b
 }
 
 // TODO
-func CalcChunkHash(commit [24]byte, chunkIdx uint64, addr common.Address) common.Hash {
+func CalcChunkHash(commit common.Hash, chunkIdx uint64, addr common.Address) common.Hash {
 	return common.Hash{}
 }
 
 type PhyAddr struct {
 	KvIdx  uint64
 	KvSize int
-	Commit [24]byte
+	Commit common.Hash
 }
 
 func GetMaskDataWithInChunk(epoch uint64, chunkHash common.Hash, maxKvSize uint64, sizeInChunk int, maskBuffer []byte) []byte {
