@@ -12,6 +12,9 @@ import (
 )
 
 const (
+	NO_MASK = iota
+	MASK_KECCAK_256
+	MASK_ETHASH
 
 	// keccak256(b'Web3Q Large Storage')[0:8]
 	MAGIC   = uint64(0xcf20bd770c22b2e1)
@@ -33,6 +36,7 @@ type DataFileHeader struct {
 	version       uint64
 	chunkIdxStart uint64
 	chunkIdxLen   uint64
+	maskType      uint64
 	maxKvSize     uint64
 	miner         common.Address
 	status        uint64
@@ -147,6 +151,7 @@ func (df *DataFile) writeHeader() error {
 		version:       VERSION,
 		chunkIdxStart: df.chunkIdxStart,
 		chunkIdxLen:   df.chunkIdxLen,
+		maskType:      MASK_ETHASH,
 		maxKvSize:     df.maxKvSize,
 		miner:         df.miner,
 		status:        0,
@@ -163,6 +168,9 @@ func (df *DataFile) writeHeader() error {
 		return err
 	}
 	if err := binary.Write(buf, binary.BigEndian, header.chunkIdxLen); err != nil {
+		return err
+	}
+	if err := binary.Write(buf, binary.BigEndian, header.maskType); err != nil {
 		return err
 	}
 	if err := binary.Write(buf, binary.BigEndian, header.maxKvSize); err != nil {
@@ -207,6 +215,9 @@ func (df *DataFile) readHeader() error {
 		return err
 	}
 	if err := binary.Read(buf, binary.BigEndian, &header.chunkIdxLen); err != nil {
+		return err
+	}
+	if err := binary.Read(buf, binary.BigEndian, &header.maskType); err != nil {
 		return err
 	}
 	if err := binary.Read(buf, binary.BigEndian, &header.maxKvSize); err != nil {
