@@ -70,13 +70,10 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, epoch, ma
 	if err != nil {
 		return nil, err
 	}
-	for i := uint64(0); i < chunkIdxLen; i++ {
-		chunkIdx := chunkIdxStart + i
-		chunkHash := pora.CalcChunkHash(common.Hash{}, chunkIdx, miner)
-		_, err := file.WriteAt(pora.GetMaskDataWithInChunk(epoch, chunkHash, maxKvSize, int(CHUNK_SIZE), nil), int64((chunkIdx+1)*CHUNK_SIZE))
-		if err != nil {
-			return nil, err
-		}
+	// actual initialization is done when synchronize
+	_, err = file.WriteAt(make([]byte, CHUNK_SIZE*chunkIdxLen), int64(CHUNK_SIZE))
+	if err != nil {
+		return nil, err
 	}
 	dataFile := &DataFile{
 		file:          file,
