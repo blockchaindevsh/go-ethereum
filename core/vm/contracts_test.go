@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -366,6 +367,34 @@ func TestUnmaskDaggerData(t *testing.T) {
 	})
 }
 
+func TestUnmatchingArgument(t *testing.T) {
+	var encodeABI, decodeABI abi.Arguments
+	Int256Ty, err := abi.NewType("uint256", "", nil)
+	if err != nil {
+		panic(err)
+	}
+	Int8Ty, err := abi.NewType("uint8", "", nil)
+	if err != nil {
+		panic(err)
+	}
+	encodeABI = abi.Arguments{
+		{Type: Int256Ty},
+	}
+	decodeABI = abi.Arguments{
+		{Type: Int8Ty},
+	}
+	packed, err := encodeABI.Pack(big.NewInt(256))
+	if err != nil {
+		panic(err)
+	}
+	values, err := decodeABI.Unpack(packed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values[0].(uint8) != 0 {
+		panic("fail")
+	}
+}
 func TestUnmaskDaggerDataArgs(t *testing.T) {
 	hash := common.Hash{0x01, 0x2}
 	epoch := big.NewInt(1)
