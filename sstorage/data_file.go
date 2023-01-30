@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/detailyang/go-fallocate"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/sstorage/pora"
@@ -71,7 +72,7 @@ func Create(filename string, chunkIdxStart uint64, chunkIdxLen uint64, epoch, ma
 		return nil, err
 	}
 	// actual initialization is done when synchronize
-	_, err = file.WriteAt(make([]byte, CHUNK_SIZE*chunkIdxLen), int64(CHUNK_SIZE))
+	err = fallocate.Fallocate(file, int64(CHUNK_SIZE*chunkIdxLen), int64(CHUNK_SIZE))
 	if err != nil {
 		return nil, err
 	}
